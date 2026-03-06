@@ -1,6 +1,7 @@
 # Banka-4-Backend
 
 ## Početna struktura projekta
+```
 .
 ├── api
 │   └── swagger
@@ -35,7 +36,7 @@
 │       ├── health.pb.go
 │       └── health.proto
 └── README.md
-
+```
 - Implementiran je health servis za probu i primer.
 - Nakon promene proto fajlova: `make proto`
 - Podizanje svih servisa: `make docker-up`
