@@ -1,0 +1,77 @@
+# =========================
+# Go build artifacts
+# =========================
+bin/
+dist/
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.app
+
+# Go coverage
+coverage.out
+coverage.html
+
+# =========================
+# Go workspace files
+# =========================
+go.work
+go.work.sum
+
+# =========================
+# Dependency directories
+# =========================
+vendor/
+
+# =========================
+# Environment files
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+tmp/
+
+# =========================
+# Docker
+# =========================
+docker-compose.override.yml
+
+# =========================
+# IDE / Editors
+# =========================
+
+# VSCode
+.vscode/
+
+# JetBrains (GoLand, IntelliJ)
+.idea/
+
+# Vim
+*.swp
+*.swo
+
+# Emacs
+*~
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Testing / debugging
+# =========================
+*.coverprofile
+*.pprof
