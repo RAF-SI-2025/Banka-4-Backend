@@ -16,9 +16,6 @@ services/*/out/
 *.out
 coverage.html
 
-# Go workspace file
-go.work.sum
-
 # Dependency directories
 vendor/
 
