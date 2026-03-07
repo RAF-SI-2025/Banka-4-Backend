@@ -1,77 +1,59 @@
-# =========================
-# Go build artifacts
-# =========================
-bin/
-dist/
-build/
+# Binaries for programs and plugins
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-*.test
-*.out
-*.app
 
-# Go coverage
-coverage.out
+# Output binaries (per-service)
+services/*/bin/
+services/*/out/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
 coverage.html
 
-# =========================
-# Go workspace files
-# =========================
-go.work
+# Go workspace file
 go.work.sum
 
-# =========================
 # Dependency directories
-# =========================
 vendor/
 
-# =========================
 # Environment files
-# =========================
 .env
 .env.*
 !.env.example
 
-# =========================
-# Logs
-# =========================
-*.log
-logs/
-tmp/
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# =========================
-# Docker
-# =========================
-docker-compose.override.yml
-
-# =========================
-# IDE / Editors
-# =========================
-
-# VSCode
-.vscode/
-
-# JetBrains (GoLand, IntelliJ)
+# IDE and editor files
 .idea/
-
-# Vim
+.vscode/
 *.swp
 *.swo
-
-# Emacs
 *~
+*.iml
 
-# =========================
-# OS files
-# =========================
-.DS_Store
-Thumbs.db
+# Debug
+__debug_bin*
 
-# =========================
-# Testing / debugging
-# =========================
-*.coverprofile
-*.pprof
+# Air live reload
+tmp/
+
+# Logs
+*.log
+logs/
+
+# Docker
+docker-compose.override.yml
