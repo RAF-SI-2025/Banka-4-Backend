@@ -6,6 +6,5 @@ import (
 )
 
 func New(dsn string) (*gorm.DB, error) {
-	print("Hello")
 	return gorm.Open(postgres.Open(dsn), &gorm.Config{})
 }
