@@ -1,13 +1,12 @@
-# services/user-service/.air.toml
+# Banka-4-Backend/.air.toml
 root = "."
 tmp_dir = "tmp"
 
 [build]
-# Build komanda u containeru sa stvarnom strukturom
 cmd = "go build -o tmp/main ./services/user-service/cmd/main.go"
 bin = "tmp/main"
 full_bin = "tmp/main"
-exclude_dir = ["tmp", "vendor"]
+exclude_dir = ["tmp", "vendor", "node_modules"]
 
 [log]
 time = true
@@ -16,7 +15,6 @@ time = true
 main = "yellow"
 
 [watch]
-# prati sve Go fajlove u projektu
-include_dir = ["services/user-service", "common"]
-include_ext = ["go"]
+include_dir = ["."]
+include_ext = ["go", "yaml", "sql"]
 exclude_dir = ["tmp", "vendor", "node_modules"]

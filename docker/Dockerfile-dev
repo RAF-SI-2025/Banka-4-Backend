@@ -4,10 +4,14 @@ RUN apk add --no-cache git tzdata bash
 
 RUN go install github.com/air-verse/air@latest
 
+RUN mkdir -p /app
 WORKDIR /app
 
-COPY . .
+COPY go.work go.work.sum ./
+COPY common ./common
+COPY services/user-service ./services/user-service
+COPY .air.toml ./
 
 EXPOSE 8080
 
-CMD ["air", "-c", "/app/services/user-service/.air.toml"]
+CMD ["air", "-c", "/app/.air.toml"]
