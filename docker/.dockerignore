@@ -1,0 +1,26 @@
+# lokalni Go binarni fajlovi
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# cache i build fajlove
+bin/
+obj/
+*.log
+
+# editor fajlovi
+*.swp
+*.swo
+*.DS_Store
+.idea/
+.vscode/
+
+# test fajlovi
+*_test.go
+
+# vendor
+vendor/
+
+tmp/
