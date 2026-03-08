@@ -1,51 +1,50 @@
 package service
 
 import (
-	"errors"
+	"context"
+
+	"common/pkg/errors"
 	"user-service/internal/dto"
 	"user-service/internal/model"
 	"user-service/internal/repository"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type EmployeeService struct {
-	repo repository.EmployeeRepository
+	repo repository.EmployeeRepository // <-- no pointer
 }
 
 func NewEmployeeService(repo repository.EmployeeRepository) *EmployeeService {
 	return &EmployeeService{repo: repo}
 }
 
-func (s *EmployeeService) Register(dto dto.UserCreateDTO) (*model.Employee, error) {
+func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeRequest) (*model.Employee, error) {
 
-	if _, err := s.repo.GetByEmail(dto.Email); err == nil {
-		return nil, errors.New("email already in use")
-	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(dto.Password), bcrypt.DefaultCost)
+	existing, err := s.repo.FindByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, err
+		return nil, errors.InternalErr(err)
 	}
 
-	employee := model.Employee{
-		FirstName:   dto.FirstName,
-		LastName:    dto.LastName,
-		Gender:      dto.Gender,
-		DateOfBirth: dto.DateOfBirth,
-		Email:       dto.Email,
-		PhoneNumber: dto.PhoneNumber,
-		Address:     dto.Address,
-		Username:    dto.Username,
-		Password:    string(hashedPassword),
-		Department:  dto.Department,
-		PositionID:  dto.PositionID,
-		Active:      true,
+	if existing != nil {
+		return nil, errors.ConflictErr("email already in use")
 	}
 
-	if err := s.repo.Create(&employee); err != nil {
-		return nil, err
+	employee := &model.Employee{
+		FirstName:   req.FirstName,
+		LastName:    req.LastName,
+		Gender:      req.Gender,
+		DateOfBirth: req.DateOfBirth,
+		Email:       req.Email,
+		PhoneNumber: req.PhoneNumber,
+		Address:     req.Address,
+		Username:    req.Username,
+		Department:  req.Department,
+		PositionID:  req.PositionID,
+		Active:      req.Active,
 	}
 
-	return &employee, nil
+	if err := s.repo.Create(ctx, employee); err != nil {
+		return nil, errors.InternalErr(err)
+	}
+
+	return employee, nil
 }

@@ -1,6 +1,9 @@
 package repository
 
 import (
+	"context"
+	"errors"
+
 	"user-service/internal/model"
 
 	"gorm.io/gorm"
@@ -13,21 +16,22 @@ type employeeRepository struct {
 func NewEmployeeRepository(db *gorm.DB) EmployeeRepository {
 	return &employeeRepository{db: db}
 }
-
-func (r *employeeRepository) Create(employee *model.Employee) error {
-	return r.db.Create(employee).Error
+func (r *employeeRepository) Create(ctx context.Context, employee *model.Employee) error {
+	return r.db.WithContext(ctx).Create(employee).Error
 }
 
-func (r *employeeRepository) GetByEmail(email string) (*model.Employee, error) {
+func (r *employeeRepository) FindByEmail(ctx context.Context, email string) (*model.Employee, error) {
+
 	var employee model.Employee
 
-	err := r.db.
+	result := r.db.
+		WithContext(ctx).
 		Where("email = ?", email).
-		First(&employee).Error
+		First(&employee)
 
-	if err != nil {
-		return nil, err
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
 	}
 
-	return &employee, nil
+	return &employee, result.Error
 }

@@ -2,6 +2,8 @@ package handler
 
 import (
 	"net/http"
+
+	"common/pkg/errors"
 	"user-service/internal/dto"
 	"user-service/internal/service"
 
@@ -17,20 +19,19 @@ func NewEmployeeHandler(service *service.EmployeeService) *EmployeeHandler {
 }
 
 func (h *EmployeeHandler) Register(c *gin.Context) {
-	var userDTO dto.UserCreateDTO
 
-	if err := c.ShouldBindJSON(&userDTO); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	var req dto.CreateEmployeeRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
-	employee, err := h.service.Register(userDTO)
+	employee, err := h.service.Register(c.Request.Context(), &req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.Error(err)
 		return
 	}
 
-	employee.Password = ""
-
-	c.JSON(http.StatusCreated, employee)
+	c.JSON(http.StatusCreated, dto.ToEmployeeResponse(employee))
 }

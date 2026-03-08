@@ -2,7 +2,7 @@ package dto
 
 import "time"
 
-type UserCreateDTO struct {
+type CreateEmployeeRequest struct {
 	FirstName   string    `json:"first_name" binding:"required,max=20"`
 	LastName    string    `json:"last_name" binding:"required,max=100"`
 	Gender      string    `json:"gender"`
@@ -11,7 +11,7 @@ type UserCreateDTO struct {
 	PhoneNumber string    `json:"phone_number"`
 	Address     string    `json:"address"`
 	Username    string    `json:"username" binding:"required"`
-	Password    string    `json:"password" binding:"required"`
 	Department  string    `json:"department"`
 	PositionID  uint      `json:"position_id" binding:"required"`
+	Active      bool      `json:"active"`
 }

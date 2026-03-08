@@ -14,7 +14,7 @@ type Employee struct {
 	PhoneNumber string `gorm:"size:20"`
 	Address     string `gorm:"size:255"`
 	Username    string `gorm:"size:50;uniqueIndex"`
-	Password    string `gorm:"size:255;not null"`
+	Password    string `gorm:"size:33"`
 	Active      bool
 	Department  string `gorm:"size:100"`
 	PositionID  uint   `gorm:""`
