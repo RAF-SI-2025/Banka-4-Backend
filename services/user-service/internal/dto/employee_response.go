@@ -20,6 +20,14 @@ type EmployeeResponse struct {
 	Active      bool      `json:"active"`
 }
 
+type ListEmployeesResponse struct {
+	Data       []EmployeeResponse `json:"data"`
+	Total      int64              `json:"total"`
+	Page       int                `json:"page"`
+	PageSize   int                `json:"page_size"`
+	TotalPages int                `json:"total_pages"`
+}
+
 func ToEmployeeResponse(e *model.Employee) *EmployeeResponse {
 	return &EmployeeResponse{
 		Id:          e.EmployeeID,
@@ -34,5 +42,22 @@ func ToEmployeeResponse(e *model.Employee) *EmployeeResponse {
 		Department:  e.Department,
 		PositionID:  e.PositionID,
 		Active:      e.Active,
+	}
+}
+
+func ToEmployeeResponseList(employees []model.Employee, total int64, page, pageSize int) *ListEmployeesResponse {
+	responses := make([]EmployeeResponse, len(employees))
+	for i, e := range employees {
+		responses[i] = *ToEmployeeResponse(&e)
+	}
+
+	totalPages := (int(total) + pageSize - 1) / pageSize
+
+	return &ListEmployeesResponse{
+		Data:       responses,
+		Total:      total,
+		Page:       page,
+		PageSize:   pageSize,
+		TotalPages: totalPages,
 	}
 }

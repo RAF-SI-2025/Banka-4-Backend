@@ -55,3 +55,12 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 
 	return employee, nil
 }
+
+func (s *EmployeeService) GetAllEmployees(ctx context.Context, query *dto.ListEmployeesQuery) (*dto.ListEmployeesResponse, error) {
+	employees, total, err := s.repo.GetAll(ctx, query.Email, query.FirstName, query.LastName, query.Position, query.Page, query.PageSize)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+
+	return dto.ToEmployeeResponseList(employees, total, query.Page, query.PageSize), nil
+}
