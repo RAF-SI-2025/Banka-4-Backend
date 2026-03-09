@@ -46,3 +46,6 @@ func (r *employeeRepository) FindByUserName(ctx context.Context, userName string
 	}
 	return &employee, result.Error
 }
+func (r *employeeRepository) Update(ctx context.Context, employee *model.Employee) error {
+	return r.db.WithContext(ctx).Save(employee).Error
+}
