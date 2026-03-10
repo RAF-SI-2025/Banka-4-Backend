@@ -20,7 +20,7 @@ coverage.html
 vendor/
 
 # Environment files
-services/user-service/.env
+.env
 .env.*
 !.env.example
 
