@@ -44,7 +44,7 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, empHandler
 	r.POST("/register", empHandler.Register)
 	r.POST("/activate", empHandler.Activate)
 	r.GET("/employees", empHandler.ListEmployees)
-	r.PUT("/employees/:id", empHandler.UpdateEmployee)
+	r.PATCH("/employees/:id", empHandler.UpdateEmployee)
 }
 
 func RegisterServerLifecycle(lc fx.Lifecycle, server *http.Server) {
