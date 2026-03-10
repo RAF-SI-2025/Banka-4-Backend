@@ -92,7 +92,7 @@ func (h *EmployeeHandler) ForgotPassword(c *gin.Context) {
 	}
 
 	// Vraća poruku da je sve prošlo kako treba
-	c.JSON(http.StatusOK, gin.H{"message": "If that email is registered, a reset code has been sent"})
+	c.JSON(http.StatusOK, gin.H{"message": "If that email is registered, a reset token has been sent"})
 }
 
 func (h *EmployeeHandler) ResetPassword(c *gin.Context) {
@@ -101,7 +101,7 @@ func (h *EmployeeHandler) ResetPassword(c *gin.Context) {
 		c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
-	if err := h.service.ConfirmPasswordReset(c.Request.Context(), req.Code, req.NewPassword); err != nil {
+	if err := h.service.ConfirmPasswordReset(c.Request.Context(), req.Token, req.NewPassword); err != nil {
 		c.Error(err)
 		return
 	}

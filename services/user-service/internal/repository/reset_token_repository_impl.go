@@ -20,21 +20,9 @@ func (r *resetTokenRepository) Create(ctx context.Context, token *model.ResetTok
 	return r.db.WithContext(ctx).Create(token).Error
 }
 
-func (r *resetTokenRepository) FindByEmployeeID(ctx context.Context, employeeID uint) (*model.ResetToken, error) {
+func (r *resetTokenRepository) FindByToken(ctx context.Context, token string) (*model.ResetToken, error) {
 	var t model.ResetToken
-	result := r.db.WithContext(ctx).Where("employee_id = ?", employeeID).First(&t)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return &t, nil
-}
-
-func (r *resetTokenRepository) FindByCode(ctx context.Context, code string) (*model.ResetToken, error) {
-	var t model.ResetToken
-	result := r.db.WithContext(ctx).Where("code = ?", code).First(&t)
+	result := r.db.WithContext(ctx).Where("token = ?", token).First(&t)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
