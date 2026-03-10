@@ -1,18 +1,36 @@
-name: GitHub Actions Demo
-run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
-on: [push]
+name: Docker CI
+run-name: Checking if the Docker image on ${{ github.repository }} builds successfully
+
+on: [push, pull_request]
+
 jobs:
-  Explore-GitHub-Actions:
+  build-dev:
     runs-on: ubuntu-latest
+    environment: development
     steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-      - name: Check out repository code
-        uses: actions/checkout@v5
-      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
-      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
-      - name: List files in the repository
-        run: |
-          ls ${{ github.workspace }}
-      - run: echo "🍏 This job's status is ${{ job.status }}."
+    - name: Check out repository code after a ${{ github.event_name }} event
+      uses: actions/checkout@v5
+    - name: Run the compose file
+      run: docker compose -f docker-compose-dev.yml up -d --build
+    - name: Check if the containers are running
+      run: docker compose -f docker-compose-dev.yml ps
+
+  # build-prod:
+  #   runs-on: ubuntu-latest
+  #   environment: production
+  #   steps:
+  #   - name: Check out repository code after a ${{ github.event_name }} event
+  #     uses: actions/checkout@v5
+  #   - name: Run the compose file
+  #     run: docker-compose up -d --build
+  #   - name: Check if the containers are running
+  #     run: docker-compose ps
+  #   - name: Check if the services are healthy
+  # - name: Check if the services are healthy
+  #     run: |
+  #       if [ "$(docker inspect -f '{{.State.Health.Status}}' user_service)" != "healthy" ]; then
+  #         echo "Not all services are healthy"
+  #         exit 1
+  #       else
+  #         echo "All services are healthy"
+  #       fi
