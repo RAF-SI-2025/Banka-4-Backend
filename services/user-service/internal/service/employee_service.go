@@ -136,6 +136,56 @@ func (s *EmployeeService) ActivateAccount(ctx context.Context, tokenStr, passwor
 	return nil
 }
 
+func (s *EmployeeService) UpdateEmployee(ctx context.Context, id uint, req *dto.UpdateEmployeeRequest) (*model.Employee, error) {
+	employee, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	if employee == nil {
+		return nil, errors.NotFoundErr("employee not found")
+	}
+
+	// we make sure unique fields stay unique
+
+	if req.Email != employee.Email {
+		existing, err := s.repo.FindByEmail(ctx, req.Email)
+		if err != nil {
+			return nil, errors.InternalErr(err)
+		}
+		if existing != nil {
+			return nil, errors.ConflictErr("email already in use")
+		}
+	}
+
+	if req.Username != employee.Username {
+		existing, err := s.repo.FindByUserName(ctx, req.Username)
+		if err != nil {
+			return nil, errors.InternalErr(err)
+		}
+		if existing != nil {
+			return nil, errors.ConflictErr("username already in use")
+		}
+	}
+
+	employee.FirstName = req.FirstName
+	employee.LastName = req.LastName
+	employee.Gender = req.Gender
+	employee.DateOfBirth = req.DateOfBirth
+	employee.Email = req.Email
+	employee.PhoneNumber = req.PhoneNumber
+	employee.Address = req.Address
+	employee.Username = req.Username
+	employee.Department = req.Department
+	employee.PositionID = req.PositionID
+	employee.Active = req.Active
+
+	if err := s.repo.Update(ctx, employee); err != nil {
+		return nil, errors.InternalErr(err)
+	}
+
+	return employee, nil
+}
+
 func (s *EmployeeService) GetAllEmployees(ctx context.Context, query *dto.ListEmployeesQuery) (*dto.ListEmployeesResponse, error) {
 	employees, total, err := s.repo.GetAll(ctx, query.Email, query.FirstName, query.LastName, query.Position, query.Page, query.PageSize)
 	if err != nil {
