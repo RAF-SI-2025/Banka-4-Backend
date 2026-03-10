@@ -18,15 +18,17 @@ type EmployeeService struct {
 	repo           repository.EmployeeRepository // <-- no pointer
 	tokenRepo      repository.ActivationTokenRepository
 	resetTokenRepo repository.ResetTokenRepository
+	positionRepo   repository.PositionRepository
 	emailService   *EmailService
 }
 
 func NewEmployeeService(
-	repo repository.EmployeeRepository, tokenRepo repository.ActivationTokenRepository, resetTokenRepo repository.ResetTokenRepository, emailService *EmailService) *EmployeeService {
+	repo repository.EmployeeRepository, tokenRepo repository.ActivationTokenRepository, resetTokenRepo repository.ResetTokenRepository, positionRepo repository.PositionRepository, emailService *EmailService) *EmployeeService {
 	return &EmployeeService{
 		repo:           repo,
 		tokenRepo:      tokenRepo,
 		resetTokenRepo: resetTokenRepo,
+		positionRepo:   positionRepo,
 		emailService:   emailService,
 	}
 }
@@ -134,6 +136,66 @@ func (s *EmployeeService) ActivateAccount(ctx context.Context, tokenStr, passwor
 	s.emailService.Send(employee.Email, "Account activated", "Vaš nalog je uspešno aktiviran.")
 
 	return nil
+}
+
+func (s *EmployeeService) UpdateEmployee(ctx context.Context, id uint, req *dto.UpdateEmployeeRequest) (*model.Employee, error) {
+	employee, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	if employee == nil {
+		return nil, errors.NotFoundErr("employee not found")
+	}
+
+	// we make sure unique fields stay unique
+
+	if req.Email != employee.Email {
+		existing, err := s.repo.FindByEmail(ctx, req.Email)
+		if err != nil {
+			return nil, errors.InternalErr(err)
+		}
+		if existing != nil {
+			return nil, errors.ConflictErr("email already in use")
+		}
+	}
+
+	if req.Username != employee.Username {
+		existing, err := s.repo.FindByUserName(ctx, req.Username)
+		if err != nil {
+			return nil, errors.InternalErr(err)
+		}
+		if existing != nil {
+			return nil, errors.ConflictErr("username already in use")
+		}
+	}
+
+	if req.PositionID != employee.PositionID {
+		exists, err := s.positionRepo.Exists(ctx, req.PositionID)
+		if err != nil {
+			return nil, errors.InternalErr(err)
+		}
+		if !exists {
+			return nil, errors.BadRequestErr("invalid position_id")
+		}
+	}
+
+	employee.FirstName = req.FirstName
+	employee.LastName = req.LastName
+	employee.Gender = req.Gender
+	employee.DateOfBirth = req.DateOfBirth
+	employee.Email = req.Email
+	employee.PhoneNumber = req.PhoneNumber
+	employee.Address = req.Address
+	employee.Username = req.Username
+	employee.Department = req.Department
+	employee.PositionID = req.PositionID
+	employee.Active = req.Active
+
+	if err := s.repo.Update(ctx, employee); err != nil {
+		return nil, errors.InternalErr(err)
+	}
+
+	return employee, nil
 }
 
 func (s *EmployeeService) GetAllEmployees(ctx context.Context, query *dto.ListEmployeesQuery) (*dto.ListEmployeesResponse, error) {

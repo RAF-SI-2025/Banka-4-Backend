@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"common/pkg/errors"
 	"user-service/internal/dto"
@@ -58,6 +59,30 @@ func (h *EmployeeHandler) ListEmployees(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
+	//TODO check if admin here!
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.Error(errors.BadRequestErr("invalid employee id"))
+		return
+	}
+
+	var req dto.UpdateEmployeeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errors.BadRequestErr(err.Error()))
+		return
+	}
+
+	employee, svcErr := h.service.UpdateEmployee(c.Request.Context(), uint(id), &req)
+	if svcErr != nil {
+		c.Error(svcErr)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToEmployeeResponse(employee))
 }
 
 func (h *EmployeeHandler) Activate(c *gin.Context) {

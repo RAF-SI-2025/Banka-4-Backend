@@ -25,6 +25,7 @@ func main() {
 			repository.NewEmployeeRepository,
 			repository.NewActivationTokenRepository,
 			repository.NewResetTokenRepository,
+			repository.NewPositionRepository,
 			service.NewEmployeeService,
 			service.NewEmailService,
 			handler.NewEmployeeHandler,
