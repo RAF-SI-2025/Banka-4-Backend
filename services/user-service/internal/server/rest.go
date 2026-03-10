@@ -7,6 +7,7 @@ import (
 	stderrors "errors"
 	"log"
 	"net/http"
+	"user-service/internal/validator"
 
 	"user-service/internal/config"
 	"user-service/internal/handler"
@@ -33,11 +34,15 @@ func InitRouter(r *gin.Engine) {
 	r.Use(gin.Recovery())
 	r.Use(logging.Logger())
 	r.Use(errors.ErrorHandler())
+
+	// Registrujemo custom validator za password
+	validator.RegisterValidators()
 }
 
 func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, empHandler *handler.EmployeeHandler) {
 	r.GET("/health", healthHandler.Health)
 	r.POST("/register", empHandler.Register)
+	r.POST("/activate", empHandler.Activate)
 	r.GET("/employees", empHandler.ListEmployees)
 }
 

@@ -59,3 +59,21 @@ func (h *EmployeeHandler) ListEmployees(c *gin.Context) {
 
 	c.JSON(http.StatusOK, result)
 }
+
+func (h *EmployeeHandler) Activate(c *gin.Context) {
+	var req dto.ActivateEmployeeRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errors.BadRequestErr(err.Error()))
+		return
+	}
+
+	err := h.service.ActivateAccount(c.Request.Context(), req.Token, req.Password)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password set successfully"})
+}
+}

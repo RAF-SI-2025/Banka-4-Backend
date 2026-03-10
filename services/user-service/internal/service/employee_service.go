@@ -1,20 +1,32 @@
 package service
 
 import (
-	"context"
-
 	"common/pkg/errors"
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"time"
 	"user-service/internal/dto"
 	"user-service/internal/model"
 	"user-service/internal/repository"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type EmployeeService struct {
-	repo repository.EmployeeRepository // <-- no pointer
+	repo         repository.EmployeeRepository // <-- no pointer
+	tokenRepo    repository.ActivationTokenRepository
+	emailService *EmailService
 }
 
-func NewEmployeeService(repo repository.EmployeeRepository) *EmployeeService {
-	return &EmployeeService{repo: repo}
+func NewEmployeeService(
+	repo repository.EmployeeRepository, tokenRepo repository.ActivationTokenRepository, emailService *EmailService) *EmployeeService {
+	return &EmployeeService{
+		repo:         repo,
+		tokenRepo:    tokenRepo,
+		emailService: emailService,
+	}
 }
 
 func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeRequest) (*model.Employee, error) {
@@ -53,7 +65,73 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 		return nil, errors.InternalErr(err)
 	}
 
+	// slanje emaila
+	tokenBytes := make([]byte, 16) // 128-bit token
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	tokenStr := hex.EncodeToString(tokenBytes)
+
+	activationToken := &model.ActivationToken{
+		EmployeeID: employee.EmployeeID,
+		Token:      tokenStr,
+		ExpiresAt:  time.Now().Add(24 * time.Hour), // token važi 24h
+	}
+
+	if err := s.tokenRepo.Create(ctx, activationToken); err != nil {
+		return nil, errors.InternalErr(err)
+	}
+
+	link := fmt.Sprintf("http://localhost:8080/activate?token=%s", tokenStr)
+
+	s.emailService.Send(
+		employee.Email,
+		"Welcome!",
+		fmt.Sprintf("Kliknite ovde da postavite lozinku: %s", link),
+	)
+
 	return employee, nil
+}
+
+func (s *EmployeeService) ActivateAccount(ctx context.Context, tokenStr, password string) error {
+	// Pronađi token u bazi
+	activationToken, err := s.tokenRepo.FindByToken(ctx, tokenStr)
+	if err != nil || activationToken == nil {
+		return errors.BadRequestErr("invalid or expired token")
+	}
+
+	// Provera da li je token istekao
+	if activationToken.ExpiresAt.Before(time.Now()) {
+		return errors.BadRequestErr("token expired")
+	}
+
+	// Nađi zaposlenog preko EmployeeID iz tokena
+	employee, err := s.repo.FindByID(ctx, activationToken.EmployeeID)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+	if employee == nil {
+		return errors.ConflictErr("employee not found")
+	}
+
+	// Hash lozinke
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+
+	employee.Password = string(hashedPassword)
+	if err := s.repo.Update(ctx, employee); err != nil {
+		return errors.InternalErr(err)
+	}
+
+	// Obriši token jer je iskorišćen
+	_ = s.tokenRepo.Delete(ctx, activationToken)
+
+	// Pošalji mejl
+	s.emailService.Send(employee.Email, "Account activated", "Vaš nalog je uspešno aktiviran.")
+
+	return nil
 }
 
 func (s *EmployeeService) GetAllEmployees(ctx context.Context, query *dto.ListEmployeesQuery) (*dto.ListEmployeesResponse, error) {
