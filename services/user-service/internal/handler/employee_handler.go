@@ -76,3 +76,34 @@ func (h *EmployeeHandler) Activate(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Password set successfully"})
 }
+
+func (h *EmployeeHandler) ForgotPassword(c *gin.Context) {
+	// Čita iz JSON-a i puni req
+	var req dto.ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errors.BadRequestErr(err.Error()))
+		return
+	}
+
+	// Zove forgotPassword iz employee_service-a
+	if err := h.service.ForgotPassword(c.Request.Context(), req.Email); err != nil {
+		c.Error(err)
+		return
+	}
+
+	// Vraća poruku da je sve prošlo kako treba
+	c.JSON(http.StatusOK, gin.H{"message": "If that email is registered, a reset code has been sent"})
+}
+
+func (h *EmployeeHandler) ResetPassword(c *gin.Context) {
+	var req dto.ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errors.BadRequestErr(err.Error()))
+		return
+	}
+	if err := h.service.ResetPassword(c.Request.Context(), req.Code, req.NewPassword); err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Password reset successfully"})
+}

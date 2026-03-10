@@ -15,17 +15,19 @@ import (
 )
 
 type EmployeeService struct {
-	repo         repository.EmployeeRepository // <-- no pointer
-	tokenRepo    repository.ActivationTokenRepository
-	emailService *EmailService
+	repo           repository.EmployeeRepository // <-- no pointer
+	tokenRepo      repository.ActivationTokenRepository
+	resetTokenRepo repository.ResetTokenRepository
+	emailService   *EmailService
 }
 
 func NewEmployeeService(
-	repo repository.EmployeeRepository, tokenRepo repository.ActivationTokenRepository, emailService *EmailService) *EmployeeService {
+	repo repository.EmployeeRepository, tokenRepo repository.ActivationTokenRepository, resetTokenRepo repository.ResetTokenRepository, emailService *EmailService) *EmployeeService {
 	return &EmployeeService{
-		repo:         repo,
-		tokenRepo:    tokenRepo,
-		emailService: emailService,
+		repo:           repo,
+		tokenRepo:      tokenRepo,
+		resetTokenRepo: resetTokenRepo,
+		emailService:   emailService,
 	}
 }
 
@@ -141,4 +143,99 @@ func (s *EmployeeService) GetAllEmployees(ctx context.Context, query *dto.ListEm
 	}
 
 	return dto.ToEmployeeResponseList(employees, total, query.Page, query.PageSize), nil
+}
+func (s *EmployeeService) ForgotPassword(ctx context.Context, email string) error {
+	employee, err := s.repo.FindByEmail(ctx, email)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+
+	if employee == nil {
+		return nil
+	}
+
+	// Uklanja sve prethodne tokene pre generisanja novog(ako ih ima)
+	if err := s.resetTokenRepo.DeleteByEmployeeID(ctx, employee.EmployeeID); err != nil {
+		return errors.InternalErr(err)
+	}
+
+	// Pravljenje tokena i ubacivanje u bazu na 15 min
+	code, err := generateNumericCode(6)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+	resetToken := &model.ResetToken{
+		EmployeeID: employee.EmployeeID,
+		Code:       code,
+		ExpiresAt:  time.Now().Add(15 * time.Minute),
+	}
+
+	if err := s.resetTokenRepo.Create(ctx, resetToken); err != nil {
+		return errors.InternalErr(err)
+	}
+
+	s.emailService.Send(
+		employee.Email,
+		"Password reset code",
+		fmt.Sprintf("Vaš privremeni kod za reset lozinke je: %s\nKod važi 15 minuta.", code),
+	)
+
+	return nil
+}
+
+func (s *EmployeeService) ResetPassword(ctx context.Context, code, newPassword string) error {
+	resetToken, err := s.resetTokenRepo.FindByCode(ctx, code)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+
+	if resetToken == nil {
+		return errors.BadRequestErr("invalid or expired code")
+	}
+
+	// Slučaj ako je kod istekao
+	if resetToken.ExpiresAt.Before(time.Now()) {
+		_ = s.resetTokenRepo.DeleteByEmployeeID(ctx, resetToken.EmployeeID)
+		return errors.BadRequestErr("code has expired")
+	}
+
+	employee, err := s.repo.FindByID(ctx, resetToken.EmployeeID)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+
+	if employee == nil {
+		return errors.NotFoundErr("employee not found")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+
+	employee.Password = string(hashedPassword)
+	if err := s.repo.Update(ctx, employee); err != nil {
+		return errors.InternalErr(err)
+	}
+
+	// Pošto se password promenio, generisani token se briše
+	_ = s.resetTokenRepo.DeleteByEmployeeID(ctx, employee.EmployeeID)
+	s.emailService.Send(
+		employee.Email,
+		"Password changed",
+		"Vaša lozinka je uspešno promenjena.",
+	)
+	return nil
+}
+
+func generateNumericCode(digits int) (string, error) {
+	const charset = "0123456789"
+	buf := make([]byte, digits)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	for i := range buf {
+		buf[i] = charset[buf[i]%byte(len(charset))]
+	}
+	return string(buf), nil
 }
