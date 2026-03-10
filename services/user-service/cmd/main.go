@@ -23,7 +23,9 @@ func main() {
 				return db.New(cfg.DB.DSN())
 			},
 			repository.NewEmployeeRepository,
+			repository.NewActivationTokenRepository,
 			service.NewEmployeeService,
+			service.NewEmailService,
 			handler.NewEmployeeHandler,
 			handler.NewHealthHandler,
 		),
@@ -31,7 +33,7 @@ func main() {
 			return logging.Init(cfg.Env)
 		}),
 		fx.Invoke(func(db *gorm.DB) error {
-			if err := db.AutoMigrate(&model.Employee{}, &model.Position{}); err != nil {
+			if err := db.AutoMigrate(&model.Employee{}, &model.Position{}, &model.ActivationToken{}); err != nil {
 				return err
 			}
 			return seed.Run(db)
