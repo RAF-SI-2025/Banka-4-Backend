@@ -1,15 +1,28 @@
-name: Docker CI
-run-name: Checking if the Docker image on ${{ github.repository }} builds successfully
+name: Banka 4 - CI
+run-name: Checking if ${{ github.repository }} builds successfully
 
-on: [push, pull_request]
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build-dev:
     runs-on: ubuntu-latest
     environment: development
     steps:
-    - name: Check out repository code after a ${{ github.event_name }} event
+    - name: Check out ${{ github.ref }} after a ${{ github.event_name }} event
       uses: actions/checkout@v5
+    - name: Set up environment variables
+      run: |
+        echo "PORT=${{ secrets.PORT }}" >> $GITHUB_ENV
+        echo "DB_HOST=${{ secrets.DB_HOST }}" >> $GITHUB_ENV
+        echo "DB_PORT=${{ secrets.DB_PORT }}" >> $GITHUB_ENV
+        echo "DB_USER=${{ secrets.DB_USER }}" >> $GITHUB_ENV
+        echo "DB_PASS=${{ secrets.DB_PASS }}" >> $GITHUB_ENV
+        echo "DB_NAME=${{ secrets.DB_NAME }}" >> $GITHUB_ENV
     - name: Run the compose file
       run: docker compose -f docker-compose-dev.yml up -d --build
     - name: Check if the containers are running
@@ -22,7 +35,7 @@ jobs:
   #   - name: Check out repository code after a ${{ github.event_name }} event
   #     uses: actions/checkout@v5
   #   - name: Run the compose file
-  #     run: docker-compose up -d --build
+  #     run: docker-compose up -d
   #   - name: Check if the containers are running
   #     run: docker-compose ps
   #   - name: Check if the services are healthy
