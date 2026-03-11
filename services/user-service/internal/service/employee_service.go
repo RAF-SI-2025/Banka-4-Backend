@@ -4,6 +4,7 @@ import (
 	"common/pkg/auth"
 	"common/pkg/errors"
 	"common/pkg/jwt"
+	"common/pkg/permission"
 
 	"context"
 	"fmt"
@@ -62,6 +63,7 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 	if existingByUsername != nil {
 		return nil, errors.ConflictErr("username already in use")
 	}
+
 	employee := &model.Employee{
 		FirstName:   req.FirstName,
 		LastName:    req.LastName,
@@ -74,6 +76,7 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 		Department:  req.Department,
 		PositionID:  req.PositionID,
 		Active:      req.Active,
+		Permissions: mapPermissions(0, req.Permissions),
 	}
 
 	if err := s.repo.Create(ctx, employee); err != nil {
@@ -206,6 +209,7 @@ func (s *EmployeeService) UpdateEmployee(ctx context.Context, id uint, req *dto.
 	employee.Department = req.Department
 	employee.PositionID = req.PositionID
 	employee.Active = req.Active
+	employee.Permissions = mapPermissions(employee.EmployeeID, req.Permissions)
 
 	if err := s.repo.Update(ctx, employee); err != nil {
 		return nil, errors.InternalErr(err)
@@ -321,6 +325,16 @@ func (s *EmployeeService) ConfirmPasswordReset(ctx context.Context, token, newPa
 	}
 
 	return nil
+}
+func mapPermissions(employeeID uint, permissions []permission.Permission) []model.EmployeePermission {
+	result := make([]model.EmployeePermission, len(permissions))
+	for i, p := range permissions {
+		result[i] = model.EmployeePermission{
+			EmployeeID: employeeID,
+			Permission: p,
+		}
+	}
+	return result
 }
 
 func (s *EmployeeService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.LoginResponse, error) {

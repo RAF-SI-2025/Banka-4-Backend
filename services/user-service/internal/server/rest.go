@@ -51,6 +51,14 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, empHandler
 	r.POST("/forgot-password", empHandler.ForgotPassword)
 	r.POST("/reset-password", empHandler.ResetPassword)
 
+	// TODO: Add protected routes and order routes into groups
+	// Example: protected routes with auth middleware
+	// protected := r.Group("/")
+	// protected.Use(auth.Middleware(verifier, provider))
+	// {
+	// 	protected.GET("/employees", auth.RequirePermission(permission.EmployeeView), empHandler.ListEmployees)
+	// 	protected.PATCH("/employees/:id", auth.RequirePermission(permission.EmployeeUpdate), empHandler.UpdateEmployee)
+	// }
 	// Zaštićene rute - zahtevaju JWT
 	authorized := r.Group("/")
 	authorized.Use(auth.Middleware(verifier, permissions))
