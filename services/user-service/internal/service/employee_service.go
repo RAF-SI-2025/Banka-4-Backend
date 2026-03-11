@@ -36,7 +36,7 @@ func NewEmployeeService(
 		resetTokenRepo: resetTokenRepo,
 		positionRepo:   positionRepo,
 		emailService:   emailService,
-    cfg:            cfg
+    cfg:            cfg,
 	}
 }
 

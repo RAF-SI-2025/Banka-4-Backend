@@ -13,9 +13,9 @@ type Claims struct {
 }
 
 // GenerateToken kreira, potpisuje i vraća JWT token u obliku stringa.
-func GenerateToken(userID uint, secret string, expiryHours int) (string, error) {
+func GenerateToken(userID uint, secret string, expiryMinutes int) (string, error) {
 
-	expirationTime := time.Now().Add(time.Duration(expiryHours) * time.Hour)
+	expirationTime := time.Now().Add(time.Duration(expiryMinutes) * time.Minute)
 
 	// Kreiramo payload (claims)
 	claims := &Claims{

@@ -41,7 +41,7 @@ func (h *EmployeeHandler) Login(c *gin.Context) {
 	var req dto.LoginRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr("invalid request body"))
+		c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 

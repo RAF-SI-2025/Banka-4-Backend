@@ -27,7 +27,7 @@ type Configuration struct {
 	DB        DBConfig
 	GrpcPort  string // unused for now until we add multiple microservices
 	JWTSecret string // Dodato za JWT
-	JWTExpiry int    // U satima
+	JWTExpiry int    // U minutima
 }
 
 func GetOrDefault(env string, defaultValue string) string {
