@@ -1,12 +1,17 @@
 package service
 
 import (
-	"common/pkg/errors"
+  "common/pkg/errors"
+	"common/pkg/jwt"
+  
 	"context"
+	"fmt"
+  "time"
+
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
-	"time"
+  
+  "user-service/internal/config"
 	"user-service/internal/dto"
 	"user-service/internal/model"
 	"user-service/internal/repository"
@@ -20,16 +25,18 @@ type EmployeeService struct {
 	resetTokenRepo repository.ResetTokenRepository
 	positionRepo   repository.PositionRepository
 	emailService   *EmailService
+  cfg            *config.Configuration
 }
 
 func NewEmployeeService(
-	repo repository.EmployeeRepository, tokenRepo repository.ActivationTokenRepository, resetTokenRepo repository.ResetTokenRepository, positionRepo repository.PositionRepository, emailService *EmailService) *EmployeeService {
+	repo repository.EmployeeRepository, tokenRepo repository.ActivationTokenRepository, resetTokenRepo repository.ResetTokenRepository, positionRepo repository.PositionRepository, emailService *EmailService, cfg *config.Configuration) *EmployeeService {
 	return &EmployeeService{
 		repo:           repo,
 		tokenRepo:      tokenRepo,
 		resetTokenRepo: resetTokenRepo,
 		positionRepo:   positionRepo,
 		emailService:   emailService,
+    cfg:            cfg,
 	}
 }
 
@@ -300,4 +307,34 @@ func (s *EmployeeService) ConfirmPasswordReset(ctx context.Context, token, newPa
 	)
 
 	return nil
+}
+
+func (s *EmployeeService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.LoginResponse, error) {
+	//Pronadji zaposlenog po email-u
+	employee, err := s.repo.FindByEmail(ctx, req.Email)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	if employee == nil {
+		return nil, errors.UnauthorizedErr("invalid credentials")
+	}
+
+	//Proveri da li je zaposleni aktivan
+	if !employee.Active {
+		return nil, errors.ForbiddenErr("account is disabled")
+	}
+	
+	err = bcrypt.CompareHashAndPassword([]byte(employee.Password), []byte(req.Password))
+	if err != nil {
+		return nil, errors.UnauthorizedErr("invalid credentials")
+	}
+
+	//Generisi token
+	token, err := jwt.GenerateToken(employee.EmployeeID, s.cfg.JWTSecret, s.cfg.JWTExpiry)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+
+	//Vrati generisani token
+	return &dto.LoginResponse{Token: token}, nil
 }

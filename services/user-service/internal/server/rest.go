@@ -42,6 +42,7 @@ func InitRouter(r *gin.Engine) {
 func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, empHandler *handler.EmployeeHandler) {
 	r.GET("/health", healthHandler.Health)
 	r.POST("/register", empHandler.Register)
+	r.POST("/login", empHandler.Login)
 	r.POST("/activate", empHandler.Activate)
 	r.GET("/employees", empHandler.ListEmployees)
 	r.PATCH("/employees/:id", empHandler.UpdateEmployee)

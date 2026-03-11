@@ -37,6 +37,24 @@ func (h *EmployeeHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, dto.ToEmployeeResponse(employee))
 }
 
+func (h *EmployeeHandler) Login(c *gin.Context) {
+	var req dto.LoginRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errors.BadRequestErr(err.Error()))
+		return
+	}
+
+	res, err := h.service.Login(c.Request.Context(), &req)
+  
+  if err != nil {
+		c.Error(err)
+		return
+	}
+  
+  c.JSON(http.StatusOK, res)
+}
+
 // Gets list of employees with filtering and pagination
 func (h *EmployeeHandler) ListEmployees(c *gin.Context) {
 	var query dto.ListEmployeesQuery
