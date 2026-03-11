@@ -377,7 +377,7 @@ func (s *EmployeeService) ConfirmChangePassword(ctx context.Context, oldPassword
 	userID := authCtx.UserID
 	// ako je nova ista kao stara
 	if oldPassword == newPassword {
-		return errors.UnauthorizedErr("new password cannot be the same one")
+		return errors.BadRequestErr("new password cannot be the same one")
 	}
 	//ako korisnik postoji
 	employee, err := s.repo.FindByID(ctx, userID)
