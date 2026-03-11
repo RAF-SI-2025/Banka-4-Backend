@@ -1,7 +1,7 @@
 package model
 
 import (
-	"common/permission"
+	"common/pkg/permission"
 	"time"
 )
 

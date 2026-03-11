@@ -1,6 +1,6 @@
 package model
 
-import "common/permission"
+import "common/pkg/permission"
 
 type EmployeePermission struct {
 	EmployeeID uint                  `gorm:"primaryKey"`

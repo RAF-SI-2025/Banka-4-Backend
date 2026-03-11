@@ -7,23 +7,22 @@ import (
 	stderrors "errors"
 	"log"
 	"net/http"
-	"user-service/internal/validator"
-
 	"user-service/internal/config"
 	"user-service/internal/handler"
+	"user-service/internal/validator"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
 
-func NewServer(lc fx.Lifecycle, config *config.Configuration, healthHandler *handler.HealthHandler, empHandler *handler.EmployeeHandler) {
+func NewServer(lc fx.Lifecycle, cfg *config.Configuration, healthHandler *handler.HealthHandler, empHandler *handler.EmployeeHandler) {
 	r := gin.New()
 
 	InitRouter(r)
 	SetupRoutes(r, healthHandler, empHandler)
 
 	server := &http.Server{
-		Addr:    ":" + config.Port,
+		Addr:    ":" + cfg.Port,
 		Handler: r,
 	}
 
@@ -35,7 +34,6 @@ func InitRouter(r *gin.Engine) {
 	r.Use(logging.Logger())
 	r.Use(errors.ErrorHandler())
 
-	// Registrujemo custom validator za password
 	validator.RegisterValidators()
 }
 
@@ -46,9 +44,17 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, empHandler
 	r.POST("/activate", empHandler.Activate)
 	r.GET("/employees", empHandler.ListEmployees)
 	r.PATCH("/employees/:id", empHandler.UpdateEmployee)
-
 	r.POST("/forgot-password", empHandler.ForgotPassword)
 	r.POST("/reset-password", empHandler.ResetPassword)
+
+	// TODO: Add protected routes and order routes into groups
+	// Example: protected routes with auth middleware
+	// protected := r.Group("/")
+	// protected.Use(auth.Middleware(verifier, provider))
+	// {
+	// 	protected.GET("/employees", auth.RequirePermission(permission.EmployeeView), empHandler.ListEmployees)
+	// 	protected.PATCH("/employees/:id", auth.RequirePermission(permission.EmployeeUpdate), empHandler.UpdateEmployee)
+	// }
 }
 
 func RegisterServerLifecycle(lc fx.Lifecycle, server *http.Server) {

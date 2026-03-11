@@ -1,9 +1,9 @@
 package service
 
 import (
-	"common/permission"
 	"common/pkg/errors"
 	"common/pkg/jwt"
+	"common/pkg/permission"
 
 	"context"
 	"fmt"

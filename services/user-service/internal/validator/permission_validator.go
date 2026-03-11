@@ -1,7 +1,7 @@
 package validator
 
 import (
-	"common/permission"
+	"common/pkg/permission"
 
 	"github.com/go-playground/validator/v10"
 )

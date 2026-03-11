@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"common/permission"
+	"common/pkg/permission"
 	"time"
 	"user-service/internal/model"
 )

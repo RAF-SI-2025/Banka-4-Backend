@@ -20,7 +20,6 @@ func NewEmployeeHandler(service *service.EmployeeService) *EmployeeHandler {
 }
 
 func (h *EmployeeHandler) Register(c *gin.Context) {
-
 	var req dto.CreateEmployeeRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -46,13 +45,13 @@ func (h *EmployeeHandler) Login(c *gin.Context) {
 	}
 
 	res, err := h.service.Login(c.Request.Context(), &req)
-  
-  if err != nil {
+
+	if err != nil {
 		c.Error(err)
 		return
 	}
-  
-  c.JSON(http.StatusOK, res)
+
+	c.JSON(http.StatusOK, res)
 }
 
 // Gets list of employees with filtering and pagination
@@ -80,8 +79,6 @@ func (h *EmployeeHandler) ListEmployees(c *gin.Context) {
 }
 
 func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
-	//TODO check if admin here!
-
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.Error(errors.BadRequestErr("invalid employee id"))

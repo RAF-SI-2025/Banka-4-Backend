@@ -1,11 +1,14 @@
 package main
 
 import (
+	"common/pkg/auth"
 	"common/pkg/db"
+	"common/pkg/jwt"
 	"common/pkg/logging"
 	"user-service/internal/config"
 	"user-service/internal/handler"
 	"user-service/internal/model"
+	"user-service/internal/permission"
 	"user-service/internal/repository"
 	"user-service/internal/seed"
 	"user-service/internal/server"
@@ -22,6 +25,13 @@ func main() {
 			func(cfg *config.Configuration) (*gorm.DB, error) {
 				return db.New(cfg.DB.DSN())
 			},
+			func(cfg *config.Configuration) auth.TokenVerifier {
+				return jwt.NewJWTVerifier(cfg.JWTSecret)
+			},
+			func(database *gorm.DB) auth.PermissionProvider {
+				return permission.NewDBPermissionProvider(database)
+			},
+
 			repository.NewEmployeeRepository,
 			repository.NewActivationTokenRepository,
 			repository.NewResetTokenRepository,
