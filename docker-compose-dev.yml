@@ -31,8 +31,10 @@ services:
     depends_on:
       user_service_db:
         condition: service_healthy
+    healthcheck:
+      test: curl -f http://localhost:${PORT}/health || exit 1
     volumes:
-      - .:/app
+      - .:/app:Z
       - /app/tmp
 
 volumes:

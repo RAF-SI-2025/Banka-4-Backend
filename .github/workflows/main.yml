@@ -12,21 +12,48 @@ jobs:
   build-dev:
     runs-on: ubuntu-latest
     environment: development
+    env:
+      COMPOSE_FILE: docker-compose-dev.yml
+
     steps:
     - name: Check out ${{ github.ref }} after a ${{ github.event_name }} event
       uses: actions/checkout@v5
+
     - name: Set up environment variables
       run: |
+        echo "ENV=development" >> $GITHUB_ENV
         echo "PORT=${{ secrets.PORT }}" >> $GITHUB_ENV
         echo "DB_HOST=${{ secrets.DB_HOST }}" >> $GITHUB_ENV
         echo "DB_PORT=${{ secrets.DB_PORT }}" >> $GITHUB_ENV
         echo "DB_USER=${{ secrets.DB_USER }}" >> $GITHUB_ENV
         echo "DB_PASS=${{ secrets.DB_PASS }}" >> $GITHUB_ENV
         echo "DB_NAME=${{ secrets.DB_NAME }}" >> $GITHUB_ENV
+
     - name: Run the compose file
-      run: docker compose -f docker-compose-dev.yml up -d --build
-    - name: Check if the containers are running
-      run: docker compose -f docker-compose-dev.yml ps
+      run: docker compose -f ${{ env.COMPOSE_FILE }} up -d --build
+
+    - name: Wait for the services to start up and check their health
+      run: |
+        while docker compose -f ${{ env.COMPOSE_FILE }} ps | grep "starting"; do
+          sleep 5
+        done
+        if docker compose -f ${{ env.COMPOSE_FILE }} ps | grep "unhealthy"; then
+          echo "One or more services are unhealthy. Check the logs for details."
+          exit 1
+        fi
+
+    - name: Print running containers
+      if: failure() || success()
+      run: docker compose -f ${{ env.COMPOSE_FILE }} ps
+
+    - name: Print container logs
+      if: failure() || success()
+      run: docker compose -f ${{ env.COMPOSE_FILE }} logs
+        
+    - name: Bring containers down
+      if: failure() || success()
+      run: docker compose -f ${{ env.COMPOSE_FILE }} down
+
 
   # build-prod:
   #   runs-on: ubuntu-latest
@@ -39,11 +66,3 @@ jobs:
   #   - name: Check if the containers are running
   #     run: docker-compose ps
   #   - name: Check if the services are healthy
-  # - name: Check if the services are healthy
-  #     run: |
-  #       if [ "$(docker inspect -f '{{.State.Health.Status}}' user_service)" != "healthy" ]; then
-  #         echo "Not all services are healthy"
-  #         exit 1
-  #       else
-  #         echo "All services are healthy"
-  #       fi

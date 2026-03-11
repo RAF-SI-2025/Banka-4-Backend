@@ -1,6 +1,6 @@
 FROM golang:1.26-alpine
 
-RUN apk add --no-cache git tzdata bash
+RUN apk add --no-cache git tzdata bash curl
 
 RUN go install github.com/air-verse/air@latest
 
