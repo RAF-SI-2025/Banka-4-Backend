@@ -7,5 +7,4 @@ type RefreshToken struct {
 	EmployeeID uint      `gorm:"not null;index"`
 	Token      string    `gorm:"not null"`
 	ExpiresAt  time.Time `gorm:"not null"`
-	CreatedAt  time.Time `gorm:"autoCreateTime"`
 }
