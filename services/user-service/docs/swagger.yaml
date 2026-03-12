@@ -111,24 +111,6 @@ definitions:
     required:
     - email
     type: object
-  dto.ListEmployeesQuery:
-    properties:
-      email:
-        type: string
-      first_name:
-        type: string
-      last_name:
-        type: string
-      page:
-        minimum: 1
-        type: integer
-      page_size:
-        maximum: 100
-        minimum: 1
-        type: integer
-      position:
-        type: string
-    type: object
   dto.ListEmployeesResponse:
     properties:
       data:
@@ -249,17 +231,41 @@ definitions:
     - EmployeeDelete
 info:
   contact: {}
+  description: API for managing employees, authentication, and permissions.
+  title: User Service API
+  version: "1.0"
 paths:
   /api/employees:
     get:
       description: Returns a paginated list of employees with optional filtering
       parameters:
-      - description: Employee list and filtering query
-        in: body
-        name: query
-        required: true
-        schema:
-          $ref: '#/definitions/dto.ListEmployeesQuery'
+      - description: Filter by email
+        in: query
+        name: email
+        type: string
+      - description: Filter by first name
+        in: query
+        name: first_name
+        type: string
+      - description: Filter by last name
+        in: query
+        name: last_name
+        type: string
+      - description: Filter by position
+        in: query
+        name: position
+        type: string
+      - description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: page_size
+        type: integer
       produces:
       - application/json
       responses:
@@ -271,6 +277,8 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
       summary: List employees
       tags:
       - employees
@@ -310,6 +318,8 @@ paths:
           description: Conflict
           schema:
             $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
       summary: Update employee profile
       tags:
       - employees
@@ -376,6 +386,8 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
       summary: Change employee password
       tags:
       - employees
@@ -499,6 +511,8 @@ paths:
           description: Conflict
           schema:
             $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
       summary: Register a new employee
       tags:
       - employees
@@ -534,4 +548,11 @@ paths:
       summary: Reset employee password
       tags:
       - employees
+securityDefinitions:
+  BearerAuth:
+    description: 'Enter "Bearer" followed by a space and your token. Example: "Bearer
+      eyJhbGci..."'
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

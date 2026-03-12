@@ -8,4 +8,4 @@ docker-down:
 	docker compose -f docker-compose-dev.yml down
 
 swagger-docs:
-	swag init -g services/user-service/cmd/main.go
+	cd services/user-service && swag init -g cmd/main.go -d ./,../../common

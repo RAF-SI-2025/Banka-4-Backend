@@ -15,8 +15,12 @@ import (
 	"user-service/internal/handler"
 	"user-service/internal/validator"
 
+	_ "user-service/docs"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/fx"
 )
 
@@ -53,6 +57,8 @@ func InitRouter(r *gin.Engine, cfg *config.Configuration) {
 }
 
 func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, empHandler *handler.EmployeeHandler, verifier auth.TokenVerifier, permissions auth.PermissionProvider) {
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	api := r.Group("/api")
 	{
 		api.GET("/health", healthHandler.Health)

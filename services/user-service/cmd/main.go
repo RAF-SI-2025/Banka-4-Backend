@@ -18,6 +18,13 @@ import (
 	"gorm.io/gorm"
 )
 
+// @title User Service API
+// @version 1.0
+// @description API for managing employees, authentication, and permissions.
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Enter "Bearer" followed by a space and your token. Example: "Bearer eyJhbGci..."
 func main() {
 	fx.New(
 		fx.Provide(

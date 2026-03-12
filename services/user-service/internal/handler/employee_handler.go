@@ -29,6 +29,7 @@ func NewEmployeeHandler(service *service.EmployeeService) *EmployeeHandler {
 // @Success 201 {object} dto.EmployeeResponse
 // @Failure 400 {object} errors.AppError
 // @Failure 409 {object} errors.AppError
+// @Security BearerAuth
 // @Router /api/employees/register [post]
 func (h *EmployeeHandler) Register(c *gin.Context) {
 	var req dto.CreateEmployeeRequest
@@ -81,9 +82,15 @@ func (h *EmployeeHandler) Login(c *gin.Context) {
 // @Description Returns a paginated list of employees with optional filtering
 // @Tags employees
 // @Produce json
-// @Param query body dto.ListEmployeesQuery true "Employee list and filtering query"
+// @Param email query string false "Filter by email"
+// @Param first_name query string false "Filter by first name"
+// @Param last_name query string false "Filter by last name"
+// @Param position query string false "Filter by position"
+// @Param page query int false "Page number" minimum(1)
+// @Param page_size query int false "Page size" minimum(1) maximum(100)
 // @Success 200 {object} dto.ListEmployeesResponse
 // @Failure 400 {object} errors.AppError
+// @Security BearerAuth
 // @Router /api/employees [get]
 func (h *EmployeeHandler) ListEmployees(c *gin.Context) {
 	var query dto.ListEmployeesQuery
@@ -120,6 +127,7 @@ func (h *EmployeeHandler) ListEmployees(c *gin.Context) {
 // @Failure 400 {object} errors.AppError
 // @Failure 404 {object} errors.AppError
 // @Failure 409 {object} errors.AppError
+// @Security BearerAuth
 // @Router /api/employees/{id} [patch]
 func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -233,6 +241,7 @@ func (h *EmployeeHandler) ResetPassword(c *gin.Context) {
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} errors.AppError
 // @Failure 401 {object} errors.AppError
+// @Security BearerAuth
 // @Router /api/employees/change-password [post]
 func (h *EmployeeHandler) ChangePassword(c *gin.Context) {
 	var req dto.ChangePasswordRequest
