@@ -36,6 +36,7 @@ func main() {
 			repository.NewActivationTokenRepository,
 			repository.NewResetTokenRepository,
 			repository.NewPositionRepository,
+			repository.NewRefreshTokenRepository,
 			service.NewEmployeeService,
 			service.NewEmailService,
 			handler.NewEmployeeHandler,
@@ -45,7 +46,7 @@ func main() {
 			return logging.Init(cfg.Env)
 		}),
 		fx.Invoke(func(db *gorm.DB) error {
-			if err := db.AutoMigrate(&model.Employee{}, &model.Position{}, &model.ActivationToken{}, &model.ResetToken{}, &model.EmployeePermission{}); err != nil {
+			if err := db.AutoMigrate(&model.Employee{}, &model.Position{}, &model.ActivationToken{}, &model.ResetToken{}, &model.EmployeePermission{}, &model.RefreshToken{}); err != nil {
 				return err
 			}
 			return seed.Run(db)

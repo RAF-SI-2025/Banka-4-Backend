@@ -65,18 +65,3 @@ func (v *JWTVerifier) VerifyToken(tokenString string) (*Claims, error) {
 
 	return claims, nil
 }
-
-func GenerateRefreshToken(userID uint, secret string, expiryMinutes int) (string, error) {
-	expirationTime := time.Now().Add(time.Duration(expiryMinutes) * time.Minute)
-
-	claims := &Claims{
-		UserID: userID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
-}

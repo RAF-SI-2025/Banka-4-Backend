@@ -1,0 +1,11 @@
+package model
+
+import "time"
+
+type RefreshToken struct {
+	ID         uint      `gorm:"primaryKey"`
+	EmployeeID uint      `gorm:"not null;index"`
+	Token      string    `gorm:"not null"`
+	ExpiresAt  time.Time `gorm:"not null"`
+	CreatedAt  time.Time `gorm:"autoCreateTime"`
+}

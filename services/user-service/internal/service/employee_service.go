@@ -21,23 +21,25 @@ import (
 )
 
 type EmployeeService struct {
-	repo           repository.EmployeeRepository // <-- no pointer
-	tokenRepo      repository.ActivationTokenRepository
-	resetTokenRepo repository.ResetTokenRepository
-	positionRepo   repository.PositionRepository
-	emailService   *EmailService
-	cfg            *config.Configuration
+	repo             repository.EmployeeRepository // <-- no pointer
+	tokenRepo        repository.ActivationTokenRepository
+	resetTokenRepo   repository.ResetTokenRepository
+	refreshTokenRepo repository.RefreshTokenRepository
+	positionRepo     repository.PositionRepository
+	emailService     *EmailService
+	cfg              *config.Configuration
 }
 
 func NewEmployeeService(
-	repo repository.EmployeeRepository, tokenRepo repository.ActivationTokenRepository, resetTokenRepo repository.ResetTokenRepository, positionRepo repository.PositionRepository, emailService *EmailService, cfg *config.Configuration) *EmployeeService {
+	repo repository.EmployeeRepository, tokenRepo repository.ActivationTokenRepository, resetTokenRepo repository.ResetTokenRepository, refreshTokenRepo repository.RefreshTokenRepository, positionRepo repository.PositionRepository, emailService *EmailService, cfg *config.Configuration) *EmployeeService {
 	return &EmployeeService{
-		repo:           repo,
-		tokenRepo:      tokenRepo,
-		resetTokenRepo: resetTokenRepo,
-		positionRepo:   positionRepo,
-		emailService:   emailService,
-		cfg:            cfg,
+		repo:             repo,
+		tokenRepo:        tokenRepo,
+		resetTokenRepo:   resetTokenRepo,
+		refreshTokenRepo: refreshTokenRepo,
+		positionRepo:     positionRepo,
+		emailService:     emailService,
+		cfg:              cfg,
 	}
 }
 
@@ -350,30 +352,45 @@ func (s *EmployeeService) Login(ctx context.Context, req *dto.LoginRequest) (*dt
 		return nil, errors.InternalErr(err)
 	}
 
-	//Generisanje refresh tokena
-	refreshToken, err := jwt.GenerateRefreshToken(employee.EmployeeID, s.cfg.RefreshSecret, s.cfg.RefreshExpiry)
-	if err != nil {
+	_ = s.refreshTokenRepo.DeleteByEmployeeID(ctx, employee.EmployeeID)
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	rawRefreshToken := hex.EncodeToString(tokenBytes)
+
+	refreshToken := &model.RefreshToken{
+		EmployeeID: employee.EmployeeID,
+		Token:      rawRefreshToken,
+		ExpiresAt:  time.Now().Add(time.Duration(s.cfg.RefreshExpiry) * time.Minute),
+	}
+
+	if err := s.refreshTokenRepo.Create(ctx, refreshToken); err != nil {
 		return nil, errors.InternalErr(err)
 	}
 
 	//Vrati generisani token
 	return &dto.LoginResponse{
 		Token:        token,
-		RefreshToken: refreshToken,
+		RefreshToken: rawRefreshToken,
 	}, nil
 }
 
 // dodata funkcija za rotaciju tokena, kad se refresh token iskoristi vraca se novi refresh jer ce stari isteci pre roka (vec je akttivan timer za taj token)
 func (s *EmployeeService) RefreshToken(ctx context.Context, refreshTokenStr string) (*dto.LoginResponse, error) {
-	// validacija refresh tokena sa refresh secret
-	verifier := jwt.NewJWTVerifier(s.cfg.RefreshSecret)
-	claims, err := verifier.VerifyToken(refreshTokenStr)
+	storedToken, err := s.refreshTokenRepo.FindByToken(ctx, refreshTokenStr)
 	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	if storedToken == nil {
 		return nil, errors.UnauthorizedErr("invalid or expired refresh token")
 	}
+	if storedToken.ExpiresAt.Before(time.Now()) {
+		_ = s.refreshTokenRepo.DeleteByEmployeeID(ctx, storedToken.EmployeeID)
+		return nil, errors.UnauthorizedErr("refresh token expired")
+	}
 
-	// validacija da zaposleni postoji i je aktivan
-	employee, err := s.repo.FindByID(ctx, claims.UserID)
+	employee, err := s.repo.FindByID(ctx, storedToken.EmployeeID)
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
@@ -384,20 +401,31 @@ func (s *EmployeeService) RefreshToken(ctx context.Context, refreshTokenStr stri
 		return nil, errors.ForbiddenErr("account is disabled")
 	}
 
-	// novi access token
+	_ = s.refreshTokenRepo.DeleteByEmployeeID(ctx, employee.EmployeeID)
+
 	newAccessToken, err := jwt.GenerateToken(employee.EmployeeID, s.cfg.JWTSecret, s.cfg.JWTExpiry)
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
 
-	// novi refresh token (token rotation)
-	newRefreshToken, err := jwt.GenerateRefreshToken(employee.EmployeeID, s.cfg.RefreshSecret, s.cfg.RefreshExpiry)
-	if err != nil {
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	newRawRefresh := hex.EncodeToString(tokenBytes)
+
+	newRefreshToken := &model.RefreshToken{
+		EmployeeID: employee.EmployeeID,
+		Token:      newRawRefresh,
+		ExpiresAt:  time.Now().Add(time.Duration(s.cfg.RefreshExpiry) * time.Minute),
+	}
+
+	if err := s.refreshTokenRepo.Create(ctx, newRefreshToken); err != nil {
 		return nil, errors.InternalErr(err)
 	}
 
 	return &dto.LoginResponse{
 		Token:        newAccessToken,
-		RefreshToken: newRefreshToken,
+		RefreshToken: newRawRefresh,
 	}, nil
 }

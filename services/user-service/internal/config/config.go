@@ -28,8 +28,7 @@ type Configuration struct {
 	GrpcPort      string // unused for now until we add multiple microservices
 	JWTSecret     string // Dodato za JWT
 	JWTExpiry     int    // U minutima
-	RefreshSecret string // Dodato za Refresh
-	RefreshExpiry int    // Refresh u minutima
+	RefreshExpiry int    // refresh token
 }
 
 func GetOrDefault(env string, defaultValue string) string {
@@ -54,7 +53,7 @@ func Load() *Configuration {
 
 	expiryStr := GetOrDefault("JWT_EXPIRY_HOURS", "24")
 	expiry, _ := strconv.Atoi(expiryStr)
-	refreshExpiryStr := GetOrDefault("REFRESH_EXPIRY_MINUTES", "10080") // 7 dana
+	refreshExpiryStr := GetOrDefault("REFRESH_EXPIRY_MINUTES", "10080")
 	refreshExpiry, _ := strconv.Atoi(refreshExpiryStr)
 
 	return &Configuration{
@@ -69,7 +68,6 @@ func Load() *Configuration {
 		},
 		JWTSecret:     GetOrThrow("JWT_SECRET"),
 		JWTExpiry:     expiry,
-		RefreshSecret: GetOrThrow("REFRESH_SECRET"),
 		RefreshExpiry: refreshExpiry,
 	}
 }
