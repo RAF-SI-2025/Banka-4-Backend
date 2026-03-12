@@ -43,7 +43,7 @@ type Configuration struct {
 	JWTExpiry     int    // U minutima
 	SMTP          SMTPConfig
 	URLs          URLConfig
-  RefreshExpiry int    // refresh token
+	RefreshExpiry int // refresh token
 }
 
 func GetOrDefault(env string, defaultValue string) string {
@@ -82,9 +82,9 @@ func Load() *Configuration {
 			DBName:   GetOrThrow("DB_NAME"),
 		},
 
-		JWTSecret: GetOrThrow("JWT_SECRET"),
-		JWTExpiry: expiry,
-    RefreshExpiry: refreshExpiry,
+		JWTSecret:     GetOrThrow("JWT_SECRET"),
+		JWTExpiry:     expiry,
+		RefreshExpiry: refreshExpiry,
 		SMTP: SMTPConfig{
 			Host: GetOrThrow("SMTP_HOST"),
 			Port: GetOrDefault("SMTP_PORT", "587"),
@@ -93,7 +93,7 @@ func Load() *Configuration {
 			From: GetOrThrow("EMAIL_FROM"),
 		},
 		URLs: URLConfig{
-			FrontendBaseURL: GetOrDefault("FRONTENT_BASE_URL", "http://localhost:5173"),
+			FrontendBaseURL: GetOrDefault("FRONTEND_BASE_URL", "http://localhost:5173"),
 			BackendBaseURL:  GetOrDefault("BACKEND_BASE_URL", "http://localhost:8080"),
 		},
 	}
