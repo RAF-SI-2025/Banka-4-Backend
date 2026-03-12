@@ -17,5 +17,5 @@ type CreateEmployeeRequest struct {
 	Department  string                  `json:"department"`
 	PositionID  uint                    `json:"position_id" binding:"required"`
 	Active      bool                    `json:"active"`
-	Permissions []permission.Permission `json:"permissions" binding:"dive,permission"`
+	Permissions []permission.Permission `json:"permissions" binding:"unique_permissions,dive,permission"`
 }
