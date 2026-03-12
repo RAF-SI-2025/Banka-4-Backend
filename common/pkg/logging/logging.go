@@ -10,6 +10,10 @@ import (
 
 var log *zap.Logger
 
+func Error(msg string, fields ...zap.Field) {
+	log.Error(msg, fields...)
+}
+
 // Init initializes the global logger based on the environment.
 // In production, it uses a JSON logger optimized for log aggregation tools.
 // In all other environments, it uses a human-readable logger suitable for development.

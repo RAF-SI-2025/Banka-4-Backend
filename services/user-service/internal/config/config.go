@@ -17,6 +17,19 @@ type DBConfig struct {
 	DBName   string
 }
 
+type SMTPConfig struct {
+	Host string
+	Port string
+	User string
+	Pass string
+	From string
+}
+
+type URLConfig struct {
+	FrontendBaseURL string
+	BackendBaseURL  string
+}
+
 func (c *DBConfig) DSN() string {
 	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", c.Host, c.Port, c.User, c.Password, c.DBName)
 }
@@ -28,7 +41,9 @@ type Configuration struct {
 	GrpcPort      string // unused for now until we add multiple microservices
 	JWTSecret     string // Dodato za JWT
 	JWTExpiry     int    // U minutima
-	RefreshExpiry int    // refresh token
+	SMTP          SMTPConfig
+	URLs          URLConfig
+  RefreshExpiry int    // refresh token
 }
 
 func GetOrDefault(env string, defaultValue string) string {
@@ -51,7 +66,7 @@ func GetOrThrow(env string) string {
 func Load() *Configuration {
 	_ = godotenv.Load()
 
-	expiryStr := GetOrDefault("JWT_EXPIRY_HOURS", "24")
+	expiryStr := GetOrDefault("JWT_EXPIRY", "15")
 	expiry, _ := strconv.Atoi(expiryStr)
 	refreshExpiryStr := GetOrDefault("REFRESH_EXPIRY_MINUTES", "10080")
 	refreshExpiry, _ := strconv.Atoi(refreshExpiryStr)
@@ -66,8 +81,20 @@ func Load() *Configuration {
 			Password: GetOrThrow("DB_PASS"),
 			DBName:   GetOrThrow("DB_NAME"),
 		},
-		JWTSecret:     GetOrThrow("JWT_SECRET"),
-		JWTExpiry:     expiry,
-		RefreshExpiry: refreshExpiry,
+
+		JWTSecret: GetOrThrow("JWT_SECRET"),
+		JWTExpiry: expiry,
+    RefreshExpiry: refreshExpiry,
+		SMTP: SMTPConfig{
+			Host: GetOrThrow("SMTP_HOST"),
+			Port: GetOrDefault("SMTP_PORT", "587"),
+			User: GetOrThrow("SMTP_USER"),
+			Pass: GetOrThrow("SMTP_PASS"),
+			From: GetOrThrow("EMAIL_FROM"),
+		},
+		URLs: URLConfig{
+			FrontendBaseURL: GetOrDefault("FRONTENT_BASE_URL", "http://localhost:5173"),
+			BackendBaseURL:  GetOrDefault("BACKEND_BASE_URL", "http://localhost:8080"),
+		},
 	}
 }

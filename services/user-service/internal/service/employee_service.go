@@ -1,12 +1,16 @@
 package service
 
 import (
+	"common/pkg/auth"
 	"common/pkg/errors"
 	"common/pkg/jwt"
 	"common/pkg/permission"
 
 	"context"
 	"fmt"
+	"log"
+	"net/url"
+	"strings"
 	"time"
 
 	"crypto/rand"
@@ -24,14 +28,14 @@ type EmployeeService struct {
 	repo             repository.EmployeeRepository // <-- no pointer
 	tokenRepo        repository.ActivationTokenRepository
 	resetTokenRepo   repository.ResetTokenRepository
-	refreshTokenRepo repository.RefreshTokenRepository
+  refreshTokenRepo repository.RefreshTokenRepository
 	positionRepo     repository.PositionRepository
-	emailService     *EmailService
+	emailService     Mailer
 	cfg              *config.Configuration
 }
 
 func NewEmployeeService(
-	repo repository.EmployeeRepository, tokenRepo repository.ActivationTokenRepository, resetTokenRepo repository.ResetTokenRepository, refreshTokenRepo repository.RefreshTokenRepository, positionRepo repository.PositionRepository, emailService *EmailService, cfg *config.Configuration) *EmployeeService {
+	repo repository.EmployeeRepository, tokenRepo repository.ActivationTokenRepository, resetTokenRepo repository.ResetTokenRepository, refreshTokenRepo repository.RefreshTokenRepository, positionRepo repository.PositionRepository, emailService Mailer, cfg *config.Configuration) *EmployeeService {
 	return &EmployeeService{
 		repo:             repo,
 		tokenRepo:        tokenRepo,
@@ -98,13 +102,16 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 		return nil, errors.InternalErr(err)
 	}
 
-	link := fmt.Sprintf("http://localhost:8080/activate?token=%s", tokenStr)
+	activationBase := strings.TrimRight(s.cfg.URLs.FrontendBaseURL, "/")
+	link := fmt.Sprintf("%s/activate?token=%s", activationBase, url.QueryEscape(tokenStr))
 
-	s.emailService.Send(
+	if err := s.emailService.Send(
 		employee.Email,
 		"Welcome!",
 		fmt.Sprintf("Kliknite ovde da postavite lozinku: %s", link),
-	)
+	); err != nil {
+		return nil, errors.ServiceUnavailableErr(err)
+	}
 
 	return employee, nil
 }
@@ -127,7 +134,7 @@ func (s *EmployeeService) ActivateAccount(ctx context.Context, tokenStr, passwor
 		return errors.InternalErr(err)
 	}
 	if employee == nil {
-		return errors.ConflictErr("employee not found")
+		return errors.NotFoundErr("employee not found")
 	}
 
 	// Hash lozinke
@@ -145,7 +152,9 @@ func (s *EmployeeService) ActivateAccount(ctx context.Context, tokenStr, passwor
 	_ = s.tokenRepo.Delete(ctx, activationToken)
 
 	// Pošalji mejl
-	s.emailService.Send(employee.Email, "Account activated", "Vaš nalog je uspešno aktiviran.")
+	if err := s.emailService.Send(employee.Email, "Account activated", "Vaš nalog je uspešno aktiviran."); err != nil {
+		log.Printf("failed to send account activation confirmation email to employee_id=%d: %v", employee.EmployeeID, err)
+	}
 
 	return nil
 }
@@ -255,12 +264,15 @@ func (s *EmployeeService) RequestPasswordReset(ctx context.Context, email string
 	}
 
 	// Šaljemo link sa tokenom na email
-	link := fmt.Sprintf("http://localhost:8080/reset-password?token=%s", token)
-	s.emailService.Send(
+	resetBase := strings.TrimRight(s.cfg.URLs.FrontendBaseURL, "/")
+	link := fmt.Sprintf("%s/reset-password?token=%s", resetBase, url.QueryEscape(token))
+	if err := s.emailService.Send(
 		employee.Email,
 		"Password reset",
 		fmt.Sprintf("Kliknite ovde da resetujete lozinku: %s", link),
-	)
+	); err != nil {
+		log.Printf("failed to send password reset email to employee_id=%d: %v", employee.EmployeeID, err)
+	}
 
 	return nil
 }
@@ -306,15 +318,16 @@ func (s *EmployeeService) ConfirmPasswordReset(ctx context.Context, token, newPa
 	_ = s.resetTokenRepo.DeleteByEmployeeID(ctx, employee.EmployeeID)
 
 	// Pošalji potvrdu na email
-	s.emailService.Send(
+	if err := s.emailService.Send(
 		employee.Email,
 		"Password changed",
 		"Vaša lozinka je uspešno promenjena.",
-	)
+	); err != nil {
+		log.Printf("failed to send password changed confirmation email to employee_id=%d: %v", employee.EmployeeID, err)
+	}
 
 	return nil
 }
-
 func mapPermissions(employeeID uint, permissions []permission.Permission) []model.EmployeePermission {
 	result := make([]model.EmployeePermission, len(permissions))
 	for i, p := range permissions {
@@ -427,4 +440,43 @@ func (s *EmployeeService) RefreshToken(ctx context.Context, refreshTokenStr stri
 		Token:        newAccessToken,
 		RefreshToken: newRawRefresh,
 	}, nil
+}
+
+func (s *EmployeeService) ConfirmChangePassword(ctx context.Context, oldPassword string, newPassword string) error {
+	authCtx := auth.GetAuthFromContext(ctx)
+
+	if authCtx == nil {
+		return errors.UnauthorizedErr("invalid credentials")
+	}
+
+	userID := authCtx.UserID
+	// ako je nova ista kao stara
+	if oldPassword == newPassword {
+		return errors.BadRequestErr("new password cannot be the same as the old one")
+	}
+	//ako korisnik postoji
+	employee, err := s.repo.FindByID(ctx, userID)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+	if employee == nil {
+		return errors.UnauthorizedErr("invalid credentials")
+	}
+	// Provaravamo staru lozinku
+	if err = bcrypt.CompareHashAndPassword([]byte(employee.Password), []byte(oldPassword)); err != nil {
+		return errors.UnauthorizedErr("invalid credentials")
+	}
+	// Postavljamo novu lozninku
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+
+	employee.Password = string(hashedPassword)
+	
+	if err := s.repo.Update(ctx, employee); err != nil {
+		return errors.InternalErr(err)
+	}
+
+	return nil
 }

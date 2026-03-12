@@ -120,3 +120,4 @@ func (r *employeeRepository) GetAll(ctx context.Context, email, firstName, lastN
 
 	return employees, total, nil
 }
+
