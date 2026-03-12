@@ -3,7 +3,8 @@ run-name: Checking if ${{ github.repository }} builds successfully
 
 on:
   workflow_dispatch:
-  pull_request:
+  #pull_request:
+  pull_request_target:
     branches:
       - main
 
@@ -19,22 +20,13 @@ jobs:
       uses: actions/checkout@v5
 
     - name: Set up environment variables
+      env:
+        SECRETS_CONTEXT: ${{ toJson(secrets) }}
+        VARS_CONTEXT: ${{ toJson(vars) }}
       run: |
-        echo "ENV=${{ env.ENV }}" >> .env
-        echo "PORT=${{ vars.PORT }}" >> .env
-        echo "DB_HOST=${{ vars.DB_HOST }}" >> .env
-        echo "DB_PORT=${{ vars.DB_PORT }}" >> .env
-        echo "DB_USER=${{ secrets.DB_USER }}" >> .env
-        echo "DB_PASS=${{ secrets.DB_PASS }}" >> .env
-        echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
-        echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
-        echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> .env
-        echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> .env
-        echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> .env
-        echo "SMTP_PASS=${{ secrets.SMTP_PASS }}" >> .env
-        echo "EMAIL_FROM=${{ vars.EMAIL_FROM }}" >> .env
-        echo "FRONTEND_BASE_URL=${{ vars.FRONTEND_BASE_URL }}" >> .env
-        echo "BACKEND_BASE_URL=${{ vars.BACKEND_BASE_URL }}" >> .env
+        echo $SECRETS_CONTEXT | jq -r "to_entries|map(\"\(.key)=\\\"\(.value|tostring)\\\"\")|.[]" >> .env
+        echo $VARS_CONTEXT | jq -r "to_entries|map(\"\(.key)=\\\"\(.value|tostring)\\\"\")|.[]" >> .env
+        cat .env
 
     - name: Run the compose file
       run: docker compose -f ${{ env.COMPOSE_FILE }} up -d --build
