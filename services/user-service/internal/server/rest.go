@@ -46,19 +46,22 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, empHandler
 	{
 		api.GET("/health", healthHandler.Health)
 
-		api.POST("/login", empHandler.Login)
-		api.POST("/activate", empHandler.Activate)
-
-		api.POST("/forgot-password", empHandler.ForgotPassword)
-		api.POST("/reset-password", empHandler.ResetPassword)
-
-		protected := api.Group("/")
-		protected.Use(auth.Middleware(verifier, permissions)) 
+		emp := api.Group("/employees")
 		{
-			protected.POST("/register", auth.RequirePermission(permission.EmployeeCreate) ,empHandler.Register)
-			protected.PATCH("/employees/:id", auth.RequirePermission(permission.EmployeeUpdate), empHandler.UpdateEmployee)
-			protected.GET("/employees", auth.RequirePermission(permission.EmployeeView), empHandler.ListEmployees)	
-			protected.POST("/change-password", empHandler.ChangePassword)
+			emp.POST("/login", empHandler.Login)
+			emp.POST("/activate", empHandler.Activate)
+
+			emp.POST("/forgot-password", empHandler.ForgotPassword)
+			emp.POST("/reset-password", empHandler.ResetPassword)
+
+			protected := emp.Group("/")
+			protected.Use(auth.Middleware(verifier, permissions))
+			{
+				protected.POST("/register", auth.RequirePermission(permission.EmployeeCreate) ,empHandler.Register)
+				protected.PATCH("/:id", auth.RequirePermission(permission.EmployeeUpdate), empHandler.UpdateEmployee)
+				protected.GET("/", auth.RequirePermission(permission.EmployeeView), empHandler.ListEmployees)
+				protected.POST("/change-password", empHandler.ChangePassword)
+			}
 		}
 	}
 }
