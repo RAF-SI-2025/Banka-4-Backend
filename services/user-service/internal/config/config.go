@@ -26,8 +26,8 @@ type SMTPConfig struct {
 }
 
 type URLConfig struct {
-	ActivationBaseURL string
-	ResetBaseURL      string
+	FrontendBaseURL string
+	BackendBaseURL  string
 }
 
 func (c *DBConfig) DSN() string {
@@ -87,8 +87,8 @@ func Load() *Configuration {
 			From: GetOrThrow("EMAIL_FROM"),
 		},
 		URLs: URLConfig{
-			ActivationBaseURL: GetOrDefault("ACTIVATION_BASE_URL", "http://localhost:8080"),
-			ResetBaseURL:      GetOrDefault("RESET_BASE_URL", "http://localhost:8080"),
+			FrontendBaseURL: GetOrDefault("FRONTENT_BASE_URL", "http://localhost:5173"),
+			BackendBaseURL:  GetOrDefault("BACKEND_BASE_URL", "http://localhost:8080"),
 		},
 	}
 }

@@ -9,19 +9,21 @@ import (
 	stderrors "errors"
 	"log"
 	"net/http"
+	"time"
 
 	"user-service/internal/config"
 	"user-service/internal/handler"
 	"user-service/internal/validator"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-contrib/cors"
 	"go.uber.org/fx"
 )
 
 func NewServer(lc fx.Lifecycle, cfg *config.Configuration, healthHandler *handler.HealthHandler, empHandler *handler.EmployeeHandler, verifier auth.TokenVerifier, permissions auth.PermissionProvider) {
 	r := gin.New()
 
-	InitRouter(r)
+	InitRouter(r, cfg)
 	SetupRoutes(r, healthHandler, empHandler, verifier, permissions)
 
 	server := &http.Server{
@@ -32,10 +34,19 @@ func NewServer(lc fx.Lifecycle, cfg *config.Configuration, healthHandler *handle
 	RegisterServerLifecycle(lc, server)
 }
 
-func InitRouter(r *gin.Engine) {
+func InitRouter(r *gin.Engine, cfg *config.Configuration) {
 	r.Use(gin.Recovery())
 	r.Use(logging.Logger())
 	r.Use(errors.ErrorHandler())
+
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{cfg.URLs.FrontendBaseURL},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge: 12 * time.Hour,
+	}))
 
 	// Registrujemo custom validator za password
 	validator.RegisterValidators()

@@ -100,7 +100,7 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 		return nil, errors.InternalErr(err)
 	}
 
-	activationBase := strings.TrimRight(s.cfg.URLs.ActivationBaseURL, "/")
+	activationBase := strings.TrimRight(s.cfg.URLs.FrontendBaseURL, "/")
 	link := fmt.Sprintf("%s/activate?token=%s", activationBase, url.QueryEscape(tokenStr))
 
 	if err := s.emailService.Send(
@@ -262,7 +262,7 @@ func (s *EmployeeService) RequestPasswordReset(ctx context.Context, email string
 	}
 
 	// Šaljemo link sa tokenom na email
-	resetBase := strings.TrimRight(s.cfg.URLs.ResetBaseURL, "/")
+	resetBase := strings.TrimRight(s.cfg.URLs.FrontendBaseURL, "/")
 	link := fmt.Sprintf("%s/reset-password?token=%s", resetBase, url.QueryEscape(token))
 	if err := s.emailService.Send(
 		employee.Email,
