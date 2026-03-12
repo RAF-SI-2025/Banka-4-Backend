@@ -132,7 +132,7 @@ func (s *EmployeeService) ActivateAccount(ctx context.Context, tokenStr, passwor
 		return errors.InternalErr(err)
 	}
 	if employee == nil {
-		return errors.ConflictErr("employee not found")
+		return errors.NotFoundErr("employee not found")
 	}
 
 	// Hash lozinke

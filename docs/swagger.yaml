@@ -1,0 +1,466 @@
+definitions:
+  dto.ActivateEmployeeRequest:
+    properties:
+      password:
+        type: string
+      token:
+        type: string
+    required:
+    - password
+    - token
+    type: object
+  dto.ChangePasswordRequest:
+    properties:
+      new_password:
+        type: string
+      old_password:
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  dto.CreateEmployeeRequest:
+    properties:
+      active:
+        type: boolean
+      address:
+        type: string
+      date_of_birth:
+        type: string
+      department:
+        type: string
+      email:
+        type: string
+      first_name:
+        maxLength: 20
+        type: string
+      gender:
+        type: string
+      last_name:
+        maxLength: 100
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/permission.Permission'
+        type: array
+      phone_number:
+        type: string
+      position_id:
+        type: integer
+      username:
+        type: string
+    required:
+    - email
+    - first_name
+    - last_name
+    - position_id
+    - username
+    type: object
+  dto.EmployeeResponse:
+    properties:
+      active:
+        type: boolean
+      address:
+        type: string
+      date_of_birth:
+        type: string
+      department:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      gender:
+        type: string
+      id:
+        type: integer
+      last_name:
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/permission.Permission'
+        type: array
+      phone_number:
+        type: string
+      position_id:
+        type: integer
+      username:
+        type: string
+    type: object
+  dto.ForgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  dto.ListEmployeesQuery:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      page:
+        minimum: 1
+        type: integer
+      page_size:
+        maximum: 100
+        minimum: 1
+        type: integer
+      position:
+        type: string
+    type: object
+  dto.ListEmployeesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.EmployeeResponse'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  dto.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  dto.LoginResponse:
+    properties:
+      token:
+        type: string
+    type: object
+  dto.ResetPasswordRequest:
+    properties:
+      new_password:
+        type: string
+      token:
+        type: string
+    required:
+    - new_password
+    - token
+    type: object
+  dto.UpdateEmployeeRequest:
+    properties:
+      active:
+        type: boolean
+      address:
+        type: string
+      date_of_birth:
+        type: string
+      department:
+        type: string
+      email:
+        type: string
+      first_name:
+        maxLength: 20
+        type: string
+      gender:
+        type: string
+      last_name:
+        maxLength: 100
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/permission.Permission'
+        type: array
+      phone_number:
+        type: string
+      position_id:
+        type: integer
+      username:
+        type: string
+    required:
+    - email
+    - first_name
+    - last_name
+    - position_id
+    - username
+    type: object
+  errors.AppError:
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  permission.Permission:
+    enum:
+    - employee.view
+    - employee.create
+    - employee.update
+    - employee.delete
+    type: string
+    x-enum-varnames:
+    - EmployeeView
+    - EmployeeCreate
+    - EmployeeUpdate
+    - EmployeeDelete
+info:
+  contact: {}
+paths:
+  /api/employees:
+    get:
+      description: Returns a paginated list of employees with optional filtering
+      parameters:
+      - description: Employee list and filtering query
+        in: body
+        name: query
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ListEmployeesQuery'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListEmployeesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: List employees
+      tags:
+      - employees
+  /api/employees/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Updates employee information by ID
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Employee update data
+        in: body
+        name: employee
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateEmployeeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.EmployeeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Update employee profile
+      tags:
+      - employees
+  /api/employees/activate:
+    post:
+      consumes:
+      - application/json
+      description: Activates an employee account by setting the initial password using
+        an activation token
+      parameters:
+      - description: Activation token and new password
+        in: body
+        name: activation
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ActivateEmployeeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Activate employee account
+      tags:
+      - employees
+  /api/employees/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Allows an authenticated employee to change their password by providing
+        the current password and a new password.
+      parameters:
+      - description: Current and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Change employee password
+      tags:
+      - employees
+  /api/employees/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Sends a password reset token to the employee email if it exists
+      parameters:
+      - description: Email address for password reset
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Request password reset
+      tags:
+      - employees
+  /api/employees/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates an employee and returns authentication tokens or
+        session data
+      parameters:
+      - description: Employee login credentials
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Authenticate employee
+      tags:
+      - employees
+  /api/employees/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new employee account and returns the created employee
+      parameters:
+      - description: Employee registration data
+        in: body
+        name: employee
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateEmployeeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.EmployeeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Register a new employee
+      tags:
+      - employees
+  /api/employees/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Resets the employee password using a valid reset token
+      parameters:
+      - description: Password reset token and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Reset employee password
+      tags:
+      - employees
+swagger: "2.0"
