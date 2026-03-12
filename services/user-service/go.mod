@@ -10,8 +10,6 @@ require (
 	gorm.io/gorm v1.31.1
 )
 
-replace github.com/avelickovic/Banka-4-Backend => ../path-to-your-module
-
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
