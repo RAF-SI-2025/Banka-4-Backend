@@ -195,6 +195,7 @@ func (s *AuthService) ActivateAccount(ctx context.Context, tokenStr, password st
 	}
 
 	identity.PasswordHash = string(hashedPassword)
+	identity.Active = true
 	if err := s.identityRepo.Update(ctx, identity); err != nil {
 		return errors.InternalErr(err)
 	}

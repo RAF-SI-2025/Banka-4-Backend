@@ -48,6 +48,7 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
+
 	if emailExists {
 		return nil, errors.ConflictErr("email already in use")
 	}
@@ -56,6 +57,7 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
+
 	if usernameExists {
 		return nil, errors.ConflictErr("username already in use")
 	}
@@ -64,6 +66,7 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
+
 	if !positionValid {
 		return nil, errors.BadRequestErr("invalid position id")
 	}
@@ -74,6 +77,7 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 		Type:     auth.IdentityEmployee,
 		Active:   req.Active,
 	}
+
 	if err := s.identityRepo.Create(ctx, identity); err != nil {
 		return nil, errors.InternalErr(err)
 	}
@@ -90,6 +94,7 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 		PositionID:  req.PositionID,
 		Permissions: mapPermissions(0, req.Permissions),
 	}
+
 	if err := s.employeeRepo.Create(ctx, employee); err != nil {
 		return nil, errors.InternalErr(err)
 	}
@@ -104,6 +109,7 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 		Token:      tokenStr,
 		ExpiresAt:  time.Now().Add(24 * time.Hour),
 	}
+
 	if err := s.activationTokenRepo.Create(ctx, activationToken); err != nil {
 		return nil, errors.InternalErr(err)
 	}

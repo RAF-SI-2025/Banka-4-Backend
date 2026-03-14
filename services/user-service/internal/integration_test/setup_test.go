@@ -379,3 +379,15 @@ func loginEmployee(t *testing.T, router *gin.Engine, email, password string) log
 	requireStatus(t, recorder, http.StatusOK)
 	return decodeResponse[loginResponse](t, recorder)
 }
+
+func verifyAccessToken(t *testing.T, token string) *commonjwt.Claims {
+	t.Helper()
+
+	verifier := commonjwt.NewJWTVerifier(testConfig().JWTSecret)
+	claims, err := verifier.VerifyToken(token)
+	if err != nil {
+		t.Fatalf("verify access token: %v", err)
+	}
+
+	return claims
+}
