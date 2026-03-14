@@ -1,5 +1,13 @@
 definitions:
-  dto.ActivateEmployeeRequest:
+  auth.IdentityType:
+    enum:
+    - employee
+    - client
+    type: string
+    x-enum-varnames:
+    - IdentityEmployee
+    - IdentityClient
+  dto.ActivateAccountRequest:
     properties:
       password:
         type: string
@@ -17,6 +25,8 @@ definitions:
         type: string
       id:
         type: integer
+      identity_type:
+        $ref: '#/definitions/auth.IdentityType'
       last_name:
         type: string
       permissions:
@@ -35,6 +45,32 @@ definitions:
     required:
     - new_password
     - old_password
+    type: object
+  dto.CreateClientRequest:
+    properties:
+      address:
+        type: string
+      date_of_birth:
+        type: string
+      email:
+        type: string
+      first_name:
+        maxLength: 50
+        type: string
+      gender:
+        type: string
+      last_name:
+        maxLength: 100
+        type: string
+      phone_number:
+        type: string
+      username:
+        type: string
+    required:
+    - email
+    - first_name
+    - last_name
+    - username
     type: object
   dto.CreateEmployeeRequest:
     properties:
@@ -201,12 +237,6 @@ definitions:
         type: integer
       username:
         type: string
-    required:
-    - email
-    - first_name
-    - last_name
-    - position_id
-    - username
     type: object
   errors.AppError:
     properties:
@@ -231,10 +261,242 @@ definitions:
     - EmployeeDelete
 info:
   contact: {}
-  description: API for managing employees, authentication, and permissions.
+  description: API for managing employees, clients, authentication, and permissions.
   title: User Service API
   version: "1.0"
 paths:
+  /api/auth/activate:
+    post:
+      consumes:
+      - application/json
+      description: Activates an account by setting the initial password using an activation
+        token
+      parameters:
+      - description: Activation token and new password
+        in: body
+        name: activation
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ActivateAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Activate account
+      tags:
+      - auth
+  /api/auth/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Allows an authenticated user to change their password
+      parameters:
+      - description: Current and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - auth
+  /api/auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Sends a password reset token to the email if it exists
+      parameters:
+      - description: Email address for password reset
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Request password reset
+      tags:
+      - auth
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user by email and password, returns JWT and refresh
+        token
+      parameters:
+      - description: Login credentials
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Authenticate user
+      tags:
+      - auth
+  /api/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Generates a new access token using a valid refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.RefreshResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Refresh access token
+      tags:
+      - auth
+  /api/auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Resets the password using a valid reset token
+      parameters:
+      - description: Password reset token and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Reset password
+      tags:
+      - auth
+  /api/clients/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new client account and sends an activation email
+      parameters:
+      - description: Client registration data
+        in: body
+        name: client
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateClientRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Register a new client
+      tags:
+      - clients
   /api/employees:
     get:
       description: Returns a paginated list of employees with optional filtering
@@ -351,167 +613,6 @@ paths:
       summary: Update employee profile
       tags:
       - employees
-  /api/employees/activate:
-    post:
-      consumes:
-      - application/json
-      description: Activates an employee account by setting the initial password using
-        an activation token
-      parameters:
-      - description: Activation token and new password
-        in: body
-        name: activation
-        required: true
-        schema:
-          $ref: '#/definitions/dto.ActivateEmployeeRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errors.AppError'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errors.AppError'
-      summary: Activate employee account
-      tags:
-      - employees
-  /api/employees/change-password:
-    post:
-      consumes:
-      - application/json
-      description: Allows an authenticated employee to change their password by providing
-        the current password and a new password.
-      parameters:
-      - description: Current and new password
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.ChangePasswordRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errors.AppError'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errors.AppError'
-      security:
-      - BearerAuth: []
-      summary: Change employee password
-      tags:
-      - employees
-  /api/employees/forgot-password:
-    post:
-      consumes:
-      - application/json
-      description: Sends a password reset token to the employee email if it exists
-      parameters:
-      - description: Email address for password reset
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.ForgotPasswordRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errors.AppError'
-      summary: Request password reset
-      tags:
-      - employees
-  /api/employees/login:
-    post:
-      consumes:
-      - application/json
-      description: Authenticates an employee and returns authentication tokens or
-        session data
-      parameters:
-      - description: Employee login credentials
-        in: body
-        name: credentials
-        required: true
-        schema:
-          $ref: '#/definitions/dto.LoginRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.LoginResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errors.AppError'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errors.AppError'
-      summary: Authenticate employee
-      tags:
-      - employees
-  /api/employees/refresh:
-    post:
-      consumes:
-      - application/json
-      description: Generates a new access token using a valid refresh token.
-      parameters:
-      - description: Refresh token
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.RefreshRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.RefreshResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errors.AppError'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errors.AppError'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errors.AppError'
-      summary: Refresh access token
-      tags:
-      - employees
   /api/employees/register:
     post:
       consumes:
@@ -542,38 +643,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Register a new employee
-      tags:
-      - employees
-  /api/employees/reset-password:
-    post:
-      consumes:
-      - application/json
-      description: Resets the employee password using a valid reset token
-      parameters:
-      - description: Password reset token and new password
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.ResetPasswordRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errors.AppError'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errors.AppError'
-      summary: Reset employee password
       tags:
       - employees
 securityDefinitions:

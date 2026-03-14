@@ -28,6 +28,7 @@ func NewClientHandler(service *service.ClientService) *ClientHandler {
 // @Success 201 {object} map[string]string
 // @Failure 400 {object} errors.AppError
 // @Failure 409 {object} errors.AppError
+// @Failure 503 {object} errors.AppError
 // @Router /api/clients/register [post]
 func (h *ClientHandler) Register(c *gin.Context) {
 	var req dto.CreateClientRequest
