@@ -89,7 +89,7 @@ func Load() *Configuration {
 			Host: GetOrThrow("SMTP_HOST"),
 			Port: GetOrDefault("SMTP_PORT", "587"),
 			User: GetOrThrow("SMTP_USER"),
-			Pass: GetOrThrow("SMTP_PASS"),
+			Pass: GetOrDefault("SMTP_PASS", ""),
 			From: GetOrThrow("EMAIL_FROM"),
 		},
 		URLs: URLConfig{
