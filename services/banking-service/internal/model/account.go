@@ -11,11 +11,13 @@ type Subtype string
 const (
 	AccountTypePersonal AccountType = "Personal"
 	AccountTypeBusiness AccountType = "Business"
+	AccountTypeBank     AccountType = "Bank"
 )
 
 const (
-	AccountKindCurrent AccountKind = "Current"
-	AccountKindForeign AccountKind = "Foreign"
+	AccountKindCurrent  AccountKind = "Current"
+	AccountKindForeign  AccountKind = "Foreign"
+	AccountKindInternal AccountKind = "Internal"
 )
 
 const (
@@ -106,4 +108,9 @@ type Account struct {
 
 func GetTypeCode(accountKind AccountKind, accountType AccountType, subtype Subtype) string {
 	return AccountKindCodes[accountKind] + SubtypeTypeCodes[subtype];
+}
+
+func UpdateBalances(account *Account, amount float64) {
+	account.Balance += amount
+	account.AvailableBalance += amount
 }

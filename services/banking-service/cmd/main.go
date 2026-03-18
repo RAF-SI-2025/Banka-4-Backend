@@ -16,6 +16,7 @@ import (
 	"common/pkg/jwt"
 	"common/pkg/logging"
 	"common/pkg/pb"
+	"context"
 
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
@@ -39,6 +40,9 @@ func main() {
 			func(cfg *config.Configuration) auth.TokenVerifier {
 				return jwt.NewJWTVerifier(cfg.JWTSecret)
 			},
+			func(cfg *config.Configuration) client.ExchangeRateClient {
+				return client.NewExchangeRateClient(cfg.ExchangeRateAPIKey)
+			},
 			client.NewUserServiceConnection,
 			fx.Annotate(
 				clientgrpc.NewUserServiceClient,
@@ -53,10 +57,17 @@ func main() {
 			handler.NewHealthHandler,
 			repository.NewAccountRepository,
 			repository.NewCompanyRepository,
+			repository.NewExchangeRateRepository,
+			service.NewExchangeService,
+			repository.NewPaymentRepository,
+			repository.NewTransactionRepository,
 			service.NewAccountService,
 			service.NewCompanyService,
+			service.NewPaymentService,
 			handler.NewAccountHandler,
 			handler.NewCompanyHandler,
+			handler.NewExchangeHandler,
+			handler.NewPaymentHandler,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)
@@ -67,10 +78,22 @@ func main() {
 				&model.WorkCode{},
 				&model.Company{},
 				&model.Account{},
+				&model.ExchangeRate{},
+				&model.Transaction{},
+				&model.Payment{},
 			); err != nil {
 				return err
 			}
 			return seed.Run(db)
+		}),
+		fx.Invoke(func(lc fx.Lifecycle, svc *service.ExchangeService) {
+			lc.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					svc.Initialize(ctx)
+					svc.StartBackgroundRefresh(ctx)
+					return nil
+				},
+			})
 		}),
 		fx.Invoke(server.NewServer),
 	).Run()
