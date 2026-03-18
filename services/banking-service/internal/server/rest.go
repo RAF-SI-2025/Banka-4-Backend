@@ -30,13 +30,14 @@ func NewServer(
 	companyHandler *handler.CompanyHandler,
 	exchangeHandler *handler.ExchangeHandler,
 	paymentHandler *handler.PaymentHandler,
+	loanHandler *handler.LoanHandler,
 	verifier auth.TokenVerifier,
 	permissions auth.PermissionProvider,
 ) {
 	r := gin.New()
 
 	InitRouter(r, cfg)
-	SetupRoutes(r, healthHandler, accountHandler, companyHandler, exchangeHandler, paymentHandler, verifier, permissions)
+	SetupRoutes(r, healthHandler, accountHandler, companyHandler, exchangeHandler, paymentHandler, loanHandler, verifier, permissions)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -64,16 +65,7 @@ func InitRouter(r *gin.Engine, cfg *config.Configuration) {
 	validator.RegisterValidators()
 }
 
-func SetupRoutes(
-	r *gin.Engine,
-	healthHandler *handler.HealthHandler,
-	accountHandler *handler.AccountHandler,
-	companyHandler *handler.CompanyHandler,
-	exchangeHandler *handler.ExchangeHandler,
-	paymentHandler *handler.PaymentHandler,
-	verifier auth.TokenVerifier,
-	permissions auth.PermissionProvider,
-) {
+func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, accountHandler *handler.AccountHandler, companyHandler *handler.CompanyHandler, exchangeHandler *handler.ExchangeHandler, paymentHandler *handler.PaymentHandler, loanHandler *handler.LoanHandler, verifier auth.TokenVerifier, permissions auth.PermissionProvider) {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	api := r.Group("/api")
@@ -96,13 +88,20 @@ func SetupRoutes(
 		{
 			exchange.GET("/rates", exchangeHandler.GetRates)
 			exchange.GET("/calculate", exchangeHandler.Calculate)
-    }
-    
+		}
+
 		payments := api.Group("/payments")
 		payments.Use(auth.Middleware(verifier, permissions))
 		{
 			payments.POST("", paymentHandler.CreatePayment)
 			payments.POST("/:id/verify", paymentHandler.VerifyPayment)
+		}
+		loans := api.Group("/loans")
+		loans.Use(auth.Middleware(verifier, permissions))
+		{
+			loans.GET("", loanHandler.GetLoans)
+			loans.GET("/:id", loanHandler.GetLoanByID)
+			loans.POST("/request", loanHandler.SubmitLoanRequest)
 		}
 	}
 }

@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/health": {
+        "/api/health": {
             "get": {
                 "description": "Returns service health status",
                 "produces": [
@@ -37,6 +37,372 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/loans": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Vraća listu kredita. Podržava sortiranje po iznosu.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "loans"
+                ],
+                "summary": "Pregled svih kredita klijenta",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sortiraj po iznosu: 'asc' ili 'desc'",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.LoanResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Nevalidni podaci, valuta se ne poklapa ili los period otplate",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Korisnik nije ulogovan",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Račun ne pripada klijentu",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Kredit nije pronađen",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Greška na serveru",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/loans/request": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Klijent podnosi zahtev za kredit. Vrši se validacija perioda otplate i valute, i računa se mesečna rata na osnovu marže banke.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "loans"
+                ],
+                "summary": "Podnošenje zahteva za kredit",
+                "parameters": [
+                    {
+                        "description": "Podaci za zahtev kredita",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateLoanRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateLoanResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Nevalidni podaci, valuta se ne poklapa ili los period otplate",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Korisnik nije ulogovan",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Račun ne pripada klijentu",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Kredit nije pronađen",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Greška na serveru",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/loans/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Vraća detaljne informacije o kreditu uključujući plan otplate (rate).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "loans"
+                ],
+                "summary": "Detalji kredita",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID kredita",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.LoanDetailsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Nevalidni podaci, valuta se ne poklapa ili los period otplate",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Korisnik nije ulogovan",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Račun ne pripada klijentu",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Kredit nije pronađen",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Greška na serveru",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "dto.CreateLoanRequest": {
+            "type": "object",
+            "required": [
+                "account_number",
+                "amount",
+                "currency",
+                "loan_type_id",
+                "repayment_period"
+            ],
+            "properties": {
+                "account_number": {
+                    "type": "string"
+                },
+                "amount": {
+                    "type": "number"
+                },
+                "currency": {
+                    "$ref": "#/definitions/model.CurrencyCode"
+                },
+                "loan_type_id": {
+                    "type": "integer"
+                },
+                "repayment_period": {
+                    "description": "Broj meseci",
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.CreateLoanResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "monthly_installment": {
+                    "type": "number"
+                },
+                "status": {
+                    "$ref": "#/definitions/model.LoanRequestStatus"
+                }
+            }
+        },
+        "dto.Installment": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "number": {
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "npr. \"PAID\", \"UPCOMING\"",
+                    "type": "string"
+                }
+            }
+        },
+        "dto.LoanDetailsResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "installments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.Installment"
+                    }
+                },
+                "interest_rate": {
+                    "type": "number"
+                },
+                "loan_type": {
+                    "type": "string"
+                },
+                "monthly_installment": {
+                    "type": "number"
+                },
+                "repayment_period": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/model.LoanRequestStatus"
+                }
+            }
+        },
+        "dto.LoanResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "loan_type": {
+                    "type": "string"
+                },
+                "monthly_installment": {
+                    "type": "number"
+                },
+                "status": {
+                    "$ref": "#/definitions/model.LoanRequestStatus"
+                }
+            }
+        },
+        "errors.AppError": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.CurrencyCode": {
+            "type": "string",
+            "enum": [
+                "EUR",
+                "USD",
+                "CHF",
+                "GBP",
+                "JPY",
+                "CAD",
+                "AUD",
+                "RSD"
+            ],
+            "x-enum-varnames": [
+                "EUR",
+                "USD",
+                "CHF",
+                "GBP",
+                "JPY",
+                "CAD",
+                "AUD",
+                "RSD"
+            ]
+        },
+        "model.LoanRequestStatus": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "APPROVED",
+                "REJECTED"
+            ],
+            "x-enum-varnames": [
+                "LoanRequestPending",
+                "LoanRequestApproved",
+                "LoanRequestRejected"
+            ]
         }
     },
     "securityDefinitions": {

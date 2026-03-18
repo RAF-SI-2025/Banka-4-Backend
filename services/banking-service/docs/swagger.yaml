@@ -1,10 +1,127 @@
+definitions:
+  dto.CreateLoanRequest:
+    properties:
+      account_number:
+        type: string
+      amount:
+        type: number
+      currency:
+        $ref: '#/definitions/model.CurrencyCode'
+      loan_type_id:
+        type: integer
+      repayment_period:
+        description: Broj meseci
+        type: integer
+    required:
+    - account_number
+    - amount
+    - currency
+    - loan_type_id
+    - repayment_period
+    type: object
+  dto.CreateLoanResponse:
+    properties:
+      id:
+        type: integer
+      monthly_installment:
+        type: number
+      status:
+        $ref: '#/definitions/model.LoanRequestStatus'
+    type: object
+  dto.Installment:
+    properties:
+      amount:
+        type: number
+      number:
+        type: integer
+      status:
+        description: npr. "PAID", "UPCOMING"
+        type: string
+    type: object
+  dto.LoanDetailsResponse:
+    properties:
+      amount:
+        type: number
+      currency:
+        type: string
+      id:
+        type: integer
+      installments:
+        items:
+          $ref: '#/definitions/dto.Installment'
+        type: array
+      interest_rate:
+        type: number
+      loan_type:
+        type: string
+      monthly_installment:
+        type: number
+      repayment_period:
+        type: integer
+      status:
+        $ref: '#/definitions/model.LoanRequestStatus'
+    type: object
+  dto.LoanResponse:
+    properties:
+      amount:
+        type: number
+      currency:
+        type: string
+      id:
+        type: integer
+      loan_type:
+        type: string
+      monthly_installment:
+        type: number
+      status:
+        $ref: '#/definitions/model.LoanRequestStatus'
+    type: object
+  errors.AppError:
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  model.CurrencyCode:
+    enum:
+    - EUR
+    - USD
+    - CHF
+    - GBP
+    - JPY
+    - CAD
+    - AUD
+    - RSD
+    type: string
+    x-enum-varnames:
+    - EUR
+    - USD
+    - CHF
+    - GBP
+    - JPY
+    - CAD
+    - AUD
+    - RSD
+  model.LoanRequestStatus:
+    enum:
+    - PENDING
+    - APPROVED
+    - REJECTED
+    type: string
+    x-enum-varnames:
+    - LoanRequestPending
+    - LoanRequestApproved
+    - LoanRequestRejected
 info:
   contact: {}
   description: API for managing accounts, balances, and banking operations.
   title: Banking Service API
   version: "1.0"
 paths:
-  /health:
+  /api/health:
     get:
       description: Returns service health status
       produces:
@@ -19,6 +136,134 @@ paths:
       summary: Health check
       tags:
       - health
+  /api/loans:
+    get:
+      description: Vraća listu kredita. Podržava sortiranje po iznosu.
+      parameters:
+      - description: 'Sortiraj po iznosu: ''asc'' ili ''desc'''
+        in: query
+        name: sort
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.LoanResponse'
+            type: array
+        "400":
+          description: Nevalidni podaci, valuta se ne poklapa ili los period otplate
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Korisnik nije ulogovan
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Račun ne pripada klijentu
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Kredit nije pronađen
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Greška na serveru
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Pregled svih kredita klijenta
+      tags:
+      - loans
+  /api/loans/{id}:
+    get:
+      description: Vraća detaljne informacije o kreditu uključujući plan otplate (rate).
+      parameters:
+      - description: ID kredita
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.LoanDetailsResponse'
+        "400":
+          description: Nevalidni podaci, valuta se ne poklapa ili los period otplate
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Korisnik nije ulogovan
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Račun ne pripada klijentu
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Kredit nije pronađen
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Greška na serveru
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Detalji kredita
+      tags:
+      - loans
+  /api/loans/request:
+    post:
+      consumes:
+      - application/json
+      description: Klijent podnosi zahtev za kredit. Vrši se validacija perioda otplate
+        i valute, i računa se mesečna rata na osnovu marže banke.
+      parameters:
+      - description: Podaci za zahtev kredita
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateLoanRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.CreateLoanResponse'
+        "400":
+          description: Nevalidni podaci, valuta se ne poklapa ili los period otplate
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Korisnik nije ulogovan
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Račun ne pripada klijentu
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Kredit nije pronađen
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Greška na serveru
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Podnošenje zahteva za kredit
+      tags:
+      - loans
 securityDefinitions:
   BearerAuth:
     description: JWT Authorization header using the Bearer scheme.
