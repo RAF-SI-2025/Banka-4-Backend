@@ -9,6 +9,10 @@
 bin/
 obj/
 *.log
+**/*.log
+**/tmp/
+**/tmp
+services/**/main
 
 # editor fajlovi
 *.swp
@@ -16,6 +20,8 @@ obj/
 *.DS_Store
 .idea/
 .vscode/
+**/.idea/
+**/.vscode/
 
 # test fajlovi
 *_test.go
@@ -24,3 +30,10 @@ obj/
 vendor/
 
 tmp/
+
+.git
+**/.git
+tmp
+*.log
+*.md
+node_modules
