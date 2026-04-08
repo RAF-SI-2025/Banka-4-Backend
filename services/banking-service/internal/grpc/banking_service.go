@@ -12,33 +12,36 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
-  "github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/service"
 )
 
 type BankingService struct {
 	pb.UnimplementedBankingServiceServer
-	accountRepo     repository.AccountRepository
-	paymentService  *service.PaymentService
-  transactionRepo      repository.TransactionRepository
+	accountRepo          repository.AccountRepository
+	paymentService       *service.PaymentService
+	transactionRepo      repository.TransactionRepository
 	transactionProcessor *service.TransactionProcessor
-	exchangeService *service.ExchangeService
+	exchangeService      *service.ExchangeService
+	otcFundsService      *service.OtcFundsService
 }
 
 func NewBankingService(
 	accountRepo repository.AccountRepository,
-  paymentService *service.PaymentService,
+	paymentService *service.PaymentService,
 	transactionRepo repository.TransactionRepository,
 	transactionProcessor *service.TransactionProcessor,
 	exchangeService *service.ExchangeService,
+	otcFundsService *service.OtcFundsService,
 ) *BankingService {
 	return &BankingService{
 		accountRepo:          accountRepo,
-    paymentService:       paymentService,
+		paymentService:       paymentService,
 		transactionRepo:      transactionRepo,
 		transactionProcessor: transactionProcessor,
 		exchangeService:      exchangeService,
+		otcFundsService:      otcFundsService,
 	}
 }
 
@@ -215,6 +218,49 @@ func (s *BankingService) ExecuteTradeSettlement(ctx context.Context, req *pb.Exe
 	}, nil
 }
 
+func (s *BankingService) ReserveOtcFunds(ctx context.Context, req *pb.ReserveOtcFundsRequest) (*pb.OtcFundsReservationResponse, error) {
+	reservation, err := s.otcFundsService.Reserve(
+		ctx,
+		req.GetExecutionId(),
+		req.GetBuyerAccountNumber(),
+		req.GetSellerAccountNumber(),
+		req.GetAmount(),
+		model.CurrencyCode(strings.ToUpper(strings.TrimSpace(req.GetCurrencyCode()))),
+	)
+	if err != nil {
+		return nil, errors.MapGrpcToHttpError(err)
+	}
+
+	return otcFundsReservationResponse(reservation), nil
+}
+
+func (s *BankingService) ReleaseOtcFunds(ctx context.Context, req *pb.OtcFundsRequest) (*pb.OtcFundsReservationResponse, error) {
+	reservation, err := s.otcFundsService.Release(ctx, req.GetExecutionId())
+	if err != nil {
+		return nil, errors.MapGrpcToHttpError(err)
+	}
+
+	return otcFundsReservationResponse(reservation), nil
+}
+
+func (s *BankingService) CommitOtcFunds(ctx context.Context, req *pb.OtcFundsRequest) (*pb.OtcFundsReservationResponse, error) {
+	reservation, err := s.otcFundsService.Commit(ctx, req.GetExecutionId())
+	if err != nil {
+		return nil, errors.MapGrpcToHttpError(err)
+	}
+
+	return otcFundsReservationResponse(reservation), nil
+}
+
+func (s *BankingService) RefundOtcFunds(ctx context.Context, req *pb.OtcFundsRequest) (*pb.OtcFundsReservationResponse, error) {
+	reservation, err := s.otcFundsService.Refund(ctx, req.GetExecutionId())
+	if err != nil {
+		return nil, errors.MapGrpcToHttpError(err)
+	}
+
+	return otcFundsReservationResponse(reservation), nil
+}
+
 func resolveBankAccountNumber(currencyCode string) (string, error) {
 	accountNumber, ok := service.BankAccounts[model.CurrencyCode(currencyCode)]
 	if !ok {
@@ -238,4 +284,34 @@ func mapTradeSettlementError(err error) error {
 	}
 
 	return status.Error(codes.Internal, err.Error())
+}
+
+func otcFundsReservationResponse(reservation *model.OtcFundsReservation) *pb.OtcFundsReservationResponse {
+	return &pb.OtcFundsReservationResponse{
+		ExecutionId:             reservation.ExecutionID,
+		Status:                  mapOtcFundsStatus(reservation.Status),
+		TradeAmount:             reservation.TradeAmount,
+		TradeCurrencyCode:       string(reservation.TradeCurrencyCode),
+		SourceAmount:            reservation.SourceAmount,
+		SourceCurrencyCode:      string(reservation.SourceCurrencyCode),
+		DestinationAmount:       reservation.DestinationAmount,
+		DestinationCurrencyCode: string(reservation.DestinationCurrencyCode),
+		BuyerAccountNumber:      reservation.BuyerAccountNumber,
+		SellerAccountNumber:     reservation.SellerAccountNumber,
+	}
+}
+
+func mapOtcFundsStatus(statusValue model.OtcFundsReservationStatus) pb.OtcFundsReservationStatus {
+	switch statusValue {
+	case model.OtcFundsReservationStatusReserved:
+		return pb.OtcFundsReservationStatus_OTC_FUNDS_RESERVATION_STATUS_RESERVED
+	case model.OtcFundsReservationStatusReleased:
+		return pb.OtcFundsReservationStatus_OTC_FUNDS_RESERVATION_STATUS_RELEASED
+	case model.OtcFundsReservationStatusCommitted:
+		return pb.OtcFundsReservationStatus_OTC_FUNDS_RESERVATION_STATUS_COMMITTED
+	case model.OtcFundsReservationStatusRefunded:
+		return pb.OtcFundsReservationStatus_OTC_FUNDS_RESERVATION_STATUS_REFUNDED
+	default:
+		return pb.OtcFundsReservationStatus_OTC_FUNDS_RESERVATION_STATUS_UNSPECIFIED
+	}
 }

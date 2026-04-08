@@ -10,12 +10,24 @@ service BankingService {
   rpc GetAccountsByClientID(GetAccountsByClientIDRequest) returns (GetAccountsByClientIDResponse);
   rpc ConvertCurrency(ConvertCurrencyRequest) returns (ConvertCurrencyResponse);
   rpc ExecuteTradeSettlement(ExecuteTradeSettlementRequest) returns (ExecuteTradeSettlementResponse);
+  rpc ReserveOtcFunds(ReserveOtcFundsRequest) returns (OtcFundsReservationResponse);
+  rpc ReleaseOtcFunds(OtcFundsRequest) returns (OtcFundsReservationResponse);
+  rpc CommitOtcFunds(OtcFundsRequest) returns (OtcFundsReservationResponse);
+  rpc RefundOtcFunds(OtcFundsRequest) returns (OtcFundsReservationResponse);
 }
 
 enum TradeSettlementDirection {
   TRADE_SETTLEMENT_DIRECTION_UNSPECIFIED = 0;
   TRADE_SETTLEMENT_DIRECTION_BUY = 1;
   TRADE_SETTLEMENT_DIRECTION_SELL = 2;
+}
+
+enum OtcFundsReservationStatus {
+  OTC_FUNDS_RESERVATION_STATUS_UNSPECIFIED = 0;
+  OTC_FUNDS_RESERVATION_STATUS_RESERVED = 1;
+  OTC_FUNDS_RESERVATION_STATUS_RELEASED = 2;
+  OTC_FUNDS_RESERVATION_STATUS_COMMITTED = 3;
+  OTC_FUNDS_RESERVATION_STATUS_REFUNDED = 4;
 }
 
 message GetAccountByNumberRequest {
@@ -81,4 +93,29 @@ message ExecuteTradeSettlementResponse {
   string source_currency_code = 3;
   double destination_amount = 4;
   string destination_currency_code = 5;
+}
+
+message ReserveOtcFundsRequest {
+  string execution_id = 1;
+  string buyer_account_number = 2;
+  string seller_account_number = 3;
+  double amount = 4;
+  string currency_code = 5;
+}
+
+message OtcFundsRequest {
+  string execution_id = 1;
+}
+
+message OtcFundsReservationResponse {
+  string execution_id = 1;
+  OtcFundsReservationStatus status = 2;
+  double trade_amount = 3;
+  string trade_currency_code = 4;
+  double source_amount = 5;
+  string source_currency_code = 6;
+  double destination_amount = 7;
+  string destination_currency_code = 8;
+  string buyer_account_number = 9;
+  string seller_account_number = 10;
 }

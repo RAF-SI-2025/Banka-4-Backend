@@ -8,5 +8,7 @@ import (
 
 type AssetOwnershipRepository interface {
 	FindByIdentity(ctx context.Context, identityID uint, ownerType model.OwnerType) ([]model.AssetOwnership, error)
+	FindByOwnerAndAsset(ctx context.Context, identityID uint, ownerType model.OwnerType, assetID uint) (*model.AssetOwnership, error)
+	FindByOwnerAndAssetForUpdate(ctx context.Context, identityID uint, ownerType model.OwnerType, assetID uint) (*model.AssetOwnership, error)
 	Upsert(ctx context.Context, ownership *model.AssetOwnership) error
 }

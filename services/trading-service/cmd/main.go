@@ -66,6 +66,7 @@ func main() {
 			handler.NewHealthHandler,
 			repository.NewAssetRepository,
 			repository.NewAssetOwnershipRepository,
+			repository.NewGormTransactionManager,
 			repository.NewForexRepository,
 			func(cfg *config.Configuration) client.ExchangeRateClient {
 				return client.NewExchangeRateClient(cfg.ExchangeRateAPIKey)
@@ -89,7 +90,11 @@ func main() {
 			handler.NewPortfolioHandler,
 			repository.NewOrderRepository,
 			repository.NewOrderTransactionRepository,
+			repository.NewOtcContractRepository,
+			repository.NewOtcShareReservationRepository,
+			repository.NewOtcExecutionSagaRepository,
 			service.NewOrderService,
+			service.NewOtcExecutionService,
 			handler.NewOrderHandler,
 			repository.NewTaxRepository,
 			service.NewTaxService,
@@ -118,6 +123,9 @@ func main() {
 				&model.Order{},
 				&model.AssetOwnership{},
 				&model.OrderTransaction{},
+				&model.OtcContract{},
+				&model.OtcShareReservation{},
+				&model.OtcExecutionSaga{},
 				&model.ForexPair{},
 				&model.FuturesContract{},
 				&model.AccumulatedTax{},
@@ -200,6 +208,18 @@ func main() {
 				},
 				OnStop: func(ctx context.Context) error {
 					orderService.Stop()
+					return nil
+				},
+			})
+		}),
+		fx.Invoke(func(lifecycle fx.Lifecycle, otcExecutionService *service.OtcExecutionService) {
+			lifecycle.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					otcExecutionService.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					otcExecutionService.Stop()
 					return nil
 				},
 			})
