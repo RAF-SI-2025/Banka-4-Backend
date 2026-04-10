@@ -78,7 +78,6 @@ func (s *OtcContractService) CreateContract(ctx context.Context, req dto.CreateO
 }
 
 // AcceptContract poziva prodavac kada prihvata ponudu.
-// TODO: ako su i BankApproved i SellerApproved true, finalizovati ugovor (prenijeti novac i akcije)
 func (s *OtcContractService) AcceptContract(ctx context.Context, contractID uint, sellerID uint) (*model.OtcContract, error) {
 	contract, err := s.otcContractRepo.FindByID(ctx, contractID)
 	if err != nil {
@@ -132,34 +131,128 @@ func (s *OtcContractService) RejectContract(ctx context.Context, contractID uint
 }
 
 // ApproveBankContract poziva supervizor banke kada odobrava ugovor.
-// TODO: postaviti BankApproved = true
-// TODO: ako je SellerApproved takodje true, finalizovati ugovor (prenijeti novac i akcije)
 func (s *OtcContractService) ApproveBankContract(ctx context.Context, contractID uint) (*model.OtcContract, error) {
-	// TODO: implementirati
-	panic("nije implementirano")
+	contract, err := s.otcContractRepo.FindByID(ctx, contractID)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	if contract == nil {
+		return nil, errors.NotFoundErr("ugovor nije pronadjen")
+	}
+	if contract.BankApproved != nil {
+		return nil, errors.BadRequestErr("ugovor je vec obradjeni")
+	}
+
+	approved := true
+	contract.BankApproved = &approved
+
+	if contract.SellerApproved != nil && *contract.SellerApproved {
+		// TODO: finalizacija — prenos novca i akcija (ostaviti za zasebni task)
+		now := time.Now()
+		contract.FinalizedAt = &now
+	}
+
+	if err := s.otcContractRepo.Save(ctx, contract); err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	return contract, nil
 }
 
 // RejectBankContract poziva supervizor banke kada odbija ugovor.
-// TODO: postaviti BankApproved = false, postaviti Comment
 func (s *OtcContractService) RejectBankContract(ctx context.Context, contractID uint, req dto.RejectOtcContractRequest) (*model.OtcContract, error) {
-	// TODO: implementirati
-	panic("nije implementirano")
+	contract, err := s.otcContractRepo.FindByID(ctx, contractID)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	if contract == nil {
+		return nil, errors.NotFoundErr("ugovor nije pronadjen")
+	}
+	if contract.BankApproved != nil {
+		return nil, errors.BadRequestErr("ugovor je vec obradjeni")
+	}
+
+	rejected := false
+	contract.BankApproved = &rejected
+	contract.Comment = &req.Comment
+
+	if err := s.otcContractRepo.Save(ctx, contract); err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	return contract, nil
 }
 
 // GetContractsForBuyer vraca sve ugovore u kojima je dati korisnik kupac.
 func (s *OtcContractService) GetContractsForBuyer(ctx context.Context, buyerID uint) ([]model.OtcContract, error) {
-	// TODO: implementirati
-	panic("nije implementirano")
+	contracts, err := s.otcContractRepo.FindByBuyerID(ctx, buyerID)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	return contracts, nil
 }
 
 // GetContractsForSeller vraca sve ugovore u kojima je dati korisnik prodavac.
 func (s *OtcContractService) GetContractsForSeller(ctx context.Context, sellerID uint) ([]model.OtcContract, error) {
-	// TODO: implementirati
-	panic("nije implementirano")
+	contracts, err := s.otcContractRepo.FindBySellerID(ctx, sellerID)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	return contracts, nil
 }
 
 // GetPendingBankApproval vraca sve ugovore koji cekaju odobrenje supervizora banke.
 func (s *OtcContractService) GetPendingBankApproval(ctx context.Context) ([]model.OtcContract, error) {
-	// TODO: implementirati
-	panic("nije implementirano")
+	contracts, err := s.otcContractRepo.FindPendingBankApproval(ctx)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	return contracts, nil
+}
+
+func (s *OtcContractService) CreateCounterOffer(ctx context.Context, contractID uint, req dto.CounterOfferRequest) (*model.OtcContract, error) {
+	original, err := s.otcContractRepo.FindByID(ctx, contractID)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	if original == nil {
+		return nil, errors.NotFoundErr("ugovor nije pronadjen")
+	}
+
+	callerID, err := auth.GetSubjectFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Samo prodavac može da pošalje protivponudu
+	if original.SellerID != callerID {
+		return nil, errors.ForbiddenErr("nemate pravo da posaljete protivponudu")
+	}
+	if original.SellerApproved != nil {
+		return nil, errors.BadRequestErr("ugovor je vec obradjeni")
+	}
+
+	// Odbaci originalnu ponudu
+	rejected := false
+	original.SellerApproved = &rejected
+	comment := "protivponuda poslata"
+	original.Comment = &comment
+	if err := s.otcContractRepo.Save(ctx, original); err != nil {
+		return nil, errors.InternalErr(err)
+	}
+
+	// Kreiraj novu ponudu sa zamenjenima stranama
+	totalPrice := req.Quantity * req.PricePerUnit
+	contractNumber := fmt.Sprintf("%d/%d", time.Now().UnixNano(), original.AssetID)
+	counter := &model.OtcContract{
+		BuyerID:        original.SellerID, // prodavac sad postaje kupac
+		SellerID:       original.BuyerID,
+		AssetID:        original.AssetID,
+		Quantity:       req.Quantity,
+		PricePerUnit:   req.PricePerUnit,
+		TotalPrice:     totalPrice,
+		ContractNumber: contractNumber,
+	}
+	if err := s.otcContractRepo.Create(ctx, counter); err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	return counter, nil
 }

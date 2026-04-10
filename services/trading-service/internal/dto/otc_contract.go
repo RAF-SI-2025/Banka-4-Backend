@@ -17,23 +17,28 @@ type RejectOtcContractRequest struct {
 	Comment string `json:"comment" binding:"required"`
 }
 
+type CounterOfferRequest struct {
+	Quantity     float64 `json:"quantity" binding:"required,gt=0"`
+	PricePerUnit float64 `json:"price_per_unit" binding:"required,gt=0"`
+}
+
 type OtcContractResponse struct {
-	OtcContractID  uint      `json:"otc_contract_id"`
-	BuyerID        uint      `json:"buyer_id"`
-	SellerID       uint      `json:"seller_id"`
-	AssetID        uint      `json:"asset_id"`
-	Ticker         string    `json:"ticker"`
-	AssetName      string    `json:"asset_name"`
-	Quantity       float64   `json:"quantity"`
-	PricePerUnit   float64   `json:"price_per_unit"`
-	TotalPrice     float64   `json:"total_price"`
-	BankApproved   *bool     `json:"bank_approved"`
-	SellerApproved *bool     `json:"seller_approved"`
-	Comment        *string   `json:"comment,omitempty"`
-	ContractNumber string    `json:"contract_number"`
+	OtcContractID  uint       `json:"otc_contract_id"`
+	BuyerID        uint       `json:"buyer_id"`
+	SellerID       uint       `json:"seller_id"`
+	AssetID        uint       `json:"asset_id"`
+	Ticker         string     `json:"ticker"`
+	AssetName      string     `json:"asset_name"`
+	Quantity       float64    `json:"quantity"`
+	PricePerUnit   float64    `json:"price_per_unit"`
+	TotalPrice     float64    `json:"total_price"`
+	BankApproved   *bool      `json:"bank_approved"`
+	SellerApproved *bool      `json:"seller_approved"`
+	Comment        *string    `json:"comment,omitempty"`
+	ContractNumber string     `json:"contract_number"`
 	FinalizedAt    *time.Time `json:"finalized_at,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 func ToOtcContractResponse(c model.OtcContract) OtcContractResponse {
