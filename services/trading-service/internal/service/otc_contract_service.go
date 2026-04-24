@@ -96,6 +96,11 @@ func (s *OtcContractService) AcceptContract(ctx context.Context, contractID uint
 	approved := true
 	contract.SellerApproved = &approved
 
+	if contract.BankApproved != nil && *contract.BankApproved {
+		now := time.Now()
+		contract.FinalizedAt = &now
+	}
+
 	if err := s.otcContractRepo.Save(ctx, contract); err != nil {
 		return nil, errors.InternalErr(err)
 	}
@@ -208,51 +213,3 @@ func (s *OtcContractService) GetPendingBankApproval(ctx context.Context) ([]mode
 	return contracts, nil
 }
 
-func (s *OtcContractService) CreateCounterOffer(ctx context.Context, contractID uint, req dto.CounterOfferRequest) (*model.OtcContract, error) {
-	original, err := s.otcContractRepo.FindByID(ctx, contractID)
-	if err != nil {
-		return nil, errors.InternalErr(err)
-	}
-	if original == nil {
-		return nil, errors.NotFoundErr("ugovor nije pronadjen")
-	}
-
-	callerID, err := auth.GetSubjectFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Samo prodavac može da pošalje protivponudu
-	if original.SellerID != callerID {
-		return nil, errors.ForbiddenErr("nemate pravo da posaljete protivponudu")
-	}
-	if original.SellerApproved != nil {
-		return nil, errors.BadRequestErr("ugovor je vec obradjeni")
-	}
-
-	// Odbaci originalnu ponudu
-	rejected := false
-	original.SellerApproved = &rejected
-	comment := "protivponuda poslata"
-	original.Comment = &comment
-	if err := s.otcContractRepo.Save(ctx, original); err != nil {
-		return nil, errors.InternalErr(err)
-	}
-
-	// Kreiraj novu ponudu sa zamenjenima stranama
-	totalPrice := req.Quantity * req.PricePerUnit
-	contractNumber := fmt.Sprintf("%d/%d", time.Now().UnixNano(), original.AssetID)
-	counter := &model.OtcContract{
-		BuyerID:        original.SellerID, // prodavac sad postaje kupac
-		SellerID:       original.BuyerID,
-		AssetID:        original.AssetID,
-		Quantity:       req.Quantity,
-		PricePerUnit:   req.PricePerUnit,
-		TotalPrice:     totalPrice,
-		ContractNumber: contractNumber,
-	}
-	if err := s.otcContractRepo.Create(ctx, counter); err != nil {
-		return nil, errors.InternalErr(err)
-	}
-	return counter, nil
-}

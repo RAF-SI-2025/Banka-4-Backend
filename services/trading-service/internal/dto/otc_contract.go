@@ -17,11 +17,6 @@ type RejectOtcContractRequest struct {
 	Comment string `json:"comment" binding:"required"`
 }
 
-type CounterOfferRequest struct {
-	Quantity     float64 `json:"quantity" binding:"required,gt=0"`
-	PricePerUnit float64 `json:"price_per_unit" binding:"required,gt=0"`
-}
-
 type OtcContractResponse struct {
 	OtcContractID  uint       `json:"otc_contract_id"`
 	BuyerID        uint       `json:"buyer_id"`

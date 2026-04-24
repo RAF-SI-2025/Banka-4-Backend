@@ -147,8 +147,8 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 			otc.POST("/offers", auth.RequireIdentityType(auth.IdentityClient), otcHandler.CreateOffer)
 			otc.PATCH("/offers/:id/accept", auth.RequireIdentityType(auth.IdentityClient), otcHandler.AcceptOffer)
 			otc.PATCH("/offers/:id/reject", auth.RequireIdentityType(auth.IdentityClient), otcHandler.RejectOffer)
-			otc.POST("/offers/:id/counter", auth.RequireIdentityType(auth.IdentityClient), otcHandler.CounterOffer)
 			otc.PATCH("/offers/:id/bank-approve", middleware.RequireSupervisor(userClient), otcHandler.ApproveBankOffer)
+			otc.PATCH("/offers/:id/bank-reject", middleware.RequireSupervisor(userClient), otcHandler.RejectBankOffer)
 		}
 	}
 }

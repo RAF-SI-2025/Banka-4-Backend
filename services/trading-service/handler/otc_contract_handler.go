@@ -107,29 +107,7 @@ func (h *OtcContractHandler) RejectOffer(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToOtcContractResponse(*contract))
 }
 
-// CounterOffer — prodavac šalje protivponudu
-func (h *OtcContractHandler) CounterOffer(c *gin.Context) {
-	id, err := parseContractID(c)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	var req dto.CounterOfferRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
-		return
-	}
-
-	contract, err := h.service.CreateCounterOffer(c.Request.Context(), id, req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.JSON(http.StatusCreated, dto.ToOtcContractResponse(*contract))
-}
-
-// ApproveBankOffer — supervizor banke odobrava (opciono za ovaj sprint)
+// ApproveBankOffer — supervizor banke odobrava
 func (h *OtcContractHandler) ApproveBankOffer(c *gin.Context) {
 	id, err := parseContractID(c)
 	if err != nil {
@@ -137,6 +115,26 @@ func (h *OtcContractHandler) ApproveBankOffer(c *gin.Context) {
 		return
 	}
 	contract, err := h.service.ApproveBankContract(c.Request.Context(), id)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.ToOtcContractResponse(*contract))
+}
+
+// RejectBankOffer — supervizor banke odbija
+func (h *OtcContractHandler) RejectBankOffer(c *gin.Context) {
+	id, err := parseContractID(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	var req dto.RejectOtcContractRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errors.BadRequestErr(err.Error()))
+		return
+	}
+	contract, err := h.service.RejectBankContract(c.Request.Context(), id, req)
 	if err != nil {
 		c.Error(err)
 		return
