@@ -49,13 +49,25 @@ func (f *fakeFundRepo) Create(ctx context.Context, fund *model.InvestmentFund) e
 // ── Fake ClientFundPosition Repo ──────────────────────────────────
 
 type fakePositionRepo struct {
-	findResult *model.ClientFundPosition
-	findErr    error
-	upsertErr  error
+	findResult      *model.ClientFundPosition
+	findErr         error
+	findByClientRes []model.ClientFundPosition
+	findByClientErr error
+	findByFundRes   []model.ClientFundPosition
+	findByFundErr   error
+	upsertErr       error
 }
 
 func (f *fakePositionRepo) FindByClientAndFund(ctx context.Context, clientID uint, ownerType model.OwnerType, fundID uint) (*model.ClientFundPosition, error) {
 	return f.findResult, f.findErr
+}
+
+func (f *fakePositionRepo) FindByClient(ctx context.Context, clientID uint, ownerType model.OwnerType) ([]model.ClientFundPosition, error) {
+	return f.findByClientRes, f.findByClientErr
+}
+
+func (f *fakePositionRepo) FindByFund(ctx context.Context, fundID uint) ([]model.ClientFundPosition, error) {
+	return f.findByFundRes, f.findByFundErr
 }
 
 func (f *fakePositionRepo) Upsert(ctx context.Context, position *model.ClientFundPosition) error {
@@ -145,7 +157,37 @@ func validFundRequest() dto.CreateFundRequest {
 }
 
 func newTestFundService(fundRepo *fakeFundRepo, bankingClient *fakeFundBankingClient) *InvestmentFundService {
-	return NewInvestmentFundService(fundRepo, &fakePositionRepo{}, &fakeInvestmentRepo{}, bankingClient)
+	return NewInvestmentFundService(
+		fundRepo,
+		&fakePositionRepo{},
+		&fakeInvestmentRepo{},
+		&fakeAssetOwnershipRepo{},
+		&fakeStockRepo{},
+		&fakeOptionRepo{},
+		&fakeFuturesRepo{},
+		&fakeForexRepo{},
+		bankingClient,
+	)
+}
+
+func newTestFundServiceFull(
+	fundRepo *fakeFundRepo,
+	positionRepo *fakePositionRepo,
+	ownershipRepo *fakeAssetOwnershipRepo,
+	stockRepo *fakeStockRepo,
+	bankingClient *fakeFundBankingClient,
+) *InvestmentFundService {
+	return NewInvestmentFundService(
+		fundRepo,
+		positionRepo,
+		&fakeInvestmentRepo{},
+		ownershipRepo,
+		stockRepo,
+		&fakeOptionRepo{},
+		&fakeFuturesRepo{},
+		&fakeForexRepo{},
+		bankingClient,
+	)
 }
 
 // ── Tests: CreateFund ─────────────────────────────────────────────
@@ -227,6 +269,122 @@ func TestCreateFund_RepoCreateError(t *testing.T) {
 	svc := newTestFundService(fundRepo, bankingClient)
 
 	_, err := svc.CreateFund(fundSupervisorCtx(), validFundRequest())
+
+	require.Error(t, err)
+}
+
+// ── Tests: GetClientFundPositions ─────────────────────────────────
+
+func TestGetClientFundPositions_Empty(t *testing.T) {
+	svc := newTestFundServiceFull(
+		&fakeFundRepo{},
+		&fakePositionRepo{findByClientRes: nil},
+		&fakeAssetOwnershipRepo{},
+		&fakeStockRepo{},
+		&fakeFundBankingClient{},
+	)
+
+	result, err := svc.GetClientFundPositions(context.Background(), 99)
+
+	require.NoError(t, err)
+	require.Empty(t, result)
+}
+
+func TestGetClientFundPositions_PositionRepoError(t *testing.T) {
+	svc := newTestFundServiceFull(
+		&fakeFundRepo{},
+		&fakePositionRepo{findByClientErr: errors.New("db error")},
+		&fakeAssetOwnershipRepo{},
+		&fakeStockRepo{},
+		&fakeFundBankingClient{},
+	)
+
+	_, err := svc.GetClientFundPositions(context.Background(), 1)
+
+	require.Error(t, err)
+}
+
+func TestGetClientFundPositions_ZeroTotalInvested(t *testing.T) {
+	// Fund has one other position with 0 total invested (edge: avoid divide-by-zero)
+	fund := &model.InvestmentFund{FundID: 1, Name: "Test Fund", Description: "desc"}
+	pos := model.ClientFundPosition{
+		ClientID:            1,
+		OwnerType:           model.OwnerTypeClient,
+		FundID:              1,
+		Fund:                fund,
+		TotalInvestedAmount: 1000,
+	}
+	// FindByFund returns only this position, so fundTotalInvested = 1000
+	svc := newTestFundServiceFull(
+		&fakeFundRepo{},
+		&fakePositionRepo{
+			findByClientRes: []model.ClientFundPosition{pos},
+			findByFundRes:   []model.ClientFundPosition{pos},
+		},
+		&fakeAssetOwnershipRepo{},
+		&fakeStockRepo{},
+		&fakeFundBankingClient{},
+	)
+
+	result, err := svc.GetClientFundPositions(context.Background(), 1)
+
+	require.NoError(t, err)
+	require.Len(t, result, 1)
+	require.Equal(t, uint(1), result[0].FundID)
+	require.InDelta(t, 1.0, result[0].ClientsSharePercent, 0.001)  // sole investor = 100%
+	require.InDelta(t, 0.0, result[0].ClientsShareValueRSD, 0.001) // fund holds no securities
+	require.InDelta(t, -1000.0, result[0].TotalProfit, 0.001)
+}
+
+func TestGetClientFundPositions_ShareCalculation(t *testing.T) {
+	// Client invested 500 out of 2000 total → 25% share
+	// Fund holds no securities → shares value = 0, profit = -500
+	fund := &model.InvestmentFund{FundID: 2, Name: "Growth Fund", Description: "desc"}
+	clientPos := model.ClientFundPosition{
+		ClientID: 5, OwnerType: model.OwnerTypeClient, FundID: 2, Fund: fund, TotalInvestedAmount: 500,
+	}
+	otherPos := model.ClientFundPosition{
+		ClientID: 6, OwnerType: model.OwnerTypeClient, FundID: 2, Fund: fund, TotalInvestedAmount: 1500,
+	}
+
+	svc := newTestFundServiceFull(
+		&fakeFundRepo{},
+		&fakePositionRepo{
+			findByClientRes: []model.ClientFundPosition{clientPos},
+			findByFundRes:   []model.ClientFundPosition{clientPos, otherPos},
+		},
+		&fakeAssetOwnershipRepo{},
+		&fakeStockRepo{},
+		&fakeFundBankingClient{},
+	)
+
+	result, err := svc.GetClientFundPositions(context.Background(), 5)
+
+	require.NoError(t, err)
+	require.Len(t, result, 1)
+	require.InDelta(t, 0.25, result[0].ClientsSharePercent, 0.001) // 500 / 2000 = 0.25
+	require.InDelta(t, 0.0, result[0].ClientsShareValueRSD, 0.001)
+	require.InDelta(t, -500.0, result[0].TotalProfit, 0.001)
+}
+
+func TestGetClientFundPositions_FindByFundError(t *testing.T) {
+	fund := &model.InvestmentFund{FundID: 1, Name: "Fund", Description: "desc"}
+	pos := model.ClientFundPosition{
+		ClientID: 1, OwnerType: model.OwnerTypeClient, FundID: 1, Fund: fund, TotalInvestedAmount: 1000,
+	}
+
+	svc := newTestFundServiceFull(
+		&fakeFundRepo{},
+		&fakePositionRepo{
+			findByClientRes: []model.ClientFundPosition{pos},
+			findByFundErr:   errors.New("db error"),
+		},
+		&fakeAssetOwnershipRepo{},
+		&fakeStockRepo{},
+		&fakeFundBankingClient{},
+	)
+
+	_, err := svc.GetClientFundPositions(context.Background(), 1)
 
 	require.Error(t, err)
 }

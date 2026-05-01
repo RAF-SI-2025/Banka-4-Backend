@@ -84,3 +84,31 @@ func (h *InvestmentFundHandler) InvestInFund(c *gin.Context) {
 
 	c.JSON(http.StatusOK, resp)
 }
+
+// GetClientFundPositions godoc
+// @Summary Get client's investment fund positions
+// @Description Returns all investment fund positions for the specified client, including share percentage and current value in RSD.
+// @Tags investment-funds
+// @Produce json
+// @Param clientId path int true "Client ID"
+// @Success 200 {array} dto.FundPositionSummaryResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/client/{clientId}/funds [get]
+func (h *InvestmentFundHandler) GetClientFundPositions(c *gin.Context) {
+	clientID, err := strconv.ParseUint(c.Param("clientId"), 10, 64)
+	if err != nil || clientID == 0 {
+		c.Error(errors.BadRequestErr("invalid client id"))
+		return
+	}
+
+	resp, err := h.service.GetClientFundPositions(c.Request.Context(), uint(clientID))
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}

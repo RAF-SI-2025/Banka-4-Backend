@@ -135,6 +135,7 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 			client.GET("/:clientId/assets/profit", portfolioHandler.GetClientPortfolioProfit)
 			client.GET("/:clientId/accumulated-tax", taxHandler.GetClientAccumulatedTax)
 			client.PATCH("/:clientId/assets/:ownershipId/publish", otcHandler.PublishAssetClient)
+			client.GET("/:clientId/funds", fundHandler.GetClientFundPositions)
 
 		}
 

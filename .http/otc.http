@@ -1,0 +1,161 @@
+### ─── Variables ────────────────────────────────────────────────────────────────
+@userService  = http://localhost:8080
+@tradingService = http://localhost:8082
+
+# Set this after running "Get stocks" and picking a stock
+@listingId = 109
+
+# Set this from the "exchange_mic" field in the Get stocks response (e.g. XNAS, XNYS)
+@micCode = XNAS
+
+# Set this after running "Get portfolio" by querying the DB:
+#   SELECT asset_ownership_id FROM asset_ownerships
+#   WHERE identity_id = (SELECT identity_id FROM identities WHERE email = 'ana.anic@example.com')
+#   AND owner_type = 'client';
+@ownershipId = 2
+
+# Client: Ana Anic — ClientID 3, has RSD account with 100,000 RSD
+# Ana has `trading` and `trading.margin` permissions seeded.
+@clientId = 3
+@accountNumber = 444000112345678913
+
+
+### ─── Step 1a: Login as client (Ana Anic) ──────────────────────────────────────
+# @name login
+POST {{userService}}/api/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+  "email": "ana.anic@example.com",
+  "password": "password123"
+}
+
+
+###
+@accessToken = {{login.response.body.$.token}}
+
+
+### ─── Step 1b: Login as supervisor (Admin) ─────────────────────────────────────
+# @name loginSupervisor
+POST {{userService}}/api/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+  "email": "admin@raf.rs",
+  "password": "admin123"
+}
+
+
+###
+@supervisorToken = {{loginSupervisor.response.body.$.token}}
+
+
+### ─── Step 2: Get stocks (find a listing_id) ───────────────────────────────────
+# Look for "listing_id" in the response, pick a stock (AAPL, MSFT, etc.)
+# then set @listingId at the top of this file.
+GET {{tradingService}}/api/listings/stocks HTTP/1.1
+Authorization: Bearer {{accessToken}}
+
+
+### ─── Step 2a: Get stock listing details ──────────────────────────────────────
+# Useful before creating an order to confirm price, exchange, etc.
+# Set @listingId first from Step 2, then run this.
+GET {{tradingService}}/api/listings/stocks/{{listingId}} HTTP/1.1
+Authorization: Bearer {{accessToken}}
+
+
+### ─── Step 2b: Get exchange info ──────────────────────────────────────────
+# Returns all exchanges (paginated). Find your exchange by MIC code in the response.
+# Useful to check trading hours, timezone, and whether trading is currently enabled.
+GET {{tradingService}}/api/exchanges?page=1&page_size=50 HTTP/1.1
+
+
+### ─── Step 2c: Toggle trading for the exchange ────────────────────────────────
+# No auth required. Call once to enable, again to disable.
+# Get the MIC code from the "exchange_mic" field in the Get stocks response,
+# then set @micCode at the top of this file.
+PATCH {{tradingService}}/api/exchanges/{{micCode}}/toggle HTTP/1.1
+
+
+### ─── Step 3: Place a BUY order ───────────────────────────────────────────────
+# @name buyOrder
+POST {{tradingService}}/api/orders HTTP/1.1
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "listing_id": {{listingId}},
+  "account_number": "{{accountNumber}}",
+  "order_type": "MARKET",
+  "direction": "BUY",
+  "quantity": 1,
+  "all_or_none": false,
+  "margin": false
+}
+
+
+###
+@orderId = {{buyOrder.response.body.$.order_id}}
+
+
+### ─── Step 4: Check portfolio ──────────────────────────────────────────────────
+# Wait ~30-60s for the order to fill, then call this.
+# The bought stock should appear with amount > 0.
+# Note: asset_ownership_id is NOT in this response — use the DB query above to get it.
+GET {{tradingService}}/api/client/{{clientId}}/assets HTTP/1.1
+Authorization: Bearer {{accessToken}}
+
+
+### ─── Step 5: Place a SELL order ──────────────────────────────────────────────
+# Only works after the BUY has filled. Selling 2 of the 5 bought.
+# @name sellOrder
+POST {{tradingService}}/api/orders HTTP/1.1
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "listing_id": {{listingId}},
+  "account_number": "{{accountNumber}}",
+  "order_type": "MARKET",
+  "direction": "SELL",
+  "quantity": 1,
+  "all_or_none": false,
+  "margin": false
+}
+
+
+### ─── Step 6: Re-check portfolio after sell ────────────────────────────────────
+# Confirm the sell went through. Amount should now be 3 (bought 5, sold 2).
+# NOTE: asset_ownership_id is not in this response.
+# To get it for Step 7, query the DB:
+#   SELECT asset_ownership_id FROM asset_ownerships
+#   WHERE identity_id = (SELECT identity_id FROM identities WHERE email = 'ana.anic@example.com')
+#   AND owner_type = 'client';
+# Then set @ownershipId at the top of this file.
+GET {{tradingService}}/api/client/{{clientId}}/assets HTTP/1.1
+Authorization: Bearer {{accessToken}}
+
+
+### ─── Step 7: Publish stocks to OTC ───────────────────────────────────────────
+# Makes 3 shares publicly visible on the OTC portal.
+# Amount in path must be <= (amount - reserved).
+# Use 0 to unpublish.
+PATCH {{tradingService}}/api/client/{{clientId}}/assets/{{ownershipId}}/publish HTTP/1.1
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "amount": 2
+}
+
+
+### ─── Step 8: Verify public OTC listing ───────────────────────────────────────
+# Should show the published stock with available_amount: 3.
+GET {{tradingService}}/api/otc/public?page=1&page_size=10 HTTP/1.1
+Authorization: Bearer {{accessToken}}
+
+
+### ─── Bonus: Portfolio profit ──────────────────────────────────────────────────
+GET {{tradingService}}/api/client/{{clientId}}/assets/profit HTTP/1.1
+Authorization: Bearer {{accessToken}}
+

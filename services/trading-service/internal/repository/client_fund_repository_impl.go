@@ -39,3 +39,21 @@ func (r *clientFundPositionRepository) Upsert(ctx context.Context, position *mod
 		}).
 		Create(position).Error
 }
+
+func (r *clientFundPositionRepository) FindByClient(ctx context.Context, clientID uint, ownerType model.OwnerType) ([]model.ClientFundPosition, error) {
+	var positions []model.ClientFundPosition
+	result := r.db.WithContext(ctx).
+		Preload("Fund").
+		Where("client_id = ? AND owner_type = ?", clientID, ownerType).
+		Find(&positions)
+	return positions, result.Error
+}
+
+func (r *clientFundPositionRepository) FindByFund(ctx context.Context, fundID uint) ([]model.ClientFundPosition, error) {
+	var positions []model.ClientFundPosition
+	result := r.db.WithContext(ctx).
+		Preload("Fund").
+		Where("fund_id = ?", fundID).
+		Find(&positions)
+	return positions, result.Error
+}

@@ -1,0 +1,171 @@
+### ─── Variables ────────────────────────────────────────────────────────────────
+@userService    = http://localhost:8080
+@tradingService = http://localhost:8082
+
+# Supervisor: Admin — EmployeeID 3 (seeded as admin@raf.rs, ManagerID of Alpha Growth Fund)
+# Fund IDs from DB:
+#   SELECT fund_id, name, manager_id, account_number FROM investment_funds;
+# Alpha Growth Fund: FundID=1, ManagerID=3, AccountNumber=444000000000000010
+# Beta Stable Fund:  FundID=2, ManagerID=7, AccountNumber=444000000000000011
+@supervisorId = 3
+@fundId = 1
+
+# Listing IDs — pick any stock listing from DB:
+#   SELECT l.listing_id, a.ticker, l.price, l.ask
+#   FROM listings l JOIN assets a ON a.asset_id = l.asset_id
+#   WHERE a.asset_type = 'STOCK' LIMIT 10;
+@stockListingId = 117
+
+# After placing a fund BUY order and it executes, check fund's asset ownership:
+#   SELECT * FROM asset_ownerships WHERE user_id = 1 AND owner_type = 'FUND';
+#
+# Full query — assets belonging to a fund (with ticker, name, type, listing price):
+#   SELECT ao.asset_ownership_id,
+#          ao.user_id          AS fund_id,
+#          a.ticker,
+#          a.name,
+#          a.asset_type,
+#          ao.amount,
+#          ao.avg_buy_price_rsd,
+#          ao.public_amount,
+#          ao.reserved_amount,
+#          l.price             AS current_price,
+#          l.ask               AS current_ask
+#   FROM asset_ownerships ao
+#   JOIN assets           a  ON a.asset_id   = ao.asset_id
+#   JOIN listings         l  ON l.asset_id   = a.asset_id
+#   WHERE ao.owner_type = 'FUND'
+#     AND ao.user_id    = 1;   -- replace 1 with the target fund_id
+@fundOwnershipId = 1
+
+
+# Exchange MIC code for the simulated exchange (used for testing order execution)
+# To find the exchange MIC for listing 117:
+#   SELECT l.listing_id, l.exchange_mic FROM listings l WHERE l.listing_id = 117;
+@exchangeMic = XSIM
+
+
+### ─── Step 1: Login as supervisor (fund manager) ───────────────────────────────
+# @name loginSupervisor
+POST {{userService}}/api/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+  "email": "admin@raf.rs",
+  "password": "admin123"
+}
+
+
+###
+@supervisorToken = {{loginSupervisor.response.body.$.token}}
+
+
+### ─── Step 1b: Toggle trading enabled for the stock's exchange ─────────────────
+# Enables/disables trading time enforcement so orders execute immediately in tests.
+# Call once to disable enforcement; call again to re-enable.
+PATCH {{tradingService}}/api/exchanges/{{exchangeMic}}/toggle HTTP/1.1
+
+
+### ─── Step 1c: Get supervisor portfolio ────────────────────────────────────────
+# Shows all asset ownerships for the supervisor (actuary view).
+# Replace supervisorId with the logged-in supervisor's identity/employee ID.
+GET {{tradingService}}/api/actuary/{{supervisorId}}/assets HTTP/1.1
+Authorization: Bearer {{supervisorToken}}
+
+
+### ─── Step 2: Buy stock for fund (MARKET order) ────────────────────────────────
+# Supervisor places a market BUY on behalf of Alpha Growth Fund.
+# The fund's account is debited. AssetOwnerType = FUND, AssetOwnerUserID = fund_id.
+POST {{tradingService}}/api/orders/invest HTTP/1.1
+Authorization: Bearer {{supervisorToken}}
+Content-Type: application/json
+
+{
+  "fund_id":    {{fundId}},
+  "listing_id": {{stockListingId}},
+  "order_type": "MARKET",
+  "direction":  "BUY",
+  "quantity":   10
+}
+
+
+### ─── Step 3: Buy with LIMIT order ────────────────────────────────────────────
+POST {{tradingService}}/api/orders/invest HTTP/1.1
+Authorization: Bearer {{supervisorToken}}
+Content-Type: application/json
+
+{
+  "fund_id":     {{fundId}},
+  "listing_id":  {{stockListingId}},
+  "order_type":  "LIMIT",
+  "direction":   "BUY",
+  "quantity":    5,
+  "limit_value": 150.00
+}
+
+
+### ─── Step 4: Sell stock from fund ────────────────────────────────────────────
+# Fund must already own this asset (from a prior BUY that executed).
+# Check asset_ownerships: SELECT * FROM asset_ownerships WHERE user_id = {{fundId}} AND owner_type = 'FUND';
+POST {{tradingService}}/api/orders/invest HTTP/1.1
+Authorization: Bearer {{supervisorToken}}
+Content-Type: application/json
+
+{
+  "fund_id":    {{fundId}},
+  "listing_id": {{stockListingId}},
+  "order_type": "MARKET",
+  "direction":  "SELL",
+  "quantity":   1
+}
+
+
+### ─── Step 5: List all orders (supervisor sees fund orders too) ────────────────
+GET {{tradingService}}/api/orders HTTP/1.1
+Authorization: Bearer {{supervisorToken}}
+
+
+### ─── Step 6: Error — missing limit_value for LIMIT order ─────────────────────
+# Expect 400 Bad Request
+POST {{tradingService}}/api/orders/invest HTTP/1.1
+Authorization: Bearer {{supervisorToken}}
+Content-Type: application/json
+
+{
+  "fund_id":    {{fundId}},
+  "listing_id": {{stockListingId}},
+  "order_type": "LIMIT",
+  "direction":  "BUY",
+  "quantity":   1
+}
+
+
+### ─── Step 7: Error — wrong fund manager (supervisor does not manage this fund) ─
+# Expect 403 Forbidden
+# Beta Stable Fund has ManagerID=7; admin@raf.rs (EmployeeID=3) cannot place orders for it.
+POST {{tradingService}}/api/orders/invest HTTP/1.1
+Authorization: Bearer {{supervisorToken}}
+Content-Type: application/json
+
+{
+  "fund_id":    2,
+  "listing_id": {{stockListingId}},
+  "order_type": "MARKET",
+  "direction":  "BUY",
+  "quantity":   1
+}
+
+
+### ─── Step 8: Error — fund not found ──────────────────────────────────────────
+# Expect 404 Not Found
+POST {{tradingService}}/api/orders/invest HTTP/1.1
+Authorization: Bearer {{supervisorToken}}
+Content-Type: application/json
+
+{
+  "fund_id":    99999,
+  "listing_id": {{stockListingId}},
+  "order_type": "MARKET",
+  "direction":  "BUY",
+  "quantity":   1
+}
