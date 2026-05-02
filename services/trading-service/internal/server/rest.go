@@ -25,12 +25,12 @@ import (
 	_ "github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/docs"
 )
 
-func NewServer(lc fx.Lifecycle, cfg *config.Configuration, healthHandler *handler.HealthHandler, taxHandler *handler.TaxHandler, exchangeHandler *handler.ExchangeHandler, orderHandler *handler.OrderHandler, portfolioHandler *handler.PortfolioHandler, listingHandler *handler.ListingHandler, otcHandler *handler.OTCHandler, fundHandler *handler.InvestmentFundHandler, verifier auth.TokenVerifier, permProvider auth.PermissionProvider, userClient client.UserServiceClient) {
+func NewServer(lc fx.Lifecycle, cfg *config.Configuration, healthHandler *handler.HealthHandler, taxHandler *handler.TaxHandler, exchangeHandler *handler.ExchangeHandler, orderHandler *handler.OrderHandler, portfolioHandler *handler.PortfolioHandler, listingHandler *handler.ListingHandler, otcHandler *handler.OTCHandler, otcOfferHandler *handler.OtcOfferHandler, fundHandler *handler.InvestmentFundHandler, verifier auth.TokenVerifier, permProvider auth.PermissionProvider, userClient client.UserServiceClient) {
 	r := gin.New()
 
 	InitRouter(r, cfg)
 
-	SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, fundHandler, verifier, permProvider, userClient)
+	SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, verifier, permProvider, userClient)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -58,7 +58,7 @@ func InitRouter(r *gin.Engine, cfg *config.Configuration) {
 	validator.RegisterValidators()
 }
 
-func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler *handler.TaxHandler, exchangeHandler *handler.ExchangeHandler, orderHandler *handler.OrderHandler, portfolioHandler *handler.PortfolioHandler, listingHandler *handler.ListingHandler, otcHandler *handler.OTCHandler, fundHandler *handler.InvestmentFundHandler, verifier auth.TokenVerifier, permProvider auth.PermissionProvider, userClient client.UserServiceClient) {
+func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler *handler.TaxHandler, exchangeHandler *handler.ExchangeHandler, orderHandler *handler.OrderHandler, portfolioHandler *handler.PortfolioHandler, listingHandler *handler.ListingHandler, otcHandler *handler.OTCHandler, otcOfferHandler *handler.OtcOfferHandler, fundHandler *handler.InvestmentFundHandler, verifier auth.TokenVerifier, permProvider auth.PermissionProvider, userClient client.UserServiceClient) {
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -166,22 +166,22 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 			otc.GET("/public", otcHandler.GetPublicOTCAssets)
       
       // Stranica: Aktivne ponude — pregovori u kojima učestvuje ulogovani korisnik.
-			otc.GET("/offers/active", otcHandler.GetMyActiveOffers)
+			otc.GET("/offers/active", otcOfferHandler.GetMyActiveOffers)
 
 			// Stranica: Sklopljeni ugovori — opcioni ugovori (CALL) sklopljeni iz prihvaćenih ponuda.
-			otc.GET("/contracts", otcHandler.GetMyOptionContracts)
+			otc.GET("/contracts", otcOfferHandler.GetMyOptionContracts)
 
 			// Kreiranje nove ponude — radi je kupac (klijent sa permisijom za trgovinu).
-			otc.POST("/offers", otcHandler.CreateOffer)
+			otc.POST("/offers", otcOfferHandler.CreateOffer)
 
 			// Kontraponuda — bilo koja strana ažurira parametre. PUT jer je update, ne insert.
-			otc.PUT("/offers/:id/counter", otcHandler.SendCounterOffer)
+			otc.PUT("/offers/:id/counter", otcOfferHandler.SendCounterOffer)
 
 			// Prihvatanje — strana suprotna od ModifiedBy (kreira opcioni ugovor + premium transfer).
-			otc.PATCH("/offers/:id/accept", otcHandler.AcceptOffer)
+			otc.PATCH("/offers/:id/accept", otcOfferHandler.AcceptOffer)
 
 			// Odustajanje — bilo koja strana može odustati od pregovora.
-			otc.PATCH("/offers/:id/reject", otcHandler.RejectOffer)
+			otc.PATCH("/offers/:id/reject", otcOfferHandler.RejectOffer)
 		}
 
 		orders := api.Group("/orders")

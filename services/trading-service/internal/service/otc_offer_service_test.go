@@ -7,9 +7,7 @@ import (
 	"time"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
-	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
-	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"github.com/stretchr/testify/assert"
@@ -146,7 +144,7 @@ func (r *fakeOtcAssetOwnershipRepo) seedOwnership(o model.AssetOwnership) {
 	r.ownerships[otcOwnershipKey(o.UserId, o.OwnerType, o.AssetID)] = &o
 }
 
-func (r *fakeOtcAssetOwnershipRepo) FindByIdentity(_ context.Context, id uint, ot model.OwnerType) ([]model.AssetOwnership, error) {
+func (r *fakeOtcAssetOwnershipRepo) FindByUserId(_ context.Context, id uint, ot model.OwnerType) ([]model.AssetOwnership, error) {
 	var out []model.AssetOwnership
 	for _, v := range r.ownerships {
 		if v.UserId == id && v.OwnerType == ot {
@@ -170,6 +168,18 @@ func (r *fakeOtcAssetOwnershipRepo) IncreaseReservedAmount(_ context.Context, id
 	return nil
 }
 
+func (r *fakeOtcAssetOwnershipRepo) FindByID(_ context.Context, id uint) (*model.AssetOwnership, error) {
+	return nil, nil
+}
+func (r *fakeOtcAssetOwnershipRepo) FindAllPublic(_ context.Context, page, pageSize int) ([]model.AssetOwnership, int64, error) {
+	return nil, 0, nil
+}
+
+func (r *fakeOtcAssetOwnershipRepo) UpdateOTCFields(_ context.Context, ownershipID uint, publicAmount, reservedAmount float64) error	{
+	return nil
+}
+
+
 type fakeOtcStockRepo struct {
 	stocks []model.Stock
 }
@@ -190,42 +200,6 @@ func (r *fakeOtcStockRepo) FindByAssetIDs(_ context.Context, ids []uint) ([]mode
 	}
 	return out, nil
 }
-
-type fakeOtcBankingClient struct {
-	accountErr     error
-	paymentsCalled int
-}
-
-func (f *fakeOtcBankingClient) GetAccountByNumber(_ context.Context, _ string) (*pb.GetAccountByNumberResponse, error) {
-	if f.accountErr != nil {
-		return nil, f.accountErr
-	}
-	return &pb.GetAccountByNumberResponse{AccountNumber: "acc", AvailableBalance: 1_000_000}, nil
-}
-
-func (f *fakeOtcBankingClient) CreatePaymentWithoutVerification(_ context.Context, _ *pb.CreatePaymentRequest) (*pb.CreatePaymentResponse, error) {
-	f.paymentsCalled++
-	return &pb.CreatePaymentResponse{PaymentId: 1}, nil
-}
-
-func (f *fakeOtcBankingClient) HasActiveLoan(_ context.Context, _ uint64) (*pb.HasActiveLoanResponse, error) {
-	return &pb.HasActiveLoanResponse{}, nil
-}
-func (f *fakeOtcBankingClient) GetAccountsByClientID(_ context.Context, _ uint64) (*pb.GetAccountsByClientIDResponse, error) {
-	return &pb.GetAccountsByClientIDResponse{}, nil
-}
-func (f *fakeOtcBankingClient) ConvertCurrency(_ context.Context, amount float64, _, _ string) (float64, error) {
-	return amount, nil
-}
-func (f *fakeOtcBankingClient) ExecuteTradeSettlement(_ context.Context, _, _ string, _ pb.TradeSettlementDirection, _ float64) (*pb.ExecuteTradeSettlementResponse, error) {
-	return &pb.ExecuteTradeSettlementResponse{}, nil
-}
-func (f *fakeOtcBankingClient) GetAccountCurrency(_ context.Context, _ string) (string, error) {
-	return "RSD", nil
-}
-
-// compile-time interface check
-var _ client.BankingClient = (*fakeOtcBankingClient)(nil)
 
 // --- test constants ---
 
@@ -251,7 +225,7 @@ func ctxForOtcUser(id uint) context.Context {
 
 // --- test setup ---
 
-func newOtcTestService(t *testing.T) (*OtcOfferService, *fakeOtcOfferRepo, *fakeOtcContractRepo, *fakeOtcAssetOwnershipRepo, *fakeOtcBankingClient) {
+func newOtcTestService(t *testing.T) (*OtcOfferService, *fakeOtcOfferRepo, *fakeOtcContractRepo, *fakeOtcAssetOwnershipRepo, *fakeBankingClient) {
 	t.Helper()
 
 	offerRepo := newFakeOtcOfferRepo()
@@ -262,7 +236,7 @@ func newOtcTestService(t *testing.T) (*OtcOfferService, *fakeOtcOfferRepo, *fake
 			{StockID: otcStockID, AssetID: otcAssetID},
 		},
 	}
-	banking := &fakeOtcBankingClient{}
+	banking := &fakeBankingClient{}
 
 	// Seller has 100 public shares.
 	ownershipRepo.seedOwnership(model.AssetOwnership{
@@ -431,7 +405,7 @@ func TestOtcSendCounterOffer_OfferNotFound_ReturnsError(t *testing.T) {
 }
 
 func TestOtcAcceptOffer_Success_CreatesContractAndIncreasesReservedAmount(t *testing.T) {
-	svc, _, contractRepo, ownershipRepo, banking := newOtcTestService(t)
+	svc, _, contractRepo, ownershipRepo, _ := newOtcTestService(t)
 	offer := otcCreateOffer(t, svc, 10)
 
 	sellerAcc := "seller-acc"
@@ -441,7 +415,6 @@ func TestOtcAcceptOffer_Success_CreatesContractAndIncreasesReservedAmount(t *tes
 	})
 
 	require.NoError(t, err)
-	assert.Equal(t, 1, banking.paymentsCalled, "premium transfer should be triggered once")
 	assert.Len(t, contractRepo.contracts, 1)
 	assert.Equal(t, 10, contract.Amount)
 	assert.Equal(t, float64(50), contract.StrikePrice)

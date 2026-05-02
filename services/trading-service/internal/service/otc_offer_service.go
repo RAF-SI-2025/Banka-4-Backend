@@ -367,7 +367,7 @@ func (s *OtcOfferService) validateSellerCapacity(
 		return errors.BadRequestErr("stock not found")
 	}
 
-	ownerships, err := s.assetOwnershipRepo.FindByIdentity(ctx, sellerID, model.OwnerTypeClient)
+	ownerships, err := s.assetOwnershipRepo.FindByUserId(ctx, sellerID, model.OwnerTypeClient)
 	if err != nil {
 		return errors.InternalErr(err)
 	}
