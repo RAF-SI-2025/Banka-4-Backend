@@ -2726,6 +2726,12 @@ const docTemplate = `{
                 "date": {
                     "type": "string"
                 },
+                "liquid_assets": {
+                    "type": "number"
+                },
+                "profit": {
+                    "type": "number"
+                },
                 "value": {
                     "type": "number"
                 }

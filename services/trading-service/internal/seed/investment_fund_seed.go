@@ -29,9 +29,105 @@ func InvestmentFunds(db *gorm.DB) error {
 		},
 	}
 
-	for _, f := range funds {
-		if err := db.FirstOrCreate(&f, model.InvestmentFund{Name: f.Name}).Error; err != nil {
+	// Seed funds
+	for i := range funds {
+		if err := db.FirstOrCreate(&funds[i], model.InvestmentFund{Name: funds[i].Name}).Error; err != nil {
 			return err
+		}
+	}
+
+	// --- ASSUME first fund exists ---
+	var fund model.InvestmentFund
+	if err := db.First(&fund, "name = ?", "Alpha Growth Fund").Error; err != nil {
+		return err
+	}
+
+	// -------------------------------
+	// 1. Seed Asset Ownership (FUND owns assets)
+	// -------------------------------
+	assets := []model.AssetOwnership{
+		{
+			UserId:         fund.FundID, // fund acts as "user"
+			OwnerType:      model.OwnerTypeFund,
+			AssetID:        1,
+			Amount:         100,
+			AvgBuyPriceRSD: 1200,
+			PublicAmount:   100,
+			ReservedAmount: 0,
+			UpdatedAt:      now,
+		},
+		{
+			UserId:         fund.FundID,
+			OwnerType:      model.OwnerTypeFund,
+			AssetID:        2,
+			Amount:         50,
+			AvgBuyPriceRSD: 2500,
+			PublicAmount:   50,
+			ReservedAmount: 0,
+			UpdatedAt:      now,
+		},
+	}
+
+	for _, ao := range assets {
+		if err := db.FirstOrCreate(
+			&ao,
+			model.AssetOwnership{
+				UserId:    ao.UserId,
+				OwnerType: ao.OwnerType,
+				AssetID:   ao.AssetID,
+			},
+		).Error; err != nil {
+			return err
+		}
+	}
+
+	// -------------------------------
+	// 2. Seed Fund Performance (last 3 days)
+	// -------------------------------
+	performances := []model.FundPerformance{
+		{
+			FundID:       fund.FundID,
+			Date:         now.AddDate(0, 0, -2),
+			FundValue:    200000,
+			LiquidAssets: 20000,
+			Profit:       5000,
+			CreatedAt:    now,
+		},
+		{
+			FundID:       fund.FundID,
+			Date:         now.AddDate(0, 0, -1),
+			FundValue:    210000,
+			LiquidAssets: 25000,
+			Profit:       8000,
+			CreatedAt:    now,
+		},
+		{
+			FundID:       fund.FundID,
+			Date:         now,
+			FundValue:    220000,
+			LiquidAssets: 30000,
+			Profit:       12000,
+			CreatedAt:    now,
+		},
+	}
+
+	var count int64
+	err := db.Model(&model.FundPerformance{}).Count(&count).Error
+	if err != nil {
+		return err
+	}
+
+	if count == 0 {
+		for _, fp := range performances {
+			if err := db.FirstOrCreate(
+				&fp,
+				model.FundPerformance{
+					FundID: fp.FundID,
+					Date:   fp.Date,
+				},
+			).Error; err != nil {
+				return err
+			}
 		}
 	}
 
