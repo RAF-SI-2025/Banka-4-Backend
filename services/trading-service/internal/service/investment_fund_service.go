@@ -498,7 +498,12 @@ func (s *InvestmentFundService) GetFundDetail(ctx context.Context, fundID uint) 
 	}
 	perfResp := make([]dto.FundPerformanceEntry, len(perfHistory))
 	for i, p := range perfHistory {
-		perfResp[i] = dto.FundPerformanceEntry{Date: p.Date, Value: p.FundValue}
+		perfResp[i] = dto.FundPerformanceEntry{
+			Date:         p.Date,
+			Value:        p.FundValue,
+			Profit:       p.Profit,
+			LiquidAssets: p.LiquidAssets,
+		}
 	}
 
 	managerName := fmt.Sprintf("Manager %d", fund.ManagerID)

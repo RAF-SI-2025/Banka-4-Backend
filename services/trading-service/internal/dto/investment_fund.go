@@ -12,8 +12,10 @@ type SecurityHoldingResponse struct {
 }
 
 type FundPerformanceEntry struct {
-	Date  time.Time `json:"date"`
-	Value float64   `json:"value"`
+	Date         time.Time `json:"date"`
+	Value        float64   `json:"value"`
+	Profit       float64   `json:"profit"`
+	LiquidAssets float64   `json:"liquid_assets"`
 }
 
 type FundDetailResponse struct {
