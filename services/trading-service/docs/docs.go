@@ -1966,6 +1966,309 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/otc/contracts": {
+            "get": {
+                "description": "Returns all option contracts (CALL) created from accepted OTC offers where the",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "List OTC option contracts",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.OtcOptionContractResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/otc/offers": {
+            "post": {
+                "description": "Buyer initiates a new OTC negotiation with a seller for publicly listed shares.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "Create OTC offer",
+                "parameters": [
+                    {
+                        "description": "Offer details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateOtcOfferRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OtcOfferResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/otc/offers/active": {
+            "get": {
+                "description": "Returns all ongoing negotiations (status=ACTIVE) where the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "List active OTC offers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.OtcOfferResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/otc/offers/{id}/accept": {
+            "patch": {
+                "description": "The party opposite to ModifiedBy accepts the offer. An option contract is created",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "Accept OTC offer",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Offer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Seller account number (required on seller's first participation)",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/dto.AcceptOfferRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OtcOptionContractResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/otc/offers/{id}/counter": {
+            "put": {
+                "description": "Either party may update the offer parameters (amount, price, premium, settlement date).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "Send counter-offer",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Offer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated offer parameters",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CounterOfferRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OtcOfferResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/otc/offers/{id}/reject": {
+            "patch": {
+                "description": "Either party may reject the offer, terminating the negotiation.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "Reject OTC offer",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Offer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Optional rejection comment",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/dto.RejectOfferRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OtcOfferResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/otc/public": {
             "get": {
                 "security": [
@@ -2243,6 +2546,14 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "dto.AcceptOfferRequest": {
+            "type": "object",
+            "properties": {
+                "account_number": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.ActuaryFundResponse": {
             "type": "object",
             "properties": {
@@ -2299,6 +2610,32 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CounterOfferRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "premium",
+                "price_per_stock",
+                "settlement_date"
+            ],
+            "properties": {
+                "account_number": {
+                    "type": "string"
+                },
+                "amount": {
+                    "type": "integer"
+                },
+                "premium": {
+                    "type": "number"
+                },
+                "price_per_stock": {
+                    "type": "number"
+                },
+                "settlement_date": {
                     "type": "string"
                 }
             }
@@ -2460,6 +2797,37 @@ const docTemplate = `{
                 },
                 "stop_value": {
                     "type": "number"
+                }
+            }
+        },
+        "dto.CreateOtcOfferRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "asset_ownership_id",
+                "buyer_account_number",
+                "premium",
+                "price_per_stock",
+                "settlement_date"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "asset_ownership_id": {
+                    "type": "integer"
+                },
+                "buyer_account_number": {
+                    "type": "string"
+                },
+                "premium": {
+                    "type": "number"
+                },
+                "price_per_stock": {
+                    "type": "number"
+                },
+                "settlement_date": {
+                    "type": "string"
                 }
             }
         },
@@ -3238,6 +3606,112 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.OtcOfferResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "buyer_account_number": {
+                    "type": "string"
+                },
+                "buyer_id": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "last_modified": {
+                    "type": "string"
+                },
+                "modified_by": {
+                    "type": "integer"
+                },
+                "option_contract_id": {
+                    "type": "integer"
+                },
+                "otc_offer_id": {
+                    "type": "integer"
+                },
+                "premium": {
+                    "type": "number"
+                },
+                "price_per_stock": {
+                    "type": "number"
+                },
+                "seller_account_number": {
+                    "type": "string"
+                },
+                "seller_id": {
+                    "type": "integer"
+                },
+                "settlement_date": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/model.OtcOfferStatus"
+                },
+                "stock_asset_id": {
+                    "type": "integer"
+                },
+                "stock_name": {
+                    "type": "string"
+                },
+                "ticker": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.OtcOptionContractResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "buyer_id": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "exercised_at": {
+                    "type": "string"
+                },
+                "is_exercised": {
+                    "type": "boolean"
+                },
+                "otc_offer_id": {
+                    "type": "integer"
+                },
+                "otc_option_contract_id": {
+                    "type": "integer"
+                },
+                "premium": {
+                    "type": "number"
+                },
+                "seller_id": {
+                    "type": "integer"
+                },
+                "settlement_date": {
+                    "type": "string"
+                },
+                "stock_asset_id": {
+                    "type": "integer"
+                },
+                "stock_name": {
+                    "type": "string"
+                },
+                "strike_price": {
+                    "type": "number"
+                },
+                "ticker": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.PaginatedForexResponse": {
             "type": "object",
             "properties": {
@@ -3369,6 +3843,14 @@ const docTemplate = `{
             "properties": {
                 "amount": {
                     "type": "number"
+                }
+            }
+        },
+        "dto.RejectOfferRequest": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
                 }
             }
         },
@@ -3598,6 +4080,19 @@ const docTemplate = `{
                 "OrderTypeLimit",
                 "OrderTypeStop",
                 "OrderTypeStopLimit"
+            ]
+        },
+        "model.OtcOfferStatus": {
+            "type": "string",
+            "enum": [
+                "ACTIVE",
+                "ACCEPTED",
+                "REJECTED"
+            ],
+            "x-enum-varnames": [
+                "OtcOfferStatusActive",
+                "OtcOfferStatusAccepted",
+                "OtcOfferStatusRejected"
             ]
         },
         "model.OwnerType": {

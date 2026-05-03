@@ -77,6 +77,8 @@ func TestMain(m *testing.M) {
 		&model.OrderTransaction{},
 		&model.AccumulatedTax{},
 		&model.TaxCollection{},
+		&model.OtcOffer{},
+		&model.OtcOptionContract{},
 		&model.InvestmentFund{},
 		&model.ClientFundPosition{},
 		&model.ClientFundInvestment{},
@@ -108,10 +110,6 @@ func (f *fakeUserClient) GetClientById(_ context.Context, id uint64) (*pb.GetCli
 		FullName:   fmt.Sprintf("Client %d", id),
 		IdentityId: id,
 	}, nil
-}
-
-func (f *fakeBankingClient) GetAccountCurrency(_ context.Context, _ string) (string, error) {
-	return "RSD", nil
 }
 
 func (f *fakeUserClient) GetEmployeeById(_ context.Context, id uint64) (*pb.GetEmployeeByIdResponse, error) {
@@ -177,20 +175,36 @@ func (f *fakeTaxRecorder) RecordTax(_ context.Context, _ string, _ *uint, _ floa
 	return nil
 }
 
-type fakeBankingClient struct{}
+type fakeBankingClient struct {
+	accountByNumber map[string]uint64
+}
 
 func (f *fakeBankingClient) GetAccountByNumber(_ context.Context, accountNumber string) (*pb.GetAccountByNumberResponse, error) {
+	clientID, ok := f.accountByNumber[accountNumber]
+	if !ok {
+		return &pb.GetAccountByNumberResponse{
+			AccountNumber:    accountNumber,
+			ClientId:         1,
+			AccountType:      "Bank",
+			CurrencyCode:     "RSD",
+			AvailableBalance: 1_000_000,
+		}, nil
+	}
 	return &pb.GetAccountByNumberResponse{
+		ClientId:         clientID,
 		AccountNumber:    accountNumber,
-		ClientId:         1,
-		AccountType:      "Bank",
 		CurrencyCode:     "RSD",
 		AvailableBalance: 1_000_000,
 	}, nil
 }
+func (f *fakeBankingClient) GetAccountCurrency(_ context.Context, _ string) (string, error) {
+	return "RSD", nil
+}
+
 func (f *fakeBankingClient) CreateFundAccount(_ context.Context, fundName string, _ uint64) (string, error) {
 	return fmt.Sprintf("444000199999%06d", uniqueCounter.Add(1)), nil
 }
+
 func (f *fakeBankingClient) HasActiveLoan(_ context.Context, _ uint64) (*pb.HasActiveLoanResponse, error) {
 	return &pb.HasActiveLoanResponse{HasActiveLoan: true}, nil
 }
@@ -266,7 +280,13 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 		supervisorIDs: map[uint64]bool{10: true},
 		agentIDs:      map[uint64]bool{20: true},
 	}
-	var bankingClient client.BankingClient = &fakeBankingClient{}
+	var bankingClient client.BankingClient = &fakeBankingClient{
+		accountByNumber: map[string]uint64{
+			"seller-acc": 20,
+			"buyer-acc":  10,
+		},
+	}
+
 	var permProvider auth.PermissionProvider = &fakePermissionProvider{perms: perms}
 
 	exchangeRepo := repository.NewExchangeRepository(db)
@@ -279,6 +299,9 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 	forexRepo := repository.NewForexRepository(db)
 	optionRepo := repository.NewOptionRepository(db)
 	taxRepo := repository.NewTaxRepository(db)
+	otcOfferRepo := repository.NewOtcOfferRepository(db)
+	otcContractRepo := repository.NewOtcOptionContractRepository(db)
+
 	exchangeSvc := service.NewExchangeService(exchangeRepo)
 	listingSvc := service.NewListingService(listingRepo, futuresRepo, forexRepo, optionRepo)
 	fundRepo := repository.NewInvestmentFundRepository(db)
@@ -293,6 +316,7 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 
 	taxSvc := service.NewTaxService(taxRepo, bankingClient, cfg)
 	otcSvc := service.NewOTCService(assetOwnershipRepo, listingRepo, userClient)
+	otcOfferSvc := service.NewOtcOfferService(otcOfferRepo, otcContractRepo, assetOwnershipRepo, stockRepo, bankingClient)
 
 	healthHandler := handler.NewHealthHandler()
 	exchangeHandler := handler.NewExchangeHandler(exchangeSvc)
@@ -301,12 +325,13 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 	portfolioHandler := handler.NewPortfolioHandler(portfolioSvc)
 	taxHandler := handler.NewTaxHandler(taxSvc, userClient)
 	otcHandler := handler.NewOTCHandler(otcSvc)
+	otcOfferHandler := handler.NewOtcOfferHandler(otcOfferSvc)
 
 	verifier := auth.TokenVerifier(commonjwt.NewJWTVerifier(cfg.JWTSecret))
 
 	r := gin.New()
 	server.InitRouter(r, cfg)
-	server.SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, fundHandler, verifier, permProvider, userClient)
+	server.SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, verifier, permProvider, userClient)
 
 	return r, userClient
 }

@@ -10,6 +10,9 @@ type AssetOwnershipRepository interface {
 	FindByUserId(ctx context.Context, userId uint, ownerType model.OwnerType) ([]model.AssetOwnership, error)
 	FindByID(ctx context.Context, id uint) (*model.AssetOwnership, error)
 	Upsert(ctx context.Context, ownership *model.AssetOwnership) error
+	// IncreaseReservedAmount atomically adds delta to the reserved_amount for the
+	// given identity+ownerType+assetID row. It is a no-op when no row matches.
+	IncreaseReservedAmount(ctx context.Context, identityID uint, ownerType model.OwnerType, assetID uint, delta float64) error
 	FindAllPublic(ctx context.Context, page, pageSize int) ([]model.AssetOwnership, int64, error)
 	UpdateOTCFields(ctx context.Context, ownershipID uint, publicAmount, reservedAmount float64) error
 }
