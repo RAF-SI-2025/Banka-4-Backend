@@ -24,6 +24,7 @@ type fakeCompanyRepo struct {
 	registrationNumErr    error
 	taxNumExists          bool
 	taxNumErr             error
+	getWorkCodesCalls     int
 }
 
 func (f *fakeCompanyRepo) Create(_ context.Context, company *model.Company) error {
@@ -42,10 +43,40 @@ func (f *fakeCompanyRepo) GetCompanies(_ context.Context) ([]model.Company, erro
 }
 
 func (f *fakeCompanyRepo) GetWorkCodes(_ context.Context) ([]model.WorkCode, error) {
+	f.getWorkCodesCalls++
 	if f.workCodesErr != nil {
 		return nil, f.workCodesErr
 	}
 	return f.workCodes, nil
+}
+
+type fakeWorkCodeCache struct {
+	cached           []model.WorkCode
+	found            bool
+	getErr           error
+	setErr           error
+	getCalls         int
+	setCalls         int
+	lastSetWorkCodes []model.WorkCode
+}
+
+func (f *fakeWorkCodeCache) Get(_ context.Context) ([]model.WorkCode, bool, error) {
+	f.getCalls++
+	if f.getErr != nil {
+		return nil, false, f.getErr
+	}
+
+	if !f.found {
+		return nil, false, nil
+	}
+
+	return f.cached, true, nil
+}
+
+func (f *fakeWorkCodeCache) Set(_ context.Context, workCodes []model.WorkCode) error {
+	f.setCalls++
+	f.lastSetWorkCodes = workCodes
+	return f.setErr
 }
 
 func (f *fakeCompanyRepo) WorkCodeExists(_ context.Context, _ uint) (bool, error) {
@@ -159,7 +190,7 @@ func TestCreateCompany(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewCompanyService(tt.repo, tt.userClient, nil)
+			svc := NewCompanyService(tt.repo, tt.userClient, nil, nil)
 
 			company, err := svc.Create(context.Background(), tt.req)
 
@@ -192,7 +223,7 @@ func TestGetWorkCodes(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
-		svc := NewCompanyService(&fakeCompanyRepo{workCodes: expected}, &fakeUserClient{}, nil)
+		svc := NewCompanyService(&fakeCompanyRepo{workCodes: expected}, &fakeUserClient{}, nil, nil)
 
 		workCodes, err := svc.GetWorkCodes(context.Background())
 
@@ -203,13 +234,62 @@ func TestGetWorkCodes(t *testing.T) {
 	t.Run("repo error", func(t *testing.T) {
 		t.Parallel()
 
-		svc := NewCompanyService(&fakeCompanyRepo{workCodesErr: fmt.Errorf("db error")}, &fakeUserClient{}, nil)
+		svc := NewCompanyService(&fakeCompanyRepo{workCodesErr: fmt.Errorf("db error")}, &fakeUserClient{}, nil, nil)
 
 		workCodes, err := svc.GetWorkCodes(context.Background())
 
 		require.Error(t, err)
 		require.Nil(t, workCodes)
 		require.Contains(t, err.Error(), "db error")
+	})
+
+	t.Run("cache hit", func(t *testing.T) {
+		t.Parallel()
+
+		repo := &fakeCompanyRepo{workCodes: []model.WorkCode{{WorkCodeID: 99, Code: "x", Description: "repo"}}}
+		cache := &fakeWorkCodeCache{cached: expected, found: true}
+		svc := NewCompanyService(repo, &fakeUserClient{}, nil, cache)
+
+		workCodes, err := svc.GetWorkCodes(context.Background())
+
+		require.NoError(t, err)
+		require.Equal(t, expected, workCodes)
+		require.Equal(t, 0, repo.getWorkCodesCalls)
+		require.Equal(t, 1, cache.getCalls)
+		require.Equal(t, 0, cache.setCalls)
+	})
+
+	t.Run("cache miss writes cache", func(t *testing.T) {
+		t.Parallel()
+
+		repo := &fakeCompanyRepo{workCodes: expected}
+		cache := &fakeWorkCodeCache{found: false}
+		svc := NewCompanyService(repo, &fakeUserClient{}, nil, cache)
+
+		workCodes, err := svc.GetWorkCodes(context.Background())
+
+		require.NoError(t, err)
+		require.Equal(t, expected, workCodes)
+		require.Equal(t, 1, repo.getWorkCodesCalls)
+		require.Equal(t, 1, cache.getCalls)
+		require.Equal(t, 1, cache.setCalls)
+		require.Equal(t, expected, cache.lastSetWorkCodes)
+	})
+
+	t.Run("cache read error falls back to repo", func(t *testing.T) {
+		t.Parallel()
+
+		repo := &fakeCompanyRepo{workCodes: expected}
+		cache := &fakeWorkCodeCache{getErr: fmt.Errorf("redis down")}
+		svc := NewCompanyService(repo, &fakeUserClient{}, nil, cache)
+
+		workCodes, err := svc.GetWorkCodes(context.Background())
+
+		require.NoError(t, err)
+		require.Equal(t, expected, workCodes)
+		require.Equal(t, 1, repo.getWorkCodesCalls)
+		require.Equal(t, 1, cache.getCalls)
+		require.Equal(t, 1, cache.setCalls)
 	})
 }
 
@@ -224,7 +304,7 @@ func TestGetCompanies(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
-		svc := NewCompanyService(&fakeCompanyRepo{companies: expected}, &fakeUserClient{}, nil)
+		svc := NewCompanyService(&fakeCompanyRepo{companies: expected}, &fakeUserClient{}, nil, nil)
 
 		companies, err := svc.GetCompanies(context.Background())
 
@@ -235,7 +315,7 @@ func TestGetCompanies(t *testing.T) {
 	t.Run("repo error", func(t *testing.T) {
 		t.Parallel()
 
-		svc := NewCompanyService(&fakeCompanyRepo{companiesErr: fmt.Errorf("db error")}, &fakeUserClient{}, nil)
+		svc := NewCompanyService(&fakeCompanyRepo{companiesErr: fmt.Errorf("db error")}, &fakeUserClient{}, nil, nil)
 
 		companies, err := svc.GetCompanies(context.Background())
 

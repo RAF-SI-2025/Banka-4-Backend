@@ -476,9 +476,10 @@ var seedVerificationTokens = []model.VerificationToken{
 	},
 }
 
-func uintPtr(v uint) *uint {
-	return &v
-}
+// UNUSED
+//func uintPtr(v uint) *uint {
+//	return &v
+//}
 
 func Run(db *gorm.DB) error {
 	// seed currencies

@@ -207,3 +207,201 @@ func TestCreateFund_AccountNumberIsUnique(t *testing.T) {
 
 	require.NotEqual(t, resp1["account_number"], resp2["account_number"])
 }
+
+// ── GET /api/funds tests ──────────────────────────────────────────
+
+func TestGetAllFunds_Success(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	seedInvestmentFund(t, db, fmt.Sprintf("Discovery Fund %d", uniqueCounter.Add(1)), 10)
+
+	auth := authHeaderForSupervisor(t)
+	rec := performRequest(t, router, http.MethodGet, "/api/investment-funds", nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+
+	resp := decodeResponse[map[string]any](t, rec)
+	require.NotNil(t, resp["data"])
+	require.NotNil(t, resp["total"])
+	require.NotNil(t, resp["page"])
+	require.NotNil(t, resp["page_size"])
+}
+
+func TestGetAllFunds_Pagination(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	prefix := fmt.Sprintf("Paginate%d", uniqueCounter.Add(1))
+	for i := 0; i < 3; i++ {
+		seedInvestmentFund(t, db, fmt.Sprintf("%s Fund %d", prefix, i), 10)
+	}
+
+	auth := authHeaderForSupervisor(t)
+	rec := performRequest(t, router, http.MethodGet, "/api/investment-funds?page=1&page_size=2", nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+
+	type listResp struct {
+		Data     []map[string]any `json:"data"`
+		Total    float64          `json:"total"`
+		Page     float64          `json:"page"`
+		PageSize float64          `json:"page_size"`
+	}
+	resp := decodeResponse[listResp](t, rec)
+	require.LessOrEqual(t, len(resp.Data), 2)
+	require.Equal(t, float64(1), resp.Page)
+	require.Equal(t, float64(2), resp.PageSize)
+}
+
+func TestGetAllFunds_NameFilter(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	unique := fmt.Sprintf("UniqueAlpha%d", uniqueCounter.Add(1))
+	seedInvestmentFund(t, db, unique+" Fund", 10)
+	seedInvestmentFund(t, db, fmt.Sprintf("OtherFund%d", uniqueCounter.Add(1)), 10)
+
+	auth := authHeaderForSupervisor(t)
+	rec := performRequest(t, router, http.MethodGet, "/api/investment-funds?name="+unique, nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+
+	type listResp struct {
+		Data []map[string]any `json:"data"`
+	}
+	resp := decodeResponse[listResp](t, rec)
+	require.NotEmpty(t, resp.Data)
+	for _, f := range resp.Data {
+		require.Contains(t, f["name"], unique)
+	}
+}
+
+func TestGetAllFunds_AccessibleToAgent(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	auth := authHeaderForAgent(t)
+	rec := performRequest(t, router, http.MethodGet, "/api/investment-funds", nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+}
+
+func TestGetAllFunds_AccessibleToClient(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	auth := authHeaderForClient(t, 1, 1)
+	rec := performRequest(t, router, http.MethodGet, "/api/investment-funds", nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+}
+
+func TestGetAllFunds_Unauthorized(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	rec := performRequest(t, router, http.MethodGet, "/api/investment-funds", nil, "")
+	require.NotEqual(t, http.StatusOK, rec.Code)
+}
+
+func TestGetAllFunds_FundValueAndProfitPresent(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	seedInvestmentFund(t, db, fmt.Sprintf("ValueFund%d", uniqueCounter.Add(1)), 10)
+
+	auth := authHeaderForSupervisor(t)
+	rec := performRequest(t, router, http.MethodGet, "/api/investment-funds", nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+
+	type listResp struct {
+		Data []map[string]any `json:"data"`
+	}
+	resp := decodeResponse[listResp](t, rec)
+	require.NotEmpty(t, resp.Data)
+	fund := resp.Data[0]
+	_, hasFundValue := fund["fund_value"]
+	_, hasProfit := fund["profit"]
+	_, hasMinContrib := fund["minimum_contribution"]
+	require.True(t, hasFundValue)
+	require.True(t, hasProfit)
+	require.True(t, hasMinContrib)
+}
+
+// ── GET /api/actuary/:actId/assets/funds tests ────────────────────
+
+func TestGetActuaryFunds_Success(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	seedInvestmentFund(t, db, fmt.Sprintf("ActuaryFund%d", uniqueCounter.Add(1)), 10)
+
+	auth := authHeaderForSupervisor(t)
+	rec := performRequest(t, router, http.MethodGet, "/api/actuary/10/assets/funds", nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+
+	var funds []map[string]any
+	funds = decodeResponse[[]map[string]any](t, rec)
+	require.NotEmpty(t, funds)
+	require.NotNil(t, funds[0]["fund_value"])
+	require.NotNil(t, funds[0]["liquid_assets"])
+}
+
+func TestGetActuaryFunds_Empty(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	auth := authHeaderForSupervisor(t)
+	// Manager ID 999 has no funds
+	rec := performRequest(t, router, http.MethodGet, "/api/actuary/999/assets/funds", nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+
+	var funds []map[string]any
+	funds = decodeResponse[[]map[string]any](t, rec)
+	require.Empty(t, funds)
+}
+
+func TestGetActuaryFunds_OnlyReturnsManagedFunds(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	// Seed funds for manager 10 and manager 20
+	seedInvestmentFund(t, db, fmt.Sprintf("Manager10Fund%d", uniqueCounter.Add(1)), 10)
+	seedInvestmentFund(t, db, fmt.Sprintf("Manager20Fund%d", uniqueCounter.Add(1)), 20)
+
+	auth := authHeaderForSupervisor(t)
+	rec := performRequest(t, router, http.MethodGet, "/api/actuary/20/assets/funds", nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+
+	var funds []map[string]any
+	funds = decodeResponse[[]map[string]any](t, rec)
+	for _, f := range funds {
+		// All returned funds should belong to manager 20
+		require.Contains(t, f["name"].(string), "Manager20Fund")
+	}
+}
+
+func TestGetActuaryFunds_ForbiddenForClient(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	auth := authHeaderForClient(t, 1, 1)
+	rec := performRequest(t, router, http.MethodGet, "/api/actuary/10/assets/funds", nil, auth)
+	require.NotEqual(t, http.StatusOK, rec.Code)
+}
+
+func TestGetActuaryFunds_Unauthorized(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	rec := performRequest(t, router, http.MethodGet, "/api/actuary/10/assets/funds", nil, "")
+	require.NotEqual(t, http.StatusOK, rec.Code)
+}

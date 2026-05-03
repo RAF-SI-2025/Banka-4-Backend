@@ -17,15 +17,15 @@ import (
 // ── Fake Payment Repo ──────────────────────────────────────────────
 
 type fakePaymentRepo struct {
-	createErr      error
-	getErr         error
-	findAllErr     error
-	payment        *model.Payment
-	payments       []model.Payment
-	allPayments    []model.Payment
-	findAccErr     error
-	total          int64
-	capturedFilter repository.PaymentFilter
+	createErr   error
+	getErr      error
+	findAllErr  error
+	payment     *model.Payment
+	payments    []model.Payment
+	allPayments []model.Payment
+	findAccErr  error
+	total       int64
+	//capturedFilter repository.PaymentFilter	UNUSED
 }
 
 func (f *fakePaymentRepo) Create(ctx context.Context, p *model.Payment) error {
@@ -62,9 +62,9 @@ func (f *fakePaymentRepo) FindByClient(_ context.Context, _ uint, _ *dto.Payment
 }
 
 type fakeTransactionRepo struct {
-	createErr     error
-	getErr        error
-	updateErr     error
+	createErr error
+	//getErr        error	UNUSED
+	//updateErr     error	UNUSED
 	transaction   *model.Transaction
 	returnedTx    *model.Transaction
 	returnedTxErr error
@@ -155,8 +155,8 @@ func (f *fakePaymentAccountRepo) UpdateLimits(_ context.Context, _ string, _ flo
 	return nil
 }
 
-func (f *fakePaymentAccountRepo) GetByAccountNumber(_ context.Context, accountNumber string) (*model.Account, error) {
-	return f.FindByAccountNumber(nil, accountNumber)
+func (f *fakePaymentAccountRepo) GetByAccountNumber(ctx context.Context, accountNumber string) (*model.Account, error) {
+	return f.FindByAccountNumber(ctx, accountNumber)
 }
 
 func (f *fakePaymentAccountRepo) Update(_ context.Context, _ *model.Account) error {

@@ -46,7 +46,7 @@ func NewStockClient(apiKey string) *StockClient {
 	}
 }
 
-func (c *StockClient) get(path string, out interface{}) error {
+func (c *StockClient) get(path string, out interface{}) (err error) {
 	separator := "?"
 	for _, ch := range path {
 		if ch == '?' {
@@ -60,13 +60,18 @@ func (c *StockClient) get(path string, out interface{}) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("closing response body: %w", closeErr)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("finnhub returned status %d", resp.StatusCode)
 	}
 
-	return json.NewDecoder(resp.Body).Decode(out)
+	err = json.NewDecoder(resp.Body).Decode(out)
+	return err
 }
 
 func (c *StockClient) GetSymbols(exchange string) ([]Symbol, error) {

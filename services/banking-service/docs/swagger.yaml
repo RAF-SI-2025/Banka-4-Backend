@@ -233,6 +233,7 @@ definitions:
     - owner_id
     - registration_number
     - tax_number
+    - work_code_id
     type: object
   dto.CreateLoanRequest:
     properties:

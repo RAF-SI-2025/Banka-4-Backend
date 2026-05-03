@@ -15,23 +15,23 @@ import (
 )
 
 type fakeAccountRepo struct {
-	accNumExists        bool
+	//accNumExists        bool	UNUSED
 	accountNumberExists bool
 	nameExists          bool
 	nameExistsErr       error
-	accNumExistsErr     error
-	createErr           error
-	accounts            []model.Account
-	account             *model.Account
-	findErr             error
-	updateNameErr       error
-	updateLimitsErr     error
-	getByAccNumber      *model.Account
-	getByAccNumberErr   error
-	updateErr           error
-	allAccounts         []*model.Account
-	allTotal            int64
-	getAllErr           error
+	//accNumExistsErr     error UNUSED
+	createErr         error
+	accounts          []model.Account
+	account           *model.Account
+	findErr           error
+	updateNameErr     error
+	updateLimitsErr   error
+	getByAccNumber    *model.Account
+	getByAccNumberErr error
+	updateErr         error
+	allAccounts       []*model.Account
+	allTotal          int64
+	getAllErr         error
 }
 
 func (f *fakeAccountRepo) Create(_ context.Context, _ *model.Account) error {

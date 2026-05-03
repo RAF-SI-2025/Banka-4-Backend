@@ -36,13 +36,13 @@ func NewClientHandler(service *service.ClientService) *ClientHandler {
 func (h *ClientHandler) Register(c *gin.Context) {
 	var req dto.CreateClientRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	_, err := h.service.Register(c.Request.Context(), &req)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -68,7 +68,7 @@ func (h *ClientHandler) Register(c *gin.Context) {
 func (h *ClientHandler) ListClients(c *gin.Context) {
 	var query dto.ListClientsQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
@@ -81,7 +81,7 @@ func (h *ClientHandler) ListClients(c *gin.Context) {
 
 	result, err := h.service.GetAllClients(c.Request.Context(), &query)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -106,19 +106,19 @@ func (h *ClientHandler) ListClients(c *gin.Context) {
 func (h *ClientHandler) UpdateClient(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.Error(errors.BadRequestErr("invalid client id"))
+		_ = c.Error(errors.BadRequestErr("invalid client id"))
 		return
 	}
 
 	var req dto.UpdateClientRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	client, err := h.service.UpdateClient(c.Request.Context(), uint(id), &req)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -141,7 +141,7 @@ func (h *ClientHandler) GetMobileSecret(c *gin.Context) {
 
 	secret, err := h.service.GetMobileVerificationSecret(c.Request.Context(), *authCtx.ClientID)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 

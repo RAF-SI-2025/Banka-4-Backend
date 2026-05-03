@@ -2684,7 +2684,8 @@ const docTemplate = `{
                 "name",
                 "owner_id",
                 "registration_number",
-                "tax_number"
+                "tax_number",
+                "work_code_id"
             ],
             "properties": {
                 "address": {

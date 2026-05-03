@@ -95,7 +95,7 @@ func (tp *TransactionProcessor) Process(ctx context.Context, transactionID uint)
 			updates[banksAccountTo.AccountNumber] += transaction.StartAmount
 			updates[banksAccountFrom.AccountNumber] += -transaction.EndAmount
 			updates[recipient.AccountNumber] += transaction.EndAmount
-			
+
 			for accNum, delta := range updates {
 				acc, err := tp.accountRepo.FindByAccountNumber(ctx, accNum)
 				if err != nil {

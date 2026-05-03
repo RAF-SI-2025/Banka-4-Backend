@@ -31,8 +31,8 @@ type fakeLoanRequestRepo struct {
 	findAllErr error
 	updateErr  error
 	updated    *model.LoanRequest
-	loan       *model.Loan
-	loans      []model.Loan
+	//loan       *model.Loan	UNUSED
+	//loans      []model.Loan	UNUSED
 }
 
 func (f *fakeLoanRequestRepo) CreateRequest(_ context.Context, r *model.LoanRequest) error {
@@ -72,7 +72,6 @@ type fakeLoanRepo struct {
 	loanErr              error
 	instErr              error
 	findErr              error
-	updateErr            error
 	variableRateLoansErr error
 }
 

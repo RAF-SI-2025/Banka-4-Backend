@@ -33,13 +33,13 @@ func NewAuthHandler(service *service.AuthService) *AuthHandler {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	res, err := h.service.Login(c.Request.Context(), &req)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -61,13 +61,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	var req dto.RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	res, err := h.service.RefreshToken(c.Request.Context(), req.RefreshToken)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -88,12 +88,12 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 func (h *AuthHandler) Activate(c *gin.Context) {
 	var req dto.ActivateAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	if err := h.service.ActivateAccount(c.Request.Context(), req.Token, req.Password); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -114,12 +114,12 @@ func (h *AuthHandler) Activate(c *gin.Context) {
 func (h *AuthHandler) ResendActivation(c *gin.Context) {
 	var req dto.ResendActivationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	if err := h.service.ResendActivation(c.Request.Context(), req.Email); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -139,12 +139,12 @@ func (h *AuthHandler) ResendActivation(c *gin.Context) {
 func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	var req dto.ForgotPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	if err := h.service.RequestPasswordReset(c.Request.Context(), req.Email); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -165,12 +165,12 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	var req dto.ResetPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	if err := h.service.ConfirmPasswordReset(c.Request.Context(), req.Token, req.NewPassword); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -192,12 +192,12 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	var req dto.ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	if err := h.service.ChangePassword(c.Request.Context(), req.OldPassword, req.NewPassword); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 

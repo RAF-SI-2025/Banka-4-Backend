@@ -26,61 +26,61 @@ type errCardRepo struct {
 	updateErr                error
 }
 
-func (r *errCardRepo) Create(_ context.Context, card *model.Card) error {
+func (r *errCardRepo) Create(ctx context.Context, card *model.Card) error {
 	if r.createErr != nil {
 		return r.createErr
 	}
-	return r.fakeCardServiceCardRepo.Create(nil, card)
+	return r.fakeCardServiceCardRepo.Create(ctx, card)
 }
 
-func (r *errCardRepo) FindByID(_ context.Context, id uint) (*model.Card, error) {
+func (r *errCardRepo) FindByID(ctx context.Context, id uint) (*model.Card, error) {
 	if r.findByIDErr != nil {
 		return nil, r.findByIDErr
 	}
-	return r.fakeCardServiceCardRepo.FindByID(nil, id)
+	return r.fakeCardServiceCardRepo.FindByID(ctx, id)
 }
 
-func (r *errCardRepo) ListByAccountNumber(_ context.Context, accountNumber string) ([]model.Card, error) {
+func (r *errCardRepo) ListByAccountNumber(ctx context.Context, accountNumber string) ([]model.Card, error) {
 	if r.listErr != nil {
 		return nil, r.listErr
 	}
-	return r.fakeCardServiceCardRepo.ListByAccountNumber(nil, accountNumber)
+	return r.fakeCardServiceCardRepo.ListByAccountNumber(ctx, accountNumber)
 }
 
-func (r *errCardRepo) CountNonDeactivatedByAccountNumber(_ context.Context, accountNumber string) (int64, error) {
+func (r *errCardRepo) CountNonDeactivatedByAccountNumber(ctx context.Context, accountNumber string) (int64, error) {
 	if r.countNonDeactErr != nil {
 		return 0, r.countNonDeactErr
 	}
-	return r.fakeCardServiceCardRepo.CountNonDeactivatedByAccountNumber(nil, accountNumber)
+	return r.fakeCardServiceCardRepo.CountNonDeactivatedByAccountNumber(ctx, accountNumber)
 }
 
-func (r *errCardRepo) CountNonDeactivatedByAccountNumberAndAuthorizedPersonID(_ context.Context, accountNumber string, authorizedPersonID *uint) (int64, error) {
+func (r *errCardRepo) CountNonDeactivatedByAccountNumberAndAuthorizedPersonID(ctx context.Context, accountNumber string, authorizedPersonID *uint) (int64, error) {
 	if r.countNonDeactByPersonErr != nil {
 		return 0, r.countNonDeactByPersonErr
 	}
-	return r.fakeCardServiceCardRepo.CountNonDeactivatedByAccountNumberAndAuthorizedPersonID(nil, accountNumber, authorizedPersonID)
+	return r.fakeCardServiceCardRepo.CountNonDeactivatedByAccountNumberAndAuthorizedPersonID(ctx, accountNumber, authorizedPersonID)
 }
 
-func (r *errCardRepo) CardNumberExists(_ context.Context, cardNumber string) (bool, error) {
+func (r *errCardRepo) CardNumberExists(ctx context.Context, cardNumber string) (bool, error) {
 	if r.cardNumberExistsErr != nil {
 		return false, r.cardNumberExistsErr
 	}
-	return r.fakeCardServiceCardRepo.CardNumberExists(nil, cardNumber)
+	return r.fakeCardServiceCardRepo.CardNumberExists(ctx, cardNumber)
 }
 
-func (r *errCardRepo) Update(_ context.Context, card *model.Card) error {
+func (r *errCardRepo) Update(ctx context.Context, card *model.Card) error {
 	if r.updateErr != nil {
 		return r.updateErr
 	}
-	return r.fakeCardServiceCardRepo.Update(nil, card)
+	return r.fakeCardServiceCardRepo.Update(ctx, card)
 }
 
-func (r *errCardRepo) CountByAccountNumber(_ context.Context, accountNumber string) (int64, error) {
-	return r.fakeCardServiceCardRepo.CountByAccountNumber(nil, accountNumber)
+func (r *errCardRepo) CountByAccountNumber(ctx context.Context, accountNumber string) (int64, error) {
+	return r.fakeCardServiceCardRepo.CountByAccountNumber(ctx, accountNumber)
 }
 
-func (r *errCardRepo) CountByAccountNumberAndAuthorizedPersonID(_ context.Context, accountNumber string, authorizedPersonID *uint) (int64, error) {
-	return r.fakeCardServiceCardRepo.CountByAccountNumberAndAuthorizedPersonID(nil, accountNumber, authorizedPersonID)
+func (r *errCardRepo) CountByAccountNumberAndAuthorizedPersonID(ctx context.Context, accountNumber string, authorizedPersonID *uint) (int64, error) {
+	return r.fakeCardServiceCardRepo.CountByAccountNumberAndAuthorizedPersonID(ctx, accountNumber, authorizedPersonID)
 }
 
 type errAccountRepo struct {
@@ -88,11 +88,11 @@ type errAccountRepo struct {
 	findErr error
 }
 
-func (r *errAccountRepo) FindByAccountNumber(_ context.Context, accountNumber string) (*model.Account, error) {
+func (r *errAccountRepo) FindByAccountNumber(ctx context.Context, accountNumber string) (*model.Account, error) {
 	if r.findErr != nil {
 		return nil, r.findErr
 	}
-	return r.fakeCardServiceAccountRepo.FindByAccountNumber(nil, accountNumber)
+	return r.fakeCardServiceAccountRepo.FindByAccountNumber(ctx, accountNumber)
 }
 
 type errCardRequestRepo struct {
@@ -104,35 +104,35 @@ type errCardRequestRepo struct {
 	pendingResult  *model.CardRequest
 }
 
-func (r *errCardRequestRepo) Create(_ context.Context, request *model.CardRequest) error {
+func (r *errCardRequestRepo) Create(ctx context.Context, request *model.CardRequest) error {
 	if r.createErr != nil {
 		return r.createErr
 	}
-	return r.fakeCardServiceCardRequestRepo.Create(nil, request)
+	return r.fakeCardServiceCardRequestRepo.Create(ctx, request)
 }
 
-func (r *errCardRequestRepo) FindLatestPendingByAccountNumber(_ context.Context, accountNumber string) (*model.CardRequest, error) {
+func (r *errCardRequestRepo) FindLatestPendingByAccountNumber(ctx context.Context, accountNumber string) (*model.CardRequest, error) {
 	if r.findPendingErr != nil {
 		return nil, r.findPendingErr
 	}
 	if r.pendingResult != nil {
 		return r.pendingResult, nil
 	}
-	return r.fakeCardServiceCardRequestRepo.FindLatestPendingByAccountNumber(nil, accountNumber)
+	return r.fakeCardServiceCardRequestRepo.FindLatestPendingByAccountNumber(ctx, accountNumber)
 }
 
-func (r *errCardRequestRepo) FindByAccountNumberAndCode(_ context.Context, accountNumber string, code string) (*model.CardRequest, error) {
+func (r *errCardRequestRepo) FindByAccountNumberAndCode(ctx context.Context, accountNumber string, code string) (*model.CardRequest, error) {
 	if r.findByCodeErr != nil {
 		return nil, r.findByCodeErr
 	}
-	return r.fakeCardServiceCardRequestRepo.FindByAccountNumberAndCode(nil, accountNumber, code)
+	return r.fakeCardServiceCardRequestRepo.FindByAccountNumberAndCode(ctx, accountNumber, code)
 }
 
-func (r *errCardRequestRepo) Update(_ context.Context, request *model.CardRequest) error {
+func (r *errCardRequestRepo) Update(ctx context.Context, request *model.CardRequest) error {
 	if r.updateErr != nil {
 		return r.updateErr
 	}
-	return r.fakeCardServiceCardRequestRepo.Update(nil, request)
+	return r.fakeCardServiceCardRequestRepo.Update(ctx, request)
 }
 
 type errAuthorizedPersonRepo struct {
@@ -141,22 +141,22 @@ type errAuthorizedPersonRepo struct {
 	findByIDErr error
 }
 
-func (r *errAuthorizedPersonRepo) Create(_ context.Context, person *model.AuthorizedPerson) error {
+func (r *errAuthorizedPersonRepo) Create(ctx context.Context, person *model.AuthorizedPerson) error {
 	if r.createErr != nil {
 		return r.createErr
 	}
-	return r.fakeCardServiceAuthorizedPersonRepo.Create(nil, person)
+	return r.fakeCardServiceAuthorizedPersonRepo.Create(ctx, person)
 }
 
-func (r *errAuthorizedPersonRepo) FindByID(_ context.Context, id uint) (*model.AuthorizedPerson, error) {
+func (r *errAuthorizedPersonRepo) FindByID(ctx context.Context, id uint) (*model.AuthorizedPerson, error) {
 	if r.findByIDErr != nil {
 		return nil, r.findByIDErr
 	}
-	return r.fakeCardServiceAuthorizedPersonRepo.FindByID(nil, id)
+	return r.fakeCardServiceAuthorizedPersonRepo.FindByID(ctx, id)
 }
 
-func (r *errAuthorizedPersonRepo) ListByAccountNumber(_ context.Context, accountNumber string) ([]model.AuthorizedPerson, error) {
-	return r.fakeCardServiceAuthorizedPersonRepo.ListByAccountNumber(nil, accountNumber)
+func (r *errAuthorizedPersonRepo) ListByAccountNumber(ctx context.Context, accountNumber string) ([]model.AuthorizedPerson, error) {
+	return r.fakeCardServiceAuthorizedPersonRepo.ListByAccountNumber(ctx, accountNumber)
 }
 
 // ── NewCardService ─────────────────────────────────────────────────────────────

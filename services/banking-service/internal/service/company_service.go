@@ -13,20 +13,23 @@ import (
 )
 
 type CompanyService struct {
-	repo       repository.CompanyRepository
-	userClient client.UserClient
-	db         *gorm.DB
+	repo          repository.CompanyRepository
+	userClient    client.UserClient
+	db            *gorm.DB
+	workCodeCache WorkCodeCache
 }
 
 func NewCompanyService(
 	repo repository.CompanyRepository,
 	userClient client.UserClient,
 	db *gorm.DB,
+	workCodeCache WorkCodeCache,
 ) *CompanyService {
 	return &CompanyService{
-		repo:       repo,
-		userClient: userClient,
-		db:         db,
+		repo:          repo,
+		userClient:    userClient,
+		db:            db,
+		workCodeCache: workCodeCache,
 	}
 }
 
@@ -85,9 +88,20 @@ func (s *CompanyService) GetCompanies(ctx context.Context) ([]model.Company, err
 }
 
 func (s *CompanyService) GetWorkCodes(ctx context.Context) ([]model.WorkCode, error) {
+	if s.workCodeCache != nil {
+		workCodes, found, err := s.workCodeCache.Get(ctx)
+		if err == nil && found {
+			return workCodes, nil
+		}
+	}
+
 	workCodes, err := s.repo.GetWorkCodes(ctx)
 	if err != nil {
 		return nil, errors.InternalErr(err)
+	}
+
+	if s.workCodeCache != nil {
+		_ = s.workCodeCache.Set(ctx, workCodes)
 	}
 
 	return workCodes, nil

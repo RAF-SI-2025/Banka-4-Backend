@@ -32,7 +32,7 @@ func NewExchangeHandler(service *service.ExchangeService) *ExchangeHandler {
 func (h *ExchangeHandler) GetAll(c *gin.Context) {
 	var query dto.ListExchangesQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
@@ -45,7 +45,7 @@ func (h *ExchangeHandler) GetAll(c *gin.Context) {
 
 	exchanges, total, err := h.service.GetAll(c.Request.Context(), query.Page, query.PageSize)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -72,7 +72,7 @@ func (h *ExchangeHandler) ToggleTradingEnabled(c *gin.Context) {
 
 	exchange, err := h.service.ToggleTradingEnabled(c.Request.Context(), micCode)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	c.JSON(http.StatusOK, dto.ToExchangeResponse(*exchange))

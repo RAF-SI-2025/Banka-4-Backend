@@ -34,13 +34,13 @@ func NewEmployeeHandler(service *service.EmployeeService) *EmployeeHandler {
 func (h *EmployeeHandler) Register(c *gin.Context) {
 	var req dto.CreateEmployeeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	employee, err := h.service.Register(c.Request.Context(), &req)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -65,7 +65,7 @@ func (h *EmployeeHandler) Register(c *gin.Context) {
 func (h *EmployeeHandler) ListEmployees(c *gin.Context) {
 	var query dto.ListEmployeesQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
@@ -78,7 +78,7 @@ func (h *EmployeeHandler) ListEmployees(c *gin.Context) {
 
 	result, err := h.service.GetAllEmployees(c.Request.Context(), &query)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -99,13 +99,13 @@ func (h *EmployeeHandler) ListEmployees(c *gin.Context) {
 func (h *EmployeeHandler) GetEmployee(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.Error(errors.BadRequestErr("invalid employee id"))
+		_ = c.Error(errors.BadRequestErr("invalid employee id"))
 		return
 	}
 
 	result, svcErr := h.service.GetEmployeeByID(c.Request.Context(), uint(id))
 	if svcErr != nil {
-		c.Error(svcErr)
+		_ = c.Error(svcErr)
 		return
 	}
 
@@ -129,19 +129,19 @@ func (h *EmployeeHandler) GetEmployee(c *gin.Context) {
 func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.Error(errors.BadRequestErr("invalid employee id"))
+		_ = c.Error(errors.BadRequestErr("invalid employee id"))
 		return
 	}
 
 	var req dto.UpdateEmployeeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	employee, svcErr := h.service.UpdateEmployee(c.Request.Context(), uint(id), &req)
 	if svcErr != nil {
-		c.Error(svcErr)
+		_ = c.Error(svcErr)
 		return
 	}
 
@@ -163,12 +163,12 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 func (h *EmployeeHandler) DeactivateEmployee(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.Error(errors.BadRequestErr("invalid employee id"))
+		_ = c.Error(errors.BadRequestErr("invalid employee id"))
 		return
 	}
 
 	if err := h.service.DeactivateEmployee(c.Request.Context(), uint(id)); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 

@@ -43,7 +43,7 @@ func NewActuaryHandler(service *service.ActuaryService) *ActuaryHandler {
 func (h *ActuaryHandler) ListActuaries(c *gin.Context) {
 	var query dto.ListActuariesQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
@@ -56,7 +56,7 @@ func (h *ActuaryHandler) ListActuaries(c *gin.Context) {
 
 	result, err := h.service.GetAllActuaries(c.Request.Context(), &query)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -81,19 +81,19 @@ func (h *ActuaryHandler) ListActuaries(c *gin.Context) {
 func (h *ActuaryHandler) UpdateActuarySettings(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.Error(errors.BadRequestErr("invalid employee id"))
+		_ = c.Error(errors.BadRequestErr("invalid employee id"))
 		return
 	}
 
 	var req dto.UpdateActuarySettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	actuary, svcErr := h.service.UpdateActuarySettings(c.Request.Context(), uint(id), &req)
 	if svcErr != nil {
-		c.Error(svcErr)
+		_ = c.Error(svcErr)
 		return
 	}
 
@@ -116,13 +116,13 @@ func (h *ActuaryHandler) UpdateActuarySettings(c *gin.Context) {
 func (h *ActuaryHandler) ResetUsedLimit(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.Error(errors.BadRequestErr("invalid employee id"))
+		_ = c.Error(errors.BadRequestErr("invalid employee id"))
 		return
 	}
 
 	actuary, svcErr := h.service.ResetUsedLimit(c.Request.Context(), uint(id))
 	if svcErr != nil {
-		c.Error(svcErr)
+		_ = c.Error(svcErr)
 		return
 	}
 

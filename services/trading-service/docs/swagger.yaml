@@ -1,4 +1,28 @@
 definitions:
+  dto.ActuaryFundResponse:
+    properties:
+      account_number:
+        type: string
+      description:
+        type: string
+      fund_id:
+        type: integer
+      fund_value:
+        type: number
+      liquid_assets:
+        type: number
+      name:
+        type: string
+    type: object
+  dto.ActuaryProfitResponse:
+    properties:
+      first_name:
+        type: string
+      last_name:
+        type: string
+      profit_rsd:
+        type: number
+    type: object
   dto.AssetType:
     enum:
     - STOCK
@@ -263,6 +287,42 @@ definitions:
       volume:
         type: integer
     type: object
+  dto.FundPositionResponse:
+    properties:
+      bank_share_pct:
+        type: number
+      bank_share_value:
+        type: number
+      fund_name:
+        type: string
+      manager_name:
+        type: string
+      profit:
+        type: number
+    type: object
+  dto.FundSummaryResponse:
+    properties:
+      account_number:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      fund_id:
+        type: integer
+      fund_value:
+        type: number
+      liquid_assets:
+        type: number
+      manager_id:
+        type: integer
+      minimum_contribution:
+        type: number
+      name:
+        type: string
+      profit:
+        type: number
+    type: object
   dto.FutureDetailedResponse:
     properties:
       ask:
@@ -357,6 +417,19 @@ definitions:
         type: number
       total_invested_rsd:
         type: number
+    type: object
+  dto.ListFundsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.FundSummaryResponse'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
     type: object
   dto.ListOrdersResponse:
     properties:
@@ -459,6 +532,15 @@ definitions:
         type: string
       volume:
         type: integer
+    type: object
+  dto.OptionSpecificAssetData:
+    properties:
+      option_type:
+        type: string
+      settlement_date:
+        type: string
+      strike_price:
+        type: number
     type: object
   dto.OrderResponse:
     properties:
@@ -600,6 +682,8 @@ definitions:
         type: number
       last_modified:
         type: string
+      option_data:
+        $ref: '#/definitions/dto.OptionSpecificAssetData'
       price_per_unit_rsd:
         type: number
       profit:
@@ -902,6 +986,40 @@ paths:
       summary: Publish assets for OTC trading
       tags:
       - otc
+  /api/actuary/{actId}/assets/funds:
+    get:
+      description: Returns all investment funds managed by the specified actuary (supervisor).
+        Shows fund value and liquidity.
+      parameters:
+      - description: Actuary ID
+        in: path
+        name: actId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.ActuaryFundResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Get funds managed by an actuary
+      tags:
+      - investment-funds
   /api/actuary/{actId}/assets/profit:
     get:
       description: Returns the total accumulated profit across all currently held
@@ -1233,6 +1351,49 @@ paths:
       summary: Toggle trading enabled for an exchange
       tags:
       - exchange
+  /api/funds:
+    get:
+      description: Returns a paginated list of all investment funds with optional
+        filtering and sorting. Accessible to actuaries and clients.
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by fund name (case-insensitive substring)
+        in: query
+        name: name
+        type: string
+      - description: 'Sort by field: name, minimum_contribution, created_at, liquid_assets'
+        in: query
+        name: sort_by
+        type: string
+      - description: 'Sort direction: asc, desc'
+        in: query
+        name: sort_dir
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListFundsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Get all investment funds
+      tags:
+      - investment-funds
   /api/health:
     get:
       description: Returns service health status
@@ -1983,6 +2144,77 @@ paths:
       summary: List all publicly available OTC assets
       tags:
       - otc
+  /api/profit/actuaries:
+    get:
+      consumes:
+      - application/json
+      description: Returns paginated list of actuaries with their profits (agents
+        and supervisors)
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by first name
+        in: query
+        name: first_name
+        type: string
+      - description: Filter by last name
+        in: query
+        name: last_name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.ActuaryProfitResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get actuary profits
+      tags:
+      - profit
+  /api/profit/funds:
+    get:
+      consumes:
+      - application/json
+      description: Returns all investment funds with bank share, manager info and
+        profit calculation
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.FundPositionResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get investment fund positions
+      tags:
+      - profit
   /api/tax:
     get:
       description: Returns a paginated list of clients and/or actuaries with their

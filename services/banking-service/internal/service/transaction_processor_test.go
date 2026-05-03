@@ -133,14 +133,6 @@ func tpAccount(number string, balance float64, currency model.CurrencyCode) *mod
 	}
 }
 
-func tpBankAccounts() []*model.Account {
-	var accs []*model.Account
-	for code, num := range BankAccounts {
-		accs = append(accs, tpAccount(num, 1_000_000, code))
-	}
-	return accs
-}
-
 func newTpProcessor(accRepo *fakeTpAccountRepo, txRepo *fakeTpTransactionRepo) *TransactionProcessor {
 	return NewTransactionProcessor(accRepo, txRepo, &fakeBankingTxManager{})
 }

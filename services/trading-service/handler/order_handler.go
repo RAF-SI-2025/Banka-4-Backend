@@ -36,7 +36,7 @@ func NewOrderHandler(service *service.OrderService) *OrderHandler {
 func (h *OrderHandler) GetOrders(c *gin.Context) {
 	var query dto.ListOrdersQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
@@ -49,7 +49,7 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 
 	orders, total, err := h.service.GetOrders(c.Request.Context(), query)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -75,13 +75,13 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	var req dto.CreateOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	order, err := h.service.CreateOrder(c.Request.Context(), req)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -105,13 +105,13 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 func (h *OrderHandler) CreateFundOrder(c *gin.Context) {
 	var req dto.CreateFundOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	order, err := h.service.CreateFundOrder(c.Request.Context(), req)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -131,13 +131,13 @@ func (h *OrderHandler) CreateFundOrder(c *gin.Context) {
 func (h *OrderHandler) ApproveOrder(c *gin.Context) {
 	orderID, err := parseOrderID(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	order, err := h.service.ApproveOrder(c.Request.Context(), orderID)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -157,13 +157,13 @@ func (h *OrderHandler) ApproveOrder(c *gin.Context) {
 func (h *OrderHandler) DeclineOrder(c *gin.Context) {
 	orderID, err := parseOrderID(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	order, err := h.service.DeclineOrder(c.Request.Context(), orderID)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -183,13 +183,13 @@ func (h *OrderHandler) DeclineOrder(c *gin.Context) {
 func (h *OrderHandler) CancelOrder(c *gin.Context) {
 	orderID, err := parseOrderID(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	order, err := h.service.CancelOrder(c.Request.Context(), orderID)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 

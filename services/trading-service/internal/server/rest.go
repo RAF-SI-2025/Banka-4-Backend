@@ -112,6 +112,15 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 		funds := api.Group("/investment-funds")
 		funds.Use(authMw, auth.RequirePermission(permission.Trading))
 		{
+			// Supervisori, agenti i klijenti mogu da vide sve fondove
+			funds.GET("",
+				auth.AnyOf(
+					middleware.RequireSupervisor(userClient),
+					middleware.RequireAgent(userClient),
+					auth.RequireIdentityType(auth.IdentityClient),
+				),
+				fundHandler.GetAllFunds,
+			)
 			// Samo supervisor može da kreira fond
 			funds.POST("",
 				auth.RequireIdentityType(auth.IdentityEmployee),
@@ -144,6 +153,7 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 		{
 			actuary.GET("/:actId/assets", portfolioHandler.GetActuaryPortfolio)
 			actuary.GET("/:actId/assets/profit", portfolioHandler.GetActuaryPortfolioProfit)
+			actuary.GET("/:actId/assets/funds", fundHandler.GetActuaryFunds)
 			actuary.GET("/:actId/accumulated-tax", taxHandler.GetActuaryAccumulatedTax)
 			actuary.POST("/:actId/options/:assetId/exercise", portfolioHandler.ExerciseOption)
 			actuary.PATCH("/:actId/assets/:ownershipId/publish", otcHandler.PublishAssetActuary)
@@ -166,11 +176,19 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 			orders.PATCH("/:id/decline", middleware.RequireSupervisor(userClient), orderHandler.DeclineOrder)
 			orders.PATCH("/:id/cancel", orderHandler.CancelOrder)
 		}
+
 		tax := api.Group("/tax")
 		tax.Use(authMw, auth.RequirePermission(permission.Trading))
 		{
 			tax.GET("", middleware.RequireSupervisor(userClient), taxHandler.ListTaxUsers)
 			tax.POST("/collect", middleware.RequireSupervisor(userClient), taxHandler.CollectTaxes)
+		}
+
+		profit := api.Group("/profit")
+		profit.Use(authMw, auth.RequirePermission(permission.Trading))
+		{
+			profit.GET("/actuaries", middleware.RequireSupervisor(userClient), portfolioHandler.GetAllActuaryProfits)
+			profit.GET("/funds", middleware.RequireSupervisor(userClient), fundHandler.GetBankFundPositions)
 		}
 	}
 }

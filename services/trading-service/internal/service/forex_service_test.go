@@ -137,7 +137,9 @@ func TestInitialize_CountError_LogsAndReturns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sqlDB.Close()
+	if err := sqlDB.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	repo := repository.NewForexRepository(db)
 	assetRepo := repository.NewAssetRepository(db)

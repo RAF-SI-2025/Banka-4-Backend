@@ -70,8 +70,8 @@ func (f *fakeCardServiceAccountRepo) UpdateLimits(_ context.Context, _ string, _
 	return nil
 }
 
-func (f *fakeCardServiceAccountRepo) GetByAccountNumber(_ context.Context, accountNumber string) (*model.Account, error) {
-	return f.FindByAccountNumber(nil, accountNumber)
+func (f *fakeCardServiceAccountRepo) GetByAccountNumber(ctx context.Context, accountNumber string) (*model.Account, error) {
+	return f.FindByAccountNumber(ctx, accountNumber)
 }
 
 func (f *fakeCardServiceAccountRepo) Update(_ context.Context, _ *model.Account) error {

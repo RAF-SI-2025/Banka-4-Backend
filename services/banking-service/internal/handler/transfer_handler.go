@@ -38,13 +38,13 @@ func NewTransferHandler(service *service.TransferService) *TransferHandler {
 func (h *TransferHandler) ExecuteTransfer(c *gin.Context) {
 	var req dto.TransferRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	response, err := h.service.ExecuteTransfer(c.Request.Context(), req)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -69,19 +69,19 @@ func (h *TransferHandler) ExecuteTransfer(c *gin.Context) {
 func (h *TransferHandler) GetTransferHistory(c *gin.Context) {
 	clientID, err := parseClientID(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	var query dto.ListTransfersQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	response, err := h.service.GetTransferHistory(c.Request.Context(), clientID, query.Page, query.PageSize)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 

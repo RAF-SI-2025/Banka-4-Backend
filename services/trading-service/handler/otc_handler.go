@@ -40,19 +40,19 @@ func NewOTCHandler(service *service.OTCService) *OTCHandler {
 func (h *OTCHandler) PublishAssetClient(c *gin.Context) {
 	ownershipID, err := strconv.ParseUint(c.Param("ownershipId"), 10, 64)
 	if err != nil {
-		c.Error(pkgerrors.BadRequestErr("invalid asset ownership id"))
+		_ = c.Error(pkgerrors.BadRequestErr("invalid asset ownership id"))
 		return
 	}
 
 	clientId, err := strconv.ParseUint(c.Param("clientId"), 10, 64)
 	if err != nil {
-		c.Error(pkgerrors.BadRequestErr("invalid client id"))
+		_ = c.Error(pkgerrors.BadRequestErr("invalid client id"))
 		return
 	}
 
 	var req dto.PublishAssetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(pkgerrors.BadRequestErr("invalid request body"))
+		_ = c.Error(pkgerrors.BadRequestErr("invalid request body"))
 		return
 	}
 	amount := req.Amount
@@ -60,7 +60,7 @@ func (h *OTCHandler) PublishAssetClient(c *gin.Context) {
 	ownerType := model.OwnerTypeClient
 
 	if svcErr := h.service.PublishAsset(c.Request.Context(), uint(ownershipID), uint(clientId), ownerType, amount); svcErr != nil {
-		c.Error(svcErr)
+		_ = c.Error(svcErr)
 		return
 	}
 
@@ -87,19 +87,19 @@ func (h *OTCHandler) PublishAssetClient(c *gin.Context) {
 func (h *OTCHandler) PublishAssetActuary(c *gin.Context) {
 	ownershipID, err := strconv.ParseUint(c.Param("ownershipId"), 10, 64)
 	if err != nil {
-		c.Error(pkgerrors.BadRequestErr("invalid asset ownership id"))
+		_ = c.Error(pkgerrors.BadRequestErr("invalid asset ownership id"))
 		return
 	}
 
 	actuaryId, err := strconv.ParseUint(c.Param("actId"), 10, 64)
 	if err != nil {
-		c.Error(pkgerrors.BadRequestErr("invalid actuary id"))
+		_ = c.Error(pkgerrors.BadRequestErr("invalid actuary id"))
 		return
 	}
 
 	var req dto.PublishAssetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(pkgerrors.BadRequestErr("invalid request body"))
+		_ = c.Error(pkgerrors.BadRequestErr("invalid request body"))
 		return
 	}
 	amount := req.Amount
@@ -107,7 +107,7 @@ func (h *OTCHandler) PublishAssetActuary(c *gin.Context) {
 	ownerType := model.OwnerTypeActuary
 
 	if svcErr := h.service.PublishAsset(c.Request.Context(), uint(ownershipID), uint(actuaryId), ownerType, amount); svcErr != nil {
-		c.Error(svcErr)
+		_ = c.Error(svcErr)
 		return
 	}
 
@@ -130,14 +130,14 @@ func (h *OTCHandler) PublishAssetActuary(c *gin.Context) {
 func (h *OTCHandler) GetPublicOTCAssets(c *gin.Context) {
 	var q dto.OTCListRequest
 	if err := c.ShouldBindQuery(&q); err != nil {
-		c.Error(pkgerrors.BadRequestErr(err.Error()))
+		_ = c.Error(pkgerrors.BadRequestErr(err.Error()))
 		return
 	}
 	q.Normalize()
 
 	assets, total, err := h.service.GetPublicOTCAssets(c.Request.Context(), q.Page, q.PageSize)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
