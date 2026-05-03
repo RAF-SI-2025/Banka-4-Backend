@@ -113,10 +113,19 @@ type fakeBankingClient struct {
 	// CreatePaymentWithoutVerification
 	paymentResp *pb.CreatePaymentResponse
 	paymentErr  error
+
+	accountByNumber map[string]uint64
 }
 
-func (f *fakeBankingClient) GetAccountByNumber(_ context.Context, _ string) (*pb.GetAccountByNumberResponse, error) {
-	return nil, nil
+func (f *fakeBankingClient) GetAccountByNumber(_ context.Context, acc string) (*pb.GetAccountByNumberResponse, error) {
+	clientID, ok := f.accountByNumber[acc]
+	if !ok {
+		return nil, errors.New("account not found")
+	}
+
+	return &pb.GetAccountByNumberResponse{
+		ClientId: clientID,
+	}, nil
 }
 
 func (f *fakeBankingClient) HasActiveLoan(_ context.Context, _ uint64) (*pb.HasActiveLoanResponse, error) {

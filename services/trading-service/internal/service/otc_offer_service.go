@@ -75,7 +75,7 @@ func (s *OtcOfferService) CreateOffer(ctx context.Context, req dto.CreateOtcOffe
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if assetOwnership.OwnerType != model.OwnerTypeClient {
 		return nil, errors.BadRequestErr("the provided asset does not belong to a client")
 	}
@@ -96,8 +96,12 @@ func (s *OtcOfferService) CreateOffer(ctx context.Context, req dto.CreateOtcOffe
 		return nil, err
 	}
 
-	if _, err := s.bankingClient.GetAccountByNumber(ctx, req.BuyerAccountNumber); err != nil {
+	buyerAccount, err := s.bankingClient.GetAccountByNumber(ctx, req.BuyerAccountNumber)
+	if err != nil {
 		return nil, errors.BadRequestErr("buyer account number is invalid")
+	}
+	if uint(buyerAccount.ClientId) != buyerID {
+		return nil, errors.BadRequestErr("the provided account does not belong to you")
 	}
 
 	now := s.now()
@@ -165,11 +169,17 @@ func (s *OtcOfferService) SendCounterOffer(ctx context.Context, offerID uint, re
 
 	if callerID == offer.SellerID && offer.SellerAccountNumber == nil {
 		if req.AccountNumber == nil {
-			return nil, errors.BadRequestErr("seller_account_number is required in the seller's first counter-offer")
+			return nil, errors.BadRequestErr("account_number is required in the seller's first counter-offer")
 		}
-		if _, err := s.bankingClient.GetAccountByNumber(ctx, *req.AccountNumber); err != nil {
+
+		sellerAccount, err := s.bankingClient.GetAccountByNumber(ctx, *req.AccountNumber)
+		if err != nil {
 			return nil, errors.BadRequestErr("seller account number is invalid")
 		}
+		if uint(sellerAccount.ClientId) != offer.SellerID {
+			return nil, errors.BadRequestErr("the provided account does not belong to you")
+		}
+
 		offer.SellerAccountNumber = req.AccountNumber
 	}
 

@@ -2804,15 +2804,17 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "amount",
+                "asset_ownership_id",
                 "buyer_account_number",
                 "premium",
                 "price_per_stock",
-                "seller_id",
-                "settlement_date",
-                "stock_id"
+                "settlement_date"
             ],
             "properties": {
                 "amount": {
+                    "type": "integer"
+                },
+                "asset_ownership_id": {
                     "type": "integer"
                 },
                 "buyer_account_number": {
@@ -2824,14 +2826,8 @@ const docTemplate = `{
                 "price_per_stock": {
                     "type": "number"
                 },
-                "seller_id": {
-                    "type": "integer"
-                },
                 "settlement_date": {
                     "type": "string"
-                },
-                "stock_id": {
-                    "type": "integer"
                 }
             }
         },
@@ -3655,7 +3651,7 @@ const docTemplate = `{
                 "status": {
                     "$ref": "#/definitions/model.OtcOfferStatus"
                 },
-                "stock_id": {
+                "stock_asset_id": {
                     "type": "integer"
                 },
                 "stock_name": {
@@ -3702,7 +3698,7 @@ const docTemplate = `{
                 "settlement_date": {
                     "type": "string"
                 },
-                "stock_id": {
+                "stock_asset_id": {
                     "type": "integer"
                 },
                 "stock_name": {

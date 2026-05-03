@@ -157,7 +157,6 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 			actuary.GET("/:actId/accumulated-tax", taxHandler.GetActuaryAccumulatedTax)
 			actuary.POST("/:actId/options/:assetId/exercise", portfolioHandler.ExerciseOption)
 			actuary.PATCH("/:actId/assets/:ownershipId/publish", otcHandler.PublishAssetActuary)
-
 		}
 
 		otc := api.Group("/otc")

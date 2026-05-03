@@ -25,6 +25,7 @@ func seedAssetAndStock(t *testing.T, db *gorm.DB, ticker string) (*model.Asset, 
 	listing := seedListing(t, db, ticker, ex.MicCode, model.AssetTypeStock, 100.0)
 	asset := &model.Asset{}
 	require.NoError(t, db.First(asset, listing.AssetID).Error)
+
 	// Insert Stock with StockAssetID forced equal to AssetID so that the service's
 	// FindByAssetIDs([]uint{stockAssetID}) lookup (WHERE asset_id = stockAssetID) succeeds
 	// and the FK constraint fk_otc_offers_stock (references stocks.asset_id) is satisfied.
@@ -36,18 +37,6 @@ func seedAssetAndStock(t *testing.T, db *gorm.DB, ticker string) (*model.Asset, 
 	stock.AssetID = asset.AssetID
 	require.NoError(t, db.Create(stock).Error)
 	return asset, stock
-}
-
-func seedOwnership(t *testing.T, db *gorm.DB, identityID uint, assetID uint, amount, public float64) {
-	t.Helper()
-	o := &model.AssetOwnership{
-		UserId:       identityID,
-		OwnerType:    model.OwnerTypeClient,
-		AssetID:      assetID,
-		Amount:       amount,
-		PublicAmount: public,
-	}
-	require.NoError(t, db.Create(o).Error)
 }
 
 func seedAssetOwnership(t *testing.T, db *gorm.DB, identityID uint, ownerType model.OwnerType, assetID uint, amount float64) *model.AssetOwnership {
@@ -84,6 +73,7 @@ func uniqueTicker(t *testing.T) string {
 }
 
 // clientAuthHeader generates a JWT for a client identity (used as buyer/seller in OTC).
+// identityID is what the service reads as the user's ID, clientID is the client table PK.
 func clientAuthHeader(t *testing.T, identityID, clientID uint) string {
 	return authHeaderForClient(t, identityID, clientID)
 }
@@ -96,18 +86,21 @@ func TestOTC_CreateOffer_Success(t *testing.T) {
 	router, _ := setupTestRouter(t, db)
 
 	asset, _ := seedAssetAndStock(t, db, uniqueValue(t, "CRTO"))
+	// Seller identity = 20
 	ownership := seedAssetOwnership(t, db, 20, model.OwnerTypeClient, asset.AssetID, 100)
 	setPublicAmount(t, db, ownership.AssetOwnershipID, 100, 0)
 
 	body := map[string]any{
-		"asset_ownership_id":   ownership.AssetOwnershipID,
-		"amount":               10,
-		"price_per_stock":      50.0,
-		"premium":              5.0,
-		"settlement_date":      time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
-		"buyer_account_number": "buyer-account-001",
+		"asset_ownership_id": ownership.AssetOwnershipID,
+		"amount":             10,
+		"price_per_stock":    50.0,
+		"premium":            5.0,
+		"settlement_date":    time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
+		// "buyer-acc" resolves to clientID=10 via fakeBankingClient
+		"buyer_account_number": "buyer-acc",
 	}
 
+	// Buyer JWT: identityID=10, clientID=10
 	rec := performRequest(t, router, http.MethodPost, "/api/otc/offers", body, clientAuthHeader(t, 10, 10))
 	requireStatus(t, rec, http.StatusCreated)
 
@@ -124,18 +117,21 @@ func TestOTC_CreateOffer_SelfOffer_BadRequest(t *testing.T) {
 	router, _ := setupTestRouter(t, db)
 
 	asset, _ := seedAssetAndStock(t, db, uniqueValue(t, "SELF"))
+	// Seller identity = 10 (same as buyer below)
 	ownership := seedAssetOwnership(t, db, 10, model.OwnerTypeClient, asset.AssetID, 100)
 	setPublicAmount(t, db, ownership.AssetOwnershipID, 100, 0)
 
 	body := map[string]any{
-		"asset_ownership_id":   ownership.AssetOwnershipID,
-		"amount":               5,
-		"price_per_stock":      50.0,
-		"premium":              5.0,
-		"settlement_date":      time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
-		"buyer_account_number": "acc",
+		"asset_ownership_id": ownership.AssetOwnershipID,
+		"amount":             5,
+		"price_per_stock":    50.0,
+		"premium":            5.0,
+		"settlement_date":    time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
+		// "buyer-acc" resolves to clientID=10 — same as seller (identityID=10) → self-offer
+		"buyer_account_number": "buyer-acc",
 	}
 
+	// Buyer JWT: identityID=10, clientID=10
 	rec := performRequest(t, router, http.MethodPost, "/api/otc/offers", body, clientAuthHeader(t, 10, 10))
 	requireStatus(t, rec, http.StatusBadRequest)
 }
@@ -146,11 +142,14 @@ func TestOTC_CreateOffer_Unauthorized(t *testing.T) {
 	router, _ := setupTestRouter(t, db)
 
 	body := map[string]any{
-		"asset_ownership_id": 1, "amount": 5,
-		"price_per_stock": 50.0, "premium": 5.0,
+		"asset_ownership_id":   1,
+		"amount":               5,
+		"price_per_stock":      50.0,
+		"premium":              5.0,
 		"settlement_date":      time.Now().Add(time.Hour * 24).Format(time.RFC3339),
-		"buyer_account_number": "acc",
+		"buyer_account_number": "buyer-acc",
 	}
+
 	rec := performRequest(t, router, http.MethodPost, "/api/otc/offers", body, "")
 	requireStatus(t, rec, http.StatusUnauthorized)
 }
@@ -161,27 +160,31 @@ func TestOTC_SendCounterOffer_Success(t *testing.T) {
 	router, _ := setupTestRouter(t, db)
 
 	asset, _ := seedAssetAndStock(t, db, uniqueValue(t, "CNTR"))
+	// Seller identity = 20
 	ownership := seedAssetOwnership(t, db, 20, model.OwnerTypeClient, asset.AssetID, 100)
 	setPublicAmount(t, db, ownership.AssetOwnershipID, 100, 0)
 
+	// Buyer (identityID=10) creates the offer; seller account = ownership owner = 20
 	offerBody := map[string]any{
 		"asset_ownership_id":   ownership.AssetOwnershipID,
 		"amount":               10,
 		"price_per_stock":      50.0,
 		"premium":              5.0,
 		"settlement_date":      time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
-		"buyer_account_number": "buyer-acc",
+		"buyer_account_number": "buyer-acc", // resolves to clientID=10
 	}
 	rec := performRequest(t, router, http.MethodPost, "/api/otc/offers", offerBody, clientAuthHeader(t, 10, 10))
 	requireStatus(t, rec, http.StatusCreated)
 	offer := decodeResponse[map[string]any](t, rec)
 	offerID := uint(offer["otc_offer_id"].(float64))
 
-	sellerAcc := "seller-acc"
+	// Seller (identityID=20) sends counter-offer; "seller-acc" resolves to clientID=20
 	counterBody := map[string]any{
-		"amount": 8, "price_per_stock": 55.0, "premium": 6.0,
+		"amount":          8,
+		"price_per_stock": 55.0,
+		"premium":         6.0,
 		"settlement_date": time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
-		"account_number":  sellerAcc,
+		"account_number":  "seller-acc", // resolves to clientID=20
 	}
 	rec = performRequest(t, router, http.MethodPut, fmt.Sprintf("/api/otc/offers/%d/counter", offerID), counterBody, clientAuthHeader(t, 20, 20))
 	requireStatus(t, rec, http.StatusOK)
@@ -206,15 +209,18 @@ func TestOTC_SendCounterOffer_SameUserTwice_BadRequest(t *testing.T) {
 		"price_per_stock":      50.0,
 		"premium":              5.0,
 		"settlement_date":      time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
-		"buyer_account_number": "buyer-acc",
+		"buyer_account_number": "buyer-acc", // resolves to clientID=10
 	}
 	rec := performRequest(t, router, http.MethodPost, "/api/otc/offers", offerBody, clientAuthHeader(t, 10, 10))
 	requireStatus(t, rec, http.StatusCreated)
 	offer := decodeResponse[map[string]any](t, rec)
 	offerID := uint(offer["otc_offer_id"].(float64))
 
+	// Buyer (identityID=10) tries to counter their own offer → bad request
 	counterBody := map[string]any{
-		"amount": 9, "price_per_stock": 50.0, "premium": 5.0,
+		"amount":          9,
+		"price_per_stock": 50.0,
+		"premium":         5.0,
 		"settlement_date": time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
 	}
 	rec = performRequest(t, router, http.MethodPut, fmt.Sprintf("/api/otc/offers/%d/counter", offerID), counterBody, clientAuthHeader(t, 10, 10))
@@ -227,6 +233,7 @@ func TestOTC_AcceptOffer_Success_CreatesContract(t *testing.T) {
 	router, _ := setupTestRouter(t, db)
 
 	asset, _ := seedAssetAndStock(t, db, uniqueValue(t, "ACPT"))
+	// Seller identity = 20
 	ownership := seedAssetOwnership(t, db, 20, model.OwnerTypeClient, asset.AssetID, 100)
 	setPublicAmount(t, db, ownership.AssetOwnershipID, 100, 0)
 
@@ -236,13 +243,14 @@ func TestOTC_AcceptOffer_Success_CreatesContract(t *testing.T) {
 		"price_per_stock":      50.0,
 		"premium":              5.0,
 		"settlement_date":      time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
-		"buyer_account_number": "buyer-acc",
+		"buyer_account_number": "buyer-acc", // resolves to clientID=10
 	}
 	rec := performRequest(t, router, http.MethodPost, "/api/otc/offers", offerBody, clientAuthHeader(t, 10, 10))
 	requireStatus(t, rec, http.StatusCreated)
 	offer := decodeResponse[map[string]any](t, rec)
 	offerID := uint(offer["otc_offer_id"].(float64))
 
+	// Seller (identityID=20) accepts; "seller-acc" resolves to clientID=20
 	acceptBody := map[string]any{"account_number": "seller-acc"}
 	rec = performRequest(t, router, http.MethodPatch, fmt.Sprintf("/api/otc/offers/%d/accept", offerID), acceptBody, clientAuthHeader(t, 20, 20))
 	requireStatus(t, rec, http.StatusCreated)
@@ -274,13 +282,14 @@ func TestOTC_AcceptOffer_BuyerCannotAcceptOwnOffer(t *testing.T) {
 		"price_per_stock":      50.0,
 		"premium":              5.0,
 		"settlement_date":      time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
-		"buyer_account_number": "buyer-acc",
+		"buyer_account_number": "buyer-acc", // resolves to clientID=10
 	}
 	rec := performRequest(t, router, http.MethodPost, "/api/otc/offers", offerBody, clientAuthHeader(t, 10, 10))
 	requireStatus(t, rec, http.StatusCreated)
 	offer := decodeResponse[map[string]any](t, rec)
 	offerID := uint(offer["otc_offer_id"].(float64))
 
+	// Buyer (identityID=10) tries to accept their own offer → bad request
 	rec = performRequest(t, router, http.MethodPatch, fmt.Sprintf("/api/otc/offers/%d/accept", offerID), nil, clientAuthHeader(t, 10, 10))
 	requireStatus(t, rec, http.StatusBadRequest)
 }
@@ -300,13 +309,14 @@ func TestOTC_RejectOffer_Success(t *testing.T) {
 		"price_per_stock":      50.0,
 		"premium":              5.0,
 		"settlement_date":      time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
-		"buyer_account_number": "buyer-acc",
+		"buyer_account_number": "buyer-acc", // resolves to clientID=10
 	}
 	rec := performRequest(t, router, http.MethodPost, "/api/otc/offers", offerBody, clientAuthHeader(t, 10, 10))
 	requireStatus(t, rec, http.StatusCreated)
 	offer := decodeResponse[map[string]any](t, rec)
 	offerID := uint(offer["otc_offer_id"].(float64))
 
+	// Seller (identityID=20) rejects
 	rec = performRequest(t, router, http.MethodPatch, fmt.Sprintf("/api/otc/offers/%d/reject", offerID), nil, clientAuthHeader(t, 20, 20))
 	requireStatus(t, rec, http.StatusOK)
 
@@ -330,17 +340,19 @@ func TestOTC_GetMyActiveOffers_ReturnsOnlyOwnOffers(t *testing.T) {
 			"price_per_stock":      50.0,
 			"premium":              5.0,
 			"settlement_date":      time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
-			"buyer_account_number": "buyer-acc",
+			"buyer_account_number": "buyer-acc", // resolves to clientID=10
 		}
 		rec := performRequest(t, router, http.MethodPost, "/api/otc/offers", body, clientAuthHeader(t, 10, 10))
 		requireStatus(t, rec, http.StatusCreated)
 	}
 
+	// Buyer (identityID=10) should see their 2 offers
 	rec := performRequest(t, router, http.MethodGet, "/api/otc/offers/active", nil, clientAuthHeader(t, 10, 10))
 	requireStatus(t, rec, http.StatusOK)
 	offers := decodeResponse[[]map[string]any](t, rec)
 	assert.Len(t, offers, 2)
 
+	// Unrelated user (identityID=99) should see none
 	rec = performRequest(t, router, http.MethodGet, "/api/otc/offers/active", nil, clientAuthHeader(t, 99, 99))
 	requireStatus(t, rec, http.StatusOK)
 	other := decodeResponse[[]map[string]any](t, rec)
@@ -353,6 +365,7 @@ func TestOTC_GetMyOptionContracts_AfterAccept(t *testing.T) {
 	router, _ := setupTestRouter(t, db)
 
 	asset, _ := seedAssetAndStock(t, db, uniqueValue(t, "CTCT"))
+	// Seller identity = 20
 	ownership := seedAssetOwnership(t, db, 20, model.OwnerTypeClient, asset.AssetID, 100)
 	setPublicAmount(t, db, ownership.AssetOwnershipID, 100, 0)
 
@@ -362,17 +375,19 @@ func TestOTC_GetMyOptionContracts_AfterAccept(t *testing.T) {
 		"price_per_stock":      50.0,
 		"premium":              5.0,
 		"settlement_date":      time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
-		"buyer_account_number": "buyer-acc",
+		"buyer_account_number": "buyer-acc", // resolves to clientID=10
 	}
 	rec := performRequest(t, router, http.MethodPost, "/api/otc/offers", offerBody, clientAuthHeader(t, 10, 10))
 	requireStatus(t, rec, http.StatusCreated)
 	offer := decodeResponse[map[string]any](t, rec)
 	offerID := uint(offer["otc_offer_id"].(float64))
 
+	// Seller (identityID=20) accepts; "seller-acc" resolves to clientID=20
 	acceptBody := map[string]any{"account_number": "seller-acc"}
 	rec = performRequest(t, router, http.MethodPatch, fmt.Sprintf("/api/otc/offers/%d/accept", offerID), acceptBody, clientAuthHeader(t, 20, 20))
 	requireStatus(t, rec, http.StatusCreated)
 
+	// Both buyer and seller should each see 1 contract
 	rec = performRequest(t, router, http.MethodGet, "/api/otc/contracts", nil, clientAuthHeader(t, 10, 10))
 	requireStatus(t, rec, http.StatusOK)
 	contracts := decodeResponse[[]map[string]any](t, rec)

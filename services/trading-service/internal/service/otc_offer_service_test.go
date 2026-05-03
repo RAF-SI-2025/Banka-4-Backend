@@ -208,9 +208,9 @@ func (r *fakeOtcStockRepo) FindByAssetIDs(_ context.Context, ids []uint) ([]mode
 // --- test constants ---
 
 const (
-	otcBuyerID  uint = 10
-	otcSellerID uint = 20
-	otcAssetID  uint = 1
+	otcBuyerID       uint = 10
+	otcSellerID      uint = 20
+	otcAssetID       uint = 1
 	assetOwnershipID uint = 1
 )
 
@@ -240,7 +240,12 @@ func newOtcTestService(t *testing.T) (*OtcOfferService, *fakeOtcOfferRepo, *fake
 			{AssetID: otcAssetID},
 		},
 	}
-	banking := &fakeBankingClient{}
+	banking := &fakeBankingClient{
+		accountByNumber: map[string]uint64{
+			"seller-acc": uint64(otcSellerID),
+			"buyer-acc":  uint64(otcBuyerID),
+		},
+	}
 
 	// Seller has 100 public shares.
 	ownershipRepo.seedOwnership(model.AssetOwnership{
@@ -249,7 +254,7 @@ func newOtcTestService(t *testing.T) (*OtcOfferService, *fakeOtcOfferRepo, *fake
 		AssetID:      otcAssetID,
 		Amount:       100,
 		PublicAmount: 100,
-		Asset:        model.Asset { AssetType: model.AssetTypeStock },
+		Asset:        model.Asset{AssetType: model.AssetTypeStock},
 	})
 
 	svc := NewOtcOfferService(offerRepo, contractRepo, ownershipRepo, stockRepo, banking)

@@ -112,10 +112,6 @@ func (f *fakeUserClient) GetClientById(_ context.Context, id uint64) (*pb.GetCli
 	}, nil
 }
 
-func (f *fakeBankingClient) GetAccountCurrency(_ context.Context, _ string) (string, error) {
-	return "RSD", nil
-}
-
 func (f *fakeUserClient) GetEmployeeById(_ context.Context, id uint64) (*pb.GetEmployeeByIdResponse, error) {
 	isSupervisor := f.supervisorIDs[id]
 	isAgent := f.agentIDs[id]
@@ -179,20 +175,36 @@ func (f *fakeTaxRecorder) RecordTax(_ context.Context, _ string, _ *uint, _ floa
 	return nil
 }
 
-type fakeBankingClient struct{}
+type fakeBankingClient struct {
+	accountByNumber map[string]uint64
+}
 
 func (f *fakeBankingClient) GetAccountByNumber(_ context.Context, accountNumber string) (*pb.GetAccountByNumberResponse, error) {
+	clientID, ok := f.accountByNumber[accountNumber]
+	if !ok {
+		return &pb.GetAccountByNumberResponse{
+			AccountNumber:    accountNumber,
+			ClientId:         1,
+			AccountType:      "Bank",
+			CurrencyCode:     "RSD",
+			AvailableBalance: 1_000_000,
+		}, nil
+	}
 	return &pb.GetAccountByNumberResponse{
+		ClientId:         clientID,
 		AccountNumber:    accountNumber,
-		ClientId:         1,
-		AccountType:      "Bank",
 		CurrencyCode:     "RSD",
 		AvailableBalance: 1_000_000,
 	}, nil
 }
+func (f *fakeBankingClient) GetAccountCurrency(_ context.Context, _ string) (string, error) {
+	return "RSD", nil
+}
+
 func (f *fakeBankingClient) CreateFundAccount(_ context.Context, fundName string, _ uint64) (string, error) {
 	return fmt.Sprintf("444000199999%06d", uniqueCounter.Add(1)), nil
 }
+
 func (f *fakeBankingClient) HasActiveLoan(_ context.Context, _ uint64) (*pb.HasActiveLoanResponse, error) {
 	return &pb.HasActiveLoanResponse{HasActiveLoan: true}, nil
 }
@@ -268,7 +280,13 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 		supervisorIDs: map[uint64]bool{10: true},
 		agentIDs:      map[uint64]bool{20: true},
 	}
-	var bankingClient client.BankingClient = &fakeBankingClient{}
+	var bankingClient client.BankingClient = &fakeBankingClient{
+		accountByNumber: map[string]uint64{
+			"seller-acc": 20,
+			"buyer-acc":  10,
+		},
+	}
+
 	var permProvider auth.PermissionProvider = &fakePermissionProvider{perms: perms}
 
 	exchangeRepo := repository.NewExchangeRepository(db)
