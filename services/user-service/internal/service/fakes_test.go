@@ -388,3 +388,17 @@ func withAuth(ctx context.Context, identityID uint, identityType auth.IdentityTy
 		Permissions:  []permission.Permission{permission.EmployeeView},
 	})
 }
+
+type fakeTradingClient struct {
+	transferErr    error
+	transferCalled bool
+	fromManagerID  uint
+	toManagerID    uint
+}
+
+func (f *fakeTradingClient) TransferManagerFunds(_ context.Context, fromManagerID uint, toManagerID uint) error {
+	f.transferCalled = true
+	f.fromManagerID = fromManagerID
+	f.toManagerID = toManagerID
+	return f.transferErr
+}

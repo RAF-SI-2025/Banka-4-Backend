@@ -199,3 +199,31 @@ func (h *InvestmentFundHandler) GetFundDetail(c *gin.Context) {
 
 	c.JSON(http.StatusOK, resp)
 }
+
+// TransferManagerFunds godoc
+// @Summary Transfer funds from one manager to another
+// @Description Transfers all investment funds managed by fromManagerID to toManagerID. Called internally when admin removes isSupervisor permission.
+// @Tags investment-funds
+// @Accept json
+// @Produce json
+// @Param request body dto.TransferManagerFundsRequest true "Transfer details"
+// @Success 204
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Failure 500 {object} errors.AppError
+// @Router /api/investment-funds/transfer-manager [post]
+func (h *InvestmentFundHandler) TransferManagerFunds(c *gin.Context) {
+	var req dto.TransferManagerFundsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		_ = c.Error(errors.BadRequestErr(err.Error()))
+		return
+	}
+	
+	if err := h.service.TransferManagerFunds(c.Request.Context(), req.FromManagerID, req.ToManagerID); err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}

@@ -10,6 +10,7 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/config"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
@@ -24,6 +25,7 @@ type EmployeeService struct {
 	emailService        Mailer
 	cfg                 *config.Configuration
 	txManager           repository.TransactionManager
+	tradingClient       client.TradingClient
 }
 
 func NewEmployeeService(
@@ -34,6 +36,7 @@ func NewEmployeeService(
 	emailService Mailer,
 	cfg *config.Configuration,
 	txManager repository.TransactionManager,
+	tradingClient client.TradingClient,
 ) *EmployeeService {
 	return &EmployeeService{
 		employeeRepo:        employeeRepo,
@@ -43,6 +46,7 @@ func NewEmployeeService(
 		emailService:        emailService,
 		cfg:                 cfg,
 		txManager:           txManager,
+		tradingClient:       tradingClient,
 	}
 }
 
@@ -262,6 +266,9 @@ func (s *EmployeeService) UpdateEmployee(ctx context.Context, id uint, req *dto.
 		desiredIsSupervisor = *req.IsSupervisor
 	}
 
+	// Snimiti pre update-a
+	wasSupervisor := employee.IsSupervisor()
+
 	actuaryInfo, err := buildActuaryInfo(employee.ActuaryInfo, employee.IsAdmin(), desiredIsAgent, desiredIsSupervisor, currentActuaryLimit(employee.ActuaryInfo), currentActuaryNeedApproval(employee.ActuaryInfo))
 	if err != nil {
 		return nil, err
@@ -282,6 +289,13 @@ func (s *EmployeeService) UpdateEmployee(ctx context.Context, id uint, req *dto.
 		return nil
 	}); err != nil {
 		return nil, err
+	}
+
+	if wasSupervisor && !employee.IsSupervisor() {
+		if err := s.tradingClient.TransferManagerFunds(ctx, employee.EmployeeID, actor.EmployeeID); err != nil {
+			fmt.Printf("WARN: failed to transfer funds from supervisor %d to admin %d: %v\n",
+				employee.EmployeeID, actor.EmployeeID, err)
+		}
 	}
 
 	employee.Identity = *identity

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/client"
 	"go.uber.org/fx"
 	"gorm.io/gorm"
 
@@ -64,6 +65,9 @@ func main() {
 			handler.NewHealthHandler,
 			grpc.NewPermissionService,
 			grpc.NewUserService,
+			func(cfg *config.Configuration) client.TradingClient {
+				return client.NewHTTPTradingClient(cfg.TradingServiceURL)
+			},
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)

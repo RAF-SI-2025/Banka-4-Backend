@@ -46,6 +46,7 @@ type Configuration struct {
 	RefreshExpiry     int // refresh token
 	FailedLoginWindow int
 	MaxFailedLogins   int
+	TradingServiceURL string
 }
 
 func GetAsIntOrDefault(env string, defaultValue int) int {
@@ -109,5 +110,6 @@ func Load() *Configuration {
 			FrontendBaseURL: GetOrDefault("FRONTEND_BASE_URL", "http://localhost:5173"),
 			BackendBaseURL:  GetOrDefault("BACKEND_BASE_URL", "http://localhost:8080"),
 		},
+		TradingServiceURL: GetOrDefault("TRADING_SERVICE_URL", "http://localhost:8082"),
 	}
 }

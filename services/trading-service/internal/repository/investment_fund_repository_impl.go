@@ -128,3 +128,10 @@ func (r *investmentFundRepository) FindByManagerID(ctx context.Context, managerI
 		Find(&funds).Error
 	return funds, err
 }
+
+func (r *investmentFundRepository) TransferManagerFunds(ctx context.Context, fromManagerID uint, toManagerID uint) error {
+	return r.db.WithContext(ctx).
+		Model(&model.InvestmentFund{}).
+		Where("manager_id = ?", fromManagerID).
+		Update("manager_id", toManagerID).Error
+}

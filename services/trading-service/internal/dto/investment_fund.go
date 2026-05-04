@@ -32,3 +32,8 @@ type FundDetailResponse struct {
 	Holdings           []SecurityHoldingResponse `json:"holdings"`
 	PerformanceHistory []FundPerformanceEntry    `json:"performance_history"`
 }
+
+type TransferManagerFundsRequest struct {
+	FromManagerID uint `json:"from_manager_id" binding:"required"`
+	ToManagerID   uint `json:"to_manager_id"   binding:"required"`
+}

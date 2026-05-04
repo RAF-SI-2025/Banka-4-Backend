@@ -19,6 +19,7 @@ func newEmployeeService(
 	activationTokenRepo *fakeActivationTokenRepo,
 	positionRepo *fakePositionRepo,
 	mailer *fakeMailer,
+	tradingClient *fakeTradingClient,
 ) *EmployeeService {
 	return NewEmployeeService(
 		employeeRepo,
@@ -28,6 +29,7 @@ func newEmployeeService(
 		mailer,
 		testConfig(),
 		&fakeTxManager{},
+		tradingClient,
 	)
 }
 
@@ -111,7 +113,7 @@ func TestRegister(t *testing.T) {
 			}
 			tt.empRepo.byIDs[admin.EmployeeID] = admin
 
-			svc := newEmployeeService(tt.empRepo, tt.identityRepo, &fakeActivationTokenRepo{}, tt.positionRepo, tt.mailer)
+			svc := newEmployeeService(tt.empRepo, tt.identityRepo, &fakeActivationTokenRepo{}, tt.positionRepo, tt.mailer, &fakeTradingClient{})
 
 			emp, err := svc.Register(withAuth(context.Background(), admin.IdentityID, auth.IdentityEmployee), req)
 
@@ -285,7 +287,7 @@ func TestUpdateEmployee(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := newEmployeeService(tt.empRepo, tt.identityRepo, &fakeActivationTokenRepo{}, tt.positionRepo, &fakeMailer{})
+			svc := newEmployeeService(tt.empRepo, tt.identityRepo, &fakeActivationTokenRepo{}, tt.positionRepo, &fakeMailer{}, &fakeTradingClient{})
 
 			ctx := withAuth(context.Background(), actor.IdentityID, auth.IdentityEmployee)
 			if tt.useNoAuth {
@@ -331,7 +333,7 @@ func TestGetAllEmployees(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := newEmployeeService(tt.repo, &fakeIdentityRepo{}, &fakeActivationTokenRepo{}, &fakePositionRepo{}, &fakeMailer{})
+			svc := newEmployeeService(tt.repo, &fakeIdentityRepo{}, &fakeActivationTokenRepo{}, &fakePositionRepo{}, &fakeMailer{}, &fakeTradingClient{})
 
 			res, err := svc.GetAllEmployees(context.Background(), &dto.ListEmployeesQuery{Page: 1, PageSize: 10})
 
@@ -404,7 +406,7 @@ func TestDeactivateEmployee(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := newEmployeeService(tt.empRepo, tt.identityRepo, &fakeActivationTokenRepo{}, &fakePositionRepo{}, &fakeMailer{})
+			svc := newEmployeeService(tt.empRepo, tt.identityRepo, &fakeActivationTokenRepo{}, &fakePositionRepo{}, &fakeMailer{}, &fakeTradingClient{})
 
 			err := svc.DeactivateEmployee(context.Background(), tt.id)
 
@@ -457,7 +459,7 @@ func TestGetEmployeeByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := newEmployeeService(tt.empRepo, &fakeIdentityRepo{}, &fakeActivationTokenRepo{}, &fakePositionRepo{}, &fakeMailer{})
+			svc := newEmployeeService(tt.empRepo, &fakeIdentityRepo{}, &fakeActivationTokenRepo{}, &fakePositionRepo{}, &fakeMailer{}, &fakeTradingClient{})
 
 			res, err := svc.GetEmployeeByID(context.Background(), tt.id)
 
@@ -562,4 +564,34 @@ func TestBuildActuaryInfo(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUpdateEmployee_RemoveSupervisor_TransfersFunds(t *testing.T) {
+	t.Parallel()
+
+	supervisor := activeSupervisor()
+	admin := adminEmployee()
+	identity := activeIdentity()
+	identity.ID = supervisor.IdentityID
+	tradingClient := &fakeTradingClient{}
+
+	empRepo := &fakeEmployeeRepo{
+		byIDs: map[uint]*model.Employee{
+			supervisor.EmployeeID: supervisor,
+			admin.EmployeeID:      admin,
+		},
+	}
+
+	svc := newEmployeeService(empRepo, &fakeIdentityRepo{byID: identity}, &fakeActivationTokenRepo{}, &fakePositionRepo{exists: true}, &fakeMailer{}, tradingClient)
+
+	_, err := svc.UpdateEmployee(
+		withAuth(context.Background(), admin.IdentityID, auth.IdentityEmployee),
+		supervisor.EmployeeID,
+		&dto.UpdateEmployeeRequest{IsSupervisor: ptr(false)},
+	)
+
+	require.NoError(t, err)
+	require.True(t, tradingClient.transferCalled)
+	require.Equal(t, supervisor.EmployeeID, tradingClient.fromManagerID)
+	require.Equal(t, admin.EmployeeID, tradingClient.toManagerID)
 }

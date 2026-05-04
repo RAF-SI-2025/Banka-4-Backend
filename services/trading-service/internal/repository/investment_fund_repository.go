@@ -17,4 +17,5 @@ type InvestmentFundRepository interface {
 	GetAllInvestmentFunds(ctx context.Context) ([]model.InvestmentFund, error)
 	FindAll(ctx context.Context, name string, sortBy string, sortDir string, page int, pageSize int) ([]model.InvestmentFund, int64, error)
 	FindByManagerID(ctx context.Context, managerID uint) ([]model.InvestmentFund, error)
+	TransferManagerFunds(ctx context.Context, fromManagerID uint, toManagerID uint) error
 }

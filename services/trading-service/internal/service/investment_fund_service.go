@@ -541,3 +541,7 @@ func (s *InvestmentFundService) GetFundDetail(ctx context.Context, fundID uint) 
 		PerformanceHistory: perfResp,
 	}, nil
 }
+
+func (s *InvestmentFundService) TransferManagerFunds(ctx context.Context, fromManagerID uint, toManagerID uint) error {
+	return s.fundRepo.TransferManagerFunds(ctx, fromManagerID, toManagerID)
+}
