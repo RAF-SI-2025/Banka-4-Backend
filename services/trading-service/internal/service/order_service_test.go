@@ -156,7 +156,7 @@ func (r *fakeListingRepo) CreateDailyPriceInfo(_ context.Context, _ *model.Listi
 }
 
 func (r *fakeListingRepo) FindLastDailyPriceInfo(_ context.Context, _ uint, _ time.Time) (*model.ListingDailyPriceInfo, error) {
-	return nil, nil
+	return r.dailyPriceInfo, r.dailyPriceErr
 }
 
 func (r *fakeListingRepo) FindByAssetType(_ context.Context, _ model.AssetType) ([]model.Listing, error) {

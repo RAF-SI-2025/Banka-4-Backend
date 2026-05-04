@@ -24,7 +24,7 @@ func (r *investmentFundRepository) Create(ctx context.Context, fund *model.Inves
 
 func (r *investmentFundRepository) FindByID(ctx context.Context, id uint) (*model.InvestmentFund, error) {
 	var fund model.InvestmentFund
-	result := r.db.WithContext(ctx).First(&fund, id)
+	result := r.db.WithContext(ctx).Preload("Positions").First(&fund, id)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -49,6 +49,28 @@ func (r *investmentFundRepository) FindByName(ctx context.Context, name string) 
 	return &fund, result.Error
 }
 
+func (r *investmentFundRepository) FindHoldings(ctx context.Context, fundID uint) ([]model.AssetOwnership, error) {
+	var holdings []model.AssetOwnership
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND owner_type = ?", fundID, model.OwnerTypeFund).
+		Preload("Asset").
+		Find(&holdings).Error
+	return holdings, err
+}
+
+func (r *investmentFundRepository) GetPerformanceHistory(ctx context.Context, fundID uint, limit int) ([]model.FundPerformance, error) {
+	var history []model.FundPerformance
+	err := r.db.WithContext(ctx).
+		Where("fund_id = ?", fundID).
+		Order("date DESC").
+		Limit(limit).
+		Find(&history).Error
+	return history, err
+}
+
+func (r *investmentFundRepository) SavePerformanceSnapshot(ctx context.Context, perf *model.FundPerformance) error {
+	return r.db.WithContext(ctx).Create(perf).Error
+}
 func (r *investmentFundRepository) GetAllInvestmentFunds(ctx context.Context) ([]model.InvestmentFund, error) {
 	var funds []model.InvestmentFund
 

@@ -199,6 +199,37 @@ func (h *InvestmentFundHandler) WithdrawFromFund(c *gin.Context) {
 	}
 
 	resp, err := h.service.WithdrawFromFund(c.Request.Context(), uint(fundID), req)
+  if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// GetFundDetail godoc
+// @Summary Get investment fund details
+// @Description Retrieves detailed information about an investment fund, including holdings, current value, performance history, and account balance.
+// @Tags investment-funds
+// @Accept json
+// @Produce json
+// @Param fundId path int true "Fund ID"
+// @Success 200 {object} dto.FundDetailResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Failure 500 {object} errors.AppError
+// @Router /api/investment-funds/{fundId} [get]
+func (h *InvestmentFundHandler) GetFundDetail(c *gin.Context) {
+	fundIDStr := c.Param("fundId")
+	fundID, err := strconv.ParseUint(fundIDStr, 10, 32)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	resp, err := h.service.GetFundDetail(c.Request.Context(), uint(fundID))
 	if err != nil {
 		_ = c.Error(err)
 		return

@@ -50,8 +50,9 @@ type Order struct {
 	AfterHours        bool `gorm:"not null;default:false"`
 	Triggered         bool `gorm:"not null;default:false"`
 	NextExecutionAt   *time.Time
-	CommissionCharged bool `gorm:"not null;default:false"`
-	CommissionExempt  bool `gorm:"not null;default:false"`
+	CommissionCharged bool      `gorm:"not null;default:false"`
+	CommissionExempt  bool      `gorm:"not null;default:false"`
+	OwnerType         OwnerType `gorm:"not null;size:10;default:'CLIENT'"`
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }

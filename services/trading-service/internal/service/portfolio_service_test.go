@@ -54,6 +54,10 @@ func (r *fakeAssetOwnershipRepo) UpdateOTCFields(_ context.Context, _ uint, _, _
 	return r.updateOTCErr
 }
 
+func (r *fakeAssetOwnershipRepo) IncreaseReservedAmount(_ context.Context, _ uint, _ model.OwnerType, _ uint, _ float64) error {
+	return nil
+}
+
 type fakeStockRepo struct {
 	stocks []model.Stock
 	err    error
