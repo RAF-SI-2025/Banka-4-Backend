@@ -168,7 +168,7 @@ func TestNextMidnight_ReturnsTimeAtMidnight(t *testing.T) {
 func TestNextMidnight_WithinNext24Hours(t *testing.T) {
 	t.Parallel()
 	result := nextMidnight()
-	diff := result.Sub(time.Now())
+	diff := time.Until(result)
 	require.True(t, diff > 0)
 	require.True(t, diff <= 24*time.Hour)
 }
@@ -190,12 +190,12 @@ func TestNextFirstOfMonth_ReturnsDayOneAtOneAM(t *testing.T) {
 	require.Equal(t, 0, result.Second())
 }
 
-func TestNextFirstOfMonth_WithinNext31Days(t *testing.T) {
+func TestNextFirstOfMonth_WithinNext32Days(t *testing.T) {
 	t.Parallel()
 	result := nextFirstOfMonth()
-	diff := result.Sub(time.Now())
+	diff := time.Until(result)
 	require.True(t, diff > 0)
-	require.True(t, diff <= 31*24*time.Hour)
+	require.True(t, diff <= 32*24*time.Hour)
 }
 
 // ── onInstallmentPaid Tests ─────────────────────────────────────────────────

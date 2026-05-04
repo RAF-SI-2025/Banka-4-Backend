@@ -12,6 +12,7 @@ const (
 	AccountTypePersonal AccountType = "Personal"
 	AccountTypeBusiness AccountType = "Business"
 	AccountTypeBank     AccountType = "Bank"
+	AccountTypeFund     AccountType = "Fund"
 )
 
 const (
@@ -43,8 +44,9 @@ const (
 )
 
 var AccountKindCodes = map[AccountKind]string{
-	AccountKindCurrent: "1",
-	AccountKindForeign: "2",
+	AccountKindInternal: "0",
+	AccountKindCurrent:  "1",
+	AccountKindForeign:  "2",
 }
 
 var SubtypeTypeCodes = map[Subtype]string{
@@ -115,8 +117,15 @@ type Account struct {
 	Cards                 []Card              `gorm:"foreignKey:AccountNumber"`
 }
 
+func GetSubtypeCode(s Subtype) string {
+	if val, ok := SubtypeTypeCodes[s]; ok {
+		return val
+	}
+	return "0"
+}
+
 func GetTypeCode(accountKind AccountKind, accountType AccountType, subtype Subtype) string {
-	return AccountKindCodes[accountKind] + SubtypeTypeCodes[subtype]
+	return AccountKindCodes[accountKind] + GetSubtypeCode(subtype)
 }
 
 func UpdateBalances(account *Account, amount float64) {

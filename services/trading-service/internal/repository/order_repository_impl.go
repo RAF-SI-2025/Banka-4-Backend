@@ -36,7 +36,7 @@ func (r *orderRepositoryImpl) Save(ctx context.Context, order *model.Order) erro
 	return r.db.WithContext(ctx).Save(order).Error
 }
 
-func (r *orderRepositoryImpl) FindAll(ctx context.Context, page, pageSize int, userID *uint, status *model.OrderStatus, direction *model.OrderDirection, isDone *bool) ([]model.Order, int64, error) {
+func (r *orderRepositoryImpl) FindAll(ctx context.Context, page, pageSize int, userID *uint, ownerType *model.OwnerType, status *model.OrderStatus, direction *model.OrderDirection, isDone *bool) ([]model.Order, int64, error) {
 	var orders []model.Order
 	var count int64
 
@@ -44,6 +44,9 @@ func (r *orderRepositoryImpl) FindAll(ctx context.Context, page, pageSize int, u
 
 	if userID != nil {
 		db = db.Where("user_id = ?", *userID)
+	}
+	if ownerType != nil {
+		db = db.Where("owner_type = ?", *ownerType)
 	}
 	if status != nil {
 		db = db.Where("status = ?", *status)

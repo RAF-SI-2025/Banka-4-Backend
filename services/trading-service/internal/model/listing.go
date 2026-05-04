@@ -5,14 +5,14 @@ import (
 )
 
 type Listing struct {
-	ListingID         uint    `gorm:"primaryKey;autoIncrement"`
-	AssetID           uint    `gorm:"not null;index"`
-	Asset             *Asset  `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
-	ExchangeMIC       string  `gorm:"not null;size:10;index"`
+	ListingID         uint      `gorm:"primaryKey;autoIncrement"`
+	AssetID           uint      `gorm:"not null;index"`
+	Asset             *Asset    `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
+	ExchangeMIC       string    `gorm:"not null;size:10;index"`
 	LastRefresh       time.Time `gorm:"not null"`
-	Price             float64 `gorm:"not null;default:0"`
-	Ask               float64 `gorm:"not null;default:0"`
-	MaintenanceMargin float64 `gorm:"not null;default:0"`
+	Price             float64   `gorm:"not null;default:0"`
+	Ask               float64   `gorm:"not null;default:0"`
+	MaintenanceMargin float64   `gorm:"not null;default:0"`
 
 	Exchange        *Exchange               `gorm:"foreignKey:ExchangeMIC;references:MicCode;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
 	Stock           *Stock                  `gorm:"foreignKey:AssetID;references:AssetID;constraint:-"`

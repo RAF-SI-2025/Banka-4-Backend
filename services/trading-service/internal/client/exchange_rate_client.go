@@ -34,7 +34,7 @@ func NewExchangeRateClient(apiKey string) ExchangeRateClient {
 	}
 }
 
-func (c *exchangeRateClient) FetchRates(ctx context.Context) (*ExchangeRateAPIResponse, error) {
+func (c *exchangeRateClient) FetchRates(ctx context.Context) (apiResp *ExchangeRateAPIResponse, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.apiURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -45,19 +45,25 @@ func (c *exchangeRateClient) FetchRates(ctx context.Context) (*ExchangeRateAPIRe
 		return nil, fmt.Errorf("fetching exchange rates: %w", err)
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("closing response body: %w", closeErr)
+			apiResp = nil
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("exchange rate API returned status %d", resp.StatusCode)
 	}
 
-	var apiResp ExchangeRateAPIResponse
-	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+	var decodedResp ExchangeRateAPIResponse
+	if err = json.NewDecoder(resp.Body).Decode(&decodedResp); err != nil {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
 
-	if apiResp.Result != "success" {
-		return nil, fmt.Errorf("exchange rate API returned result: %s", apiResp.Result)
+	if decodedResp.Result != "success" {
+		return nil, fmt.Errorf("exchange rate API returned result: %s", decodedResp.Result)
 	}
 
-	return &apiResp, nil
+	apiResp = &decodedResp
+	return apiResp, nil
 }

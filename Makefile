@@ -10,6 +10,9 @@ docker-down:
 docker-down-rm-vol:
 	docker compose -f docker-compose-dev.yml down -v
 
+format:
+	gofmt -w .
+
 swagger-docs:
 	cd services/user-service && swag init -g cmd/main.go -d ./,../../common
 	cd services/banking-service && swag init -g cmd/main.go -d ./,../../common

@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"sync"
 	"time"
-	"math"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
@@ -330,7 +330,7 @@ func (s *StockService) seedGeneratedOption(
 	}
 
 	if math.IsNaN(premium) || math.IsInf(premium, 0) || premium < 0.01 {
-    premium = 0.01
+		premium = 0.01
 	}
 	// --- end calculation ---
 

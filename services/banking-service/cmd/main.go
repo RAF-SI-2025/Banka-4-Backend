@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
@@ -36,6 +37,16 @@ func main() {
 	fx.New(
 		fx.Provide(
 			config.Load,
+			func(cfg *config.Configuration) *redis.Client {
+				return redis.NewClient(&redis.Options{
+					Addr:     cfg.Redis.Addr,
+					Password: cfg.Redis.Password,
+					DB:       cfg.Redis.DB,
+				})
+			},
+			func(cfg *config.Configuration, redisClient *redis.Client) service.WorkCodeCache {
+				return service.NewWorkCodeRedisCache(redisClient, cfg.Redis.WorkCodesCacheTTL)
+			},
 			func(cfg *config.Configuration) (*gorm.DB, error) {
 				return db.New(cfg.DB.DSN())
 			},

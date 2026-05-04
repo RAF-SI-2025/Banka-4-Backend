@@ -14,8 +14,8 @@ import (
 // ── Fake repos for TransactionProcessor tests ──────────────────────────────
 
 type fakeTpAccountRepo struct {
-	accounts map[string]*model.Account
-	findErr  map[string]error
+	accounts  map[string]*model.Account
+	findErr   map[string]error
 	updateErr map[string]error
 }
 
@@ -81,6 +81,10 @@ func (f *fakeTpAccountRepo) FindAll(_ context.Context, _ *dto.ListAccountsQuery)
 	return nil, 0, nil
 }
 
+func (r *fakeTpAccountRepo) FindByAccountType(ctx context.Context, accountType model.AccountType) (*model.Account, error) {
+	return nil, nil
+}
+
 type fakeTpTransactionRepo struct {
 	tx        *model.Transaction
 	getErr    error
@@ -112,6 +116,10 @@ func (f *fakeTpTransactionRepo) GetByRecipientAccountNumber(_ context.Context, _
 	return nil, nil
 }
 
+func (r *fakeTpTransactionRepo) FindByAccountType(ctx context.Context, accountType model.AccountType) ([]model.Account, error) {
+	return nil, nil
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 func tpAccount(number string, balance float64, currency model.CurrencyCode) *model.Account {
@@ -123,14 +131,6 @@ func tpAccount(number string, balance float64, currency model.CurrencyCode) *mod
 		MonthlyLimit:     10_000_000,
 		Currency:         model.Currency{Code: currency},
 	}
-}
-
-func tpBankAccounts() []*model.Account {
-	var accs []*model.Account
-	for code, num := range BankAccounts {
-		accs = append(accs, tpAccount(num, 1_000_000, code))
-	}
-	return accs
 }
 
 func newTpProcessor(accRepo *fakeTpAccountRepo, txRepo *fakeTpTransactionRepo) *TransactionProcessor {
@@ -298,31 +298,6 @@ func TestProcess_SelfPayment(t *testing.T) {
 	err := tp.Process(context.Background(), 1)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot make payment to the same account")
-}
-
-func TestProcess_RecipientIsBankAccount(t *testing.T) {
-	bankNum := BankAccounts[model.RSD]
-	payer := tpAccount("PAYER", 10_000, model.RSD)
-	bankAcc := tpAccount(bankNum, 1_000_000, model.RSD)
-
-	txRepo := &fakeTpTransactionRepo{
-		tx: &model.Transaction{
-			TransactionID:          1,
-			PayerAccountNumber:     "PAYER",
-			RecipientAccountNumber: bankNum,
-			StartAmount:            100,
-			StartCurrencyCode:      model.RSD,
-			EndAmount:              100,
-			EndCurrencyCode:        model.RSD,
-			Status:                 model.TransactionProcessing,
-		},
-	}
-	accRepo := newFakeTpAccountRepo(payer, bankAcc)
-	tp := newTpProcessor(accRepo, txRepo)
-
-	err := tp.Process(context.Background(), 1)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "recipient account cannot be one of the banks accounts")
 }
 
 func TestProcess_SameCurrencySuccess(t *testing.T) {

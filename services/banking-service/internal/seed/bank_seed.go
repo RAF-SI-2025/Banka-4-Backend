@@ -329,6 +329,34 @@ var accounts = []struct {
 		DailyLimit:    1e12,
 		MonthlyLimit:  1e13,
 	},
+	{
+		AccountNumber: "444000000000000010",
+		Name:          "Alpha Growth Fund Account",
+		ClientID:      1,
+		CompanyID:     getUintPointer(1),
+		EmployeeID:    3,
+		Balance:       1500000.00,
+		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
+		CurrencyCode:  model.RSD,
+		AccountType:   model.AccountTypeFund,
+		AccountKind:   model.AccountKindInternal,
+		DailyLimit:    1e12,
+		MonthlyLimit:  1e13,
+	},
+	{
+		AccountNumber: "444000000000000011",
+		Name:          "Beta Stable Fund Account",
+		ClientID:      1,
+		CompanyID:     getUintPointer(1),
+		EmployeeID:    3,
+		Balance:       3000000.00,
+		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
+		CurrencyCode:  model.RSD,
+		AccountType:   model.AccountTypeFund,
+		AccountKind:   model.AccountKindInternal,
+		DailyLimit:    1e12,
+		MonthlyLimit:  1e13,
+	},
 }
 
 var seedTransactions = []struct {
@@ -448,9 +476,10 @@ var seedVerificationTokens = []model.VerificationToken{
 	},
 }
 
-func uintPtr(v uint) *uint {
-	return &v
-}
+// UNUSED
+//func uintPtr(v uint) *uint {
+//	return &v
+//}
 
 func Run(db *gorm.DB) error {
 	// seed currencies

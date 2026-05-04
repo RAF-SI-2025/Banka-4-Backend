@@ -36,7 +36,7 @@ func NewOrderHandler(service *service.OrderService) *OrderHandler {
 func (h *OrderHandler) GetOrders(c *gin.Context) {
 	var query dto.ListOrdersQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
@@ -49,7 +49,7 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 
 	orders, total, err := h.service.GetOrders(c.Request.Context(), query)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -75,13 +75,43 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	var req dto.CreateOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	order, err := h.service.CreateOrder(c.Request.Context(), req)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, dto.ToOrderResponse(*order))
+}
+
+// CreateFundOrder godoc
+// @Summary Create an order on behalf of an investment fund
+// @Description Supervisor places a buy or sell order for a listing using a fund's account. The fund becomes the asset owner.
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Param request body dto.CreateFundOrderRequest true "Fund order details"
+// @Success 201 {object} dto.OrderResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/orders/invest [post]
+func (h *OrderHandler) CreateFundOrder(c *gin.Context) {
+	var req dto.CreateFundOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		_ = c.Error(errors.BadRequestErr(err.Error()))
+		return
+	}
+
+	order, err := h.service.CreateFundOrder(c.Request.Context(), req)
+	if err != nil {
+		_ = c.Error(err)
 		return
 	}
 
@@ -101,13 +131,13 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 func (h *OrderHandler) ApproveOrder(c *gin.Context) {
 	orderID, err := parseOrderID(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	order, err := h.service.ApproveOrder(c.Request.Context(), orderID)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -127,13 +157,13 @@ func (h *OrderHandler) ApproveOrder(c *gin.Context) {
 func (h *OrderHandler) DeclineOrder(c *gin.Context) {
 	orderID, err := parseOrderID(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	order, err := h.service.DeclineOrder(c.Request.Context(), orderID)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -153,13 +183,13 @@ func (h *OrderHandler) DeclineOrder(c *gin.Context) {
 func (h *OrderHandler) CancelOrder(c *gin.Context) {
 	orderID, err := parseOrderID(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	order, err := h.service.CancelOrder(c.Request.Context(), orderID)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 

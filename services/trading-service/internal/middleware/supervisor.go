@@ -12,26 +12,26 @@ func RequireSupervisor(userClient client.UserServiceClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authCtx := auth.GetAuth(c)
 		if authCtx == nil {
-			c.Error(errors.UnauthorizedErr("not authenticated"))
+			_ = c.Error(errors.UnauthorizedErr("not authenticated"))
 			c.Abort()
 			return
 		}
 
 		if authCtx.IdentityType != auth.IdentityEmployee || authCtx.EmployeeID == nil {
-			c.Error(errors.ForbiddenErr("only employees can access this resource"))
+			_ = c.Error(errors.ForbiddenErr("only employees can access this resource"))
 			c.Abort()
 			return
 		}
 
 		resp, err := userClient.GetEmployeeById(c.Request.Context(), uint64(*authCtx.EmployeeID))
 		if err != nil {
-			c.Error(errors.InternalErr(err))
+			_ = c.Error(errors.InternalErr(err))
 			c.Abort()
 			return
 		}
 
 		if !resp.IsSupervisor {
-			c.Error(errors.ForbiddenErr("only supervisors can access this resource"))
+			_ = c.Error(errors.ForbiddenErr("only supervisors can access this resource"))
 			c.Abort()
 			return
 		}

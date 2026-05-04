@@ -15,23 +15,23 @@ import (
 )
 
 type fakeAccountRepo struct {
-	accNumExists        bool
+	//accNumExists        bool	UNUSED
 	accountNumberExists bool
 	nameExists          bool
 	nameExistsErr       error
-	accNumExistsErr     error
-	createErr           error
-	accounts            []model.Account
-	account             *model.Account
-	findErr             error
-	updateNameErr       error
-	updateLimitsErr     error
-	getByAccNumber      *model.Account
-	getByAccNumberErr   error
-	updateErr           error
-	allAccounts         []*model.Account
-	allTotal            int64
-	getAllErr           error
+	//accNumExistsErr     error UNUSED
+	createErr         error
+	accounts          []model.Account
+	account           *model.Account
+	findErr           error
+	updateNameErr     error
+	updateLimitsErr   error
+	getByAccNumber    *model.Account
+	getByAccNumberErr error
+	updateErr         error
+	allAccounts       []*model.Account
+	allTotal          int64
+	getAllErr         error
 }
 
 func (f *fakeAccountRepo) Create(_ context.Context, _ *model.Account) error {
@@ -137,6 +137,9 @@ type fakeBankingTxManager struct{}
 func (m *fakeBankingTxManager) WithinTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
 	return fn(ctx)
 }
+func (m *fakeBankingTxManager) FindByAccountType(ctx context.Context, accountType model.AccountType) (*model.Account, error) {
+	return nil, nil
+}
 
 func (f *fakeUserClient) GetEmployeeByID(_ context.Context, _ uint) (*pb.GetEmployeeByIdResponse, error) {
 	if f.employeeErr != nil {
@@ -166,6 +169,9 @@ func (f *fakeCurrencyConverter) CalculateFee(amount float64) float64 {
 	return amount * model.BankCommission
 }
 
+func (r *fakeAccountRepo) FindByAccountType(ctx context.Context, accountType model.AccountType) (*model.Account, error) {
+	return nil, nil
+}
 func (f *fakeCurrencyConverter) Convert(_ context.Context, amount float64, _ model.CurrencyCode, _ model.CurrencyCode) (float64, error) {
 	if f.convertErr != nil {
 		return 0, f.convertErr

@@ -11,6 +11,7 @@ service BankingService {
   rpc GetAccountsByClientID(GetAccountsByClientIDRequest) returns (GetAccountsByClientIDResponse);
   rpc ConvertCurrency(ConvertCurrencyRequest) returns (ConvertCurrencyResponse);
   rpc ExecuteTradeSettlement(ExecuteTradeSettlementRequest) returns (ExecuteTradeSettlementResponse);
+  rpc CreateFundAccount(CreateFundAccountRequest) returns (CreateFundAccountResponse);
 }
 
 enum TradeSettlementDirection {
@@ -47,6 +48,7 @@ message CreatePaymentRequest {
   string reference_number         = 5;
   string payment_code             = 6;
   string purpose                  = 7;
+  bool   commission_exempt        = 8;
 }
 
 message CreatePaymentResponse {
@@ -90,4 +92,13 @@ message ExecuteTradeSettlementResponse {
   string source_currency_code = 3;
   double destination_amount = 4;
   string destination_currency_code = 5;
+}
+
+message CreateFundAccountRequest {
+  string fund_name  = 1;
+  uint64 manager_id = 2;
+}
+
+message CreateFundAccountResponse {
+  string account_number = 1;
 }

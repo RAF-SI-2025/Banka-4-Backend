@@ -653,7 +653,7 @@ func TestResendActivation(t *testing.T) {
 			email:        "nobody@example.com",
 		},
 		{
-			name: "identity already active returns nil",
+			name:         "identity already active returns nil",
 			identityRepo: &fakeIdentityRepo{byEmail: activeIdentity()},
 			tokenRepo:    &fakeActivationTokenRepo{},
 			mailer:       &fakeMailer{},

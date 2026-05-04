@@ -32,7 +32,7 @@ func NewCompanyHandler(service *service.CompanyService) *CompanyHandler {
 func (h *CompanyHandler) GetCompanies(c *gin.Context) {
 	companies, err := h.service.GetCompanies(c.Request.Context())
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -53,7 +53,7 @@ func (h *CompanyHandler) GetCompanies(c *gin.Context) {
 func (h *CompanyHandler) GetWorkCodes(c *gin.Context) {
 	workCodes, err := h.service.GetWorkCodes(c.Request.Context())
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -79,13 +79,13 @@ func (h *CompanyHandler) GetWorkCodes(c *gin.Context) {
 func (h *CompanyHandler) Create(c *gin.Context) {
 	var req dto.CreateCompanyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	company, err := h.service.Create(c.Request.Context(), req)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 

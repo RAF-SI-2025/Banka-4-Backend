@@ -15,7 +15,7 @@ var registerOnce sync.Once
 func RegisterValidators() {
 	registerOnce.Do(func() {
 		if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-			v.RegisterValidation("futures_ticker", validateFuturesTicker)
+			_ = v.RegisterValidation("futures_ticker", validateFuturesTicker)
 		}
 	})
 }

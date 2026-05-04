@@ -56,8 +56,8 @@ func listingAssetType(l model.Listing) model.AssetType {
 func ToOrderResponse(o model.Order) OrderResponse {
 	return OrderResponse{
 		OrderID:           o.OrderID,
-		UserID:            o.UserID,
-		OwnerType:         o.OwnerType,
+		UserID:            o.OrderOwnerUserID,
+		OwnerType:         o.OrderOwnerType,
 		AccountNumber:     o.AccountNumber,
 		ListingID:         o.ListingID,
 		Ticker:            listingAssetTicker(o.Listing),

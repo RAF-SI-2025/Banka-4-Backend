@@ -21,8 +21,8 @@ type OrderSummaryResponse struct {
 func ToOrderSummaryResponse(o model.Order) OrderSummaryResponse {
 	return OrderSummaryResponse{
 		OrderID:           o.OrderID,
-		UserID:            o.UserID,
-		OwnerType:         o.OwnerType,
+		UserID:            o.OrderOwnerUserID,
+		OwnerType:         o.OrderOwnerType,
 		AccountNumber:     o.AccountNumber,
 		ListingName:       listingAssetName(o.Listing),
 		AssetType:         listingAssetType(o.Listing),

@@ -91,3 +91,14 @@ func (c *BankingServiceClient) GetAccountCurrency(ctx context.Context, accountNu
 	}
 	return resp.CurrencyCode, nil
 }
+
+func (c *BankingServiceClient) CreateFundAccount(ctx context.Context, fundName string, managerID uint64) (string, error) {
+	resp, err := c.stub.CreateFundAccount(ctx, &pb.CreateFundAccountRequest{
+		FundName:  fundName,
+		ManagerId: managerID,
+	})
+	if err != nil {
+		return "", fmt.Errorf("banking client CreateFundAccount: %w", err)
+	}
+	return resp.AccountNumber, nil
+}

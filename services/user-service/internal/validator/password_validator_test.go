@@ -9,7 +9,7 @@ import (
 
 func newValidateInstance() *validator.Validate {
 	v := validator.New()
-	v.RegisterValidation("password", validatePassword)
+	_ = v.RegisterValidation("password", validatePassword)
 	return v
 }
 

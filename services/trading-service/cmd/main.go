@@ -78,6 +78,7 @@ func main() {
 			repository.NewStockRepository,
 			repository.NewOptionRepository,
 			job.NewDailyPriceJob,
+			job.NewFundRedemptionJob,
 			service.NewStockService,
 			repository.NewExchangeRepository,
 			service.NewExchangeService,
@@ -98,6 +99,18 @@ func main() {
 			service.NewTaxService,
 			handler.NewTaxHandler,
 			service.NewTaxScheduler,
+			repository.NewOtcOfferRepository,
+			repository.NewOtcOptionContractRepository,
+			service.NewOtcOfferService,
+			handler.NewOtcOfferHandler,
+			service.NewOTCService,
+			handler.NewOTCHandler,
+			repository.NewInvestmentFundRepository,
+			repository.NewClientFundPositionRepository,
+			repository.NewClientFundInvestmentRepository,
+			repository.NewClientFundRedemptionRepository,
+			service.NewInvestmentFundService,
+			handler.NewInvestmentFundHandler,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)
@@ -125,6 +138,13 @@ func main() {
 				&model.FuturesContract{},
 				&model.AccumulatedTax{},
 				&model.TaxCollection{},
+				&model.OtcOffer{},
+				&model.OtcOptionContract{},
+				&model.InvestmentFund{},
+				&model.ClientFundPosition{},
+				&model.ClientFundInvestment{},
+				&model.ClientFundRedemption{},
+				&model.FundPerformance{},
 			)
 		}),
 		fx.Invoke(func(lc fx.Lifecycle, svc *service.StockService) {
@@ -143,6 +163,8 @@ func main() {
 		fx.Invoke(func(db *gorm.DB) error {
 			return seed.SeedFuturesContracts(db)
 		}),
+		fx.Invoke(func(db *gorm.DB) error { return seed.InvestmentFunds(db) }),
+		fx.Invoke(func(db *gorm.DB) error { return seed.SeedAssetOwnerships(db) }),
 		fx.Invoke(func(db *gorm.DB) error {
 			return seed.AccumulatedTax(db)
 		}),
@@ -176,9 +198,9 @@ func main() {
 			go func() {
 				time.Sleep(1 * time.Minute)
 				if err := seed.SeedDailyPriceHistory(db, 365); err != nil {
-						log.Printf("Failed to seed daily price history after delay: %v", err)
+					log.Printf("Failed to seed daily price history after delay: %v", err)
 				} else {
-						log.Println("Daily price history seeded successfully")
+					log.Println("Daily price history seeded successfully")
 				}
 			}()
 		}),
@@ -213,6 +235,29 @@ func main() {
 				},
 				OnStop: func(ctx context.Context) error {
 					orderService.Stop()
+					return nil
+				},
+			})
+		}),
+		fx.Invoke(func(lc fx.Lifecycle, fundRedemptionJob *job.FundRedemptionJob) {
+			c := cron.New(cron.WithLocation(time.UTC))
+			_, err := c.AddFunc("@every 5m", func() {
+				ctx := context.Background()
+				if err := fundRedemptionJob.Run(ctx); err != nil {
+					logging.Error("Fund redemption job failed", zap.Error(err))
+				}
+			})
+			if err != nil {
+				log.Fatal("Failed to schedule fund redemption job", zap.Error(err))
+			}
+
+			lc.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					c.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					c.Stop()
 					return nil
 				},
 			})

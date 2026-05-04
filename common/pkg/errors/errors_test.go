@@ -46,10 +46,10 @@ func TestAppError_UnwrapNil(t *testing.T) {
 
 func TestConstructors(t *testing.T) {
 	tests := []struct {
-		name     string
-		err      *AppError
-		code     int
-		message  string
+		name    string
+		err     *AppError
+		code    int
+		message string
 	}{
 		{"BadRequest", BadRequestErr("bad"), http.StatusBadRequest, "bad"},
 		{"Unauthorized", UnauthorizedErr("unauth"), http.StatusUnauthorized, "unauth"},

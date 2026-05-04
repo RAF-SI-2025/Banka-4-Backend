@@ -233,6 +233,7 @@ definitions:
     - owner_id
     - registration_number
     - tax_number
+    - work_code_id
     type: object
   dto.CreateLoanRequest:
     properties:
@@ -274,6 +275,8 @@ definitions:
     properties:
       amount:
         type: number
+      commission_exempt:
+        type: boolean
       payer_account_number:
         type: string
       payment_code:
@@ -579,11 +582,13 @@ definitions:
     - Personal
     - Business
     - Bank
+    - Fund
     type: string
     x-enum-varnames:
     - AccountTypePersonal
     - AccountTypeBusiness
     - AccountTypeBank
+    - AccountTypeFund
   model.CurrencyCode:
     enum:
     - EUR

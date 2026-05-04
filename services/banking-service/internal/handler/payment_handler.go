@@ -40,13 +40,13 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context) {
 	var req dto.CreatePaymentRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	payment, err := h.service.CreatePayment(c.Request.Context(), req)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -72,13 +72,13 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context) {
 func (h *PaymentHandler) GetPaymentByID(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.Error(errors.BadRequestErr("invalid payment id"))
+		_ = c.Error(errors.BadRequestErr("invalid payment id"))
 		return
 	}
 
 	payment, err := h.service.GetPaymentByID(c.Request.Context(), uint(id))
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -102,13 +102,13 @@ func (h *PaymentHandler) GetPaymentByID(c *gin.Context) {
 func (h *PaymentHandler) GetReceipt(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.Error(errors.BadRequestErr("invalid payment id"))
+		_ = c.Error(errors.BadRequestErr("invalid payment id"))
 		return
 	}
 
 	pdfBytes, err := h.service.GenerateReceipt(c.Request.Context(), uint(id))
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -135,13 +135,13 @@ func (h *PaymentHandler) GetReceipt(c *gin.Context) {
 func (h *PaymentHandler) VerifyPayment(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.Error(errors.BadRequestErr("invalid payment id"))
+		_ = c.Error(errors.BadRequestErr("invalid payment id"))
 		return
 	}
 
 	var req dto.VerifyPaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
@@ -152,7 +152,7 @@ func (h *PaymentHandler) VerifyPayment(c *gin.Context) {
 		c.GetHeader("Authorization"),
 	)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -187,7 +187,7 @@ func (h *PaymentHandler) GetAccountPayments(c *gin.Context) {
 	_, err := strconv.ParseUint(valStr, 10, 64)
 
 	if err != nil {
-		c.Error(errors.BadRequestErr("client id must be a number"))
+		_ = c.Error(errors.BadRequestErr("client id must be a number"))
 		return
 	}
 
@@ -195,7 +195,7 @@ func (h *PaymentHandler) GetAccountPayments(c *gin.Context) {
 
 	var filters dto.PaymentFilters
 	if err := c.ShouldBindQuery(&filters); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 	if filters.Page < 1 {
@@ -207,7 +207,7 @@ func (h *PaymentHandler) GetAccountPayments(c *gin.Context) {
 
 	payments, total, err := h.service.GetAccountPayments(c.Request.Context(), accountNumber, &filters)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -262,13 +262,13 @@ func (h *PaymentHandler) GetClientPayments(c *gin.Context) {
 	clientID, err := strconv.ParseUint(valStr, 10, 64)
 
 	if err != nil {
-		c.Error(errors.BadRequestErr("client id must be a number"))
+		_ = c.Error(errors.BadRequestErr("client id must be a number"))
 		return
 	}
 
 	var filters dto.PaymentFilters
 	if err := c.ShouldBindQuery(&filters); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 	if filters.Page < 1 {
@@ -280,7 +280,7 @@ func (h *PaymentHandler) GetClientPayments(c *gin.Context) {
 
 	payments, total, err := h.service.GetClientPayments(c.Request.Context(), uint(clientID), &filters)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 

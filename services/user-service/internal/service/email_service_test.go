@@ -13,7 +13,7 @@ func TestEmailServiceSend(t *testing.T) {
 	if err != nil {
 		t.Skip("MailDev not available; start Docker to run this test")
 	}
-	conn.Close()
+	_ = conn.Close()
 
 	// Configuration for MailDev (running in docker-compose-dev.yml)
 	cfg := &config.Configuration{
@@ -48,7 +48,7 @@ func TestEmailServiceSendWithValidation(t *testing.T) {
 	if err != nil {
 		t.Skip("MailDev not available; start Docker to run this test")
 	}
-	conn.Close()
+	_ = conn.Close()
 
 	cfg := &config.Configuration{
 		SMTP: config.SMTPConfig{

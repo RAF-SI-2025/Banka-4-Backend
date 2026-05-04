@@ -38,7 +38,7 @@ func (f *fakePermissionProvider) GetPermissions(_ context.Context, _ *jwt.Claims
 
 func init() {
 	gin.SetMode(gin.TestMode)
-	logging.Init("test")
+	_ = logging.Init("test")
 }
 
 func middlewareRouter(verifier auth.TokenVerifier, provider auth.PermissionProvider) *gin.Engine {
@@ -427,7 +427,7 @@ func TestAnyOf_AllowsSingleExecution(t *testing.T) {
 		"/test",
 		auth.AnyOf(
 			func(c *gin.Context) {
-				c.Error(errors.ForbiddenErr("first denied"))
+				_ = c.Error(errors.ForbiddenErr("first denied"))
 				c.Abort()
 			},
 			func(c *gin.Context) {
@@ -454,11 +454,11 @@ func TestAnyOf_DeniesWhenNoMiddlewareMatches(t *testing.T) {
 		"/test",
 		auth.AnyOf(
 			func(c *gin.Context) {
-				c.Error(errors.ForbiddenErr("first denied"))
+				_ = c.Error(errors.ForbiddenErr("first denied"))
 				c.Abort()
 			},
 			func(c *gin.Context) {
-				c.Error(errors.ForbiddenErr("second denied"))
+				_ = c.Error(errors.ForbiddenErr("second denied"))
 				c.Abort()
 			},
 		),

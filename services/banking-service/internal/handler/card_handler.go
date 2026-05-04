@@ -37,7 +37,7 @@ func NewCardHandler(service *service.CardService) *CardHandler {
 func (h *CardHandler) RequestCard(c *gin.Context) {
 	var req dto.RequestCardRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
@@ -59,7 +59,7 @@ func (h *CardHandler) RequestCard(c *gin.Context) {
 
 	_, err := h.service.RequestCard(c.Request.Context(), input)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -86,13 +86,13 @@ func (h *CardHandler) RequestCard(c *gin.Context) {
 func (h *CardHandler) ConfirmCardRequest(c *gin.Context) {
 	var req dto.ConfirmCardRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	card, err := h.service.ConfirmCardRequest(c.Request.Context(), req.AccountNumber, req.ConfirmationCode)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -117,7 +117,7 @@ func (h *CardHandler) ListCardsByAccount(c *gin.Context) {
 
 	result, err := h.service.ListCardsForAccount(c.Request.Context(), accountNumber)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -140,13 +140,13 @@ func (h *CardHandler) ListCardsByAccount(c *gin.Context) {
 func (h *CardHandler) BlockCard(c *gin.Context) {
 	cardID, err := strconv.ParseUint(c.Param("cardId"), 10, 64)
 	if err != nil {
-		c.Error(errors.BadRequestErr("invalid card id"))
+		_ = c.Error(errors.BadRequestErr("invalid card id"))
 		return
 	}
 
 	card, svcErr := h.service.BlockCard(c.Request.Context(), uint(cardID))
 	if svcErr != nil {
-		c.Error(svcErr)
+		_ = c.Error(svcErr)
 		return
 	}
 
@@ -169,13 +169,13 @@ func (h *CardHandler) BlockCard(c *gin.Context) {
 func (h *CardHandler) UnblockCard(c *gin.Context) {
 	cardID, err := strconv.ParseUint(c.Param("cardId"), 10, 64)
 	if err != nil {
-		c.Error(errors.BadRequestErr("invalid card id"))
+		_ = c.Error(errors.BadRequestErr("invalid card id"))
 		return
 	}
 
 	card, svcErr := h.service.UnblockCard(c.Request.Context(), uint(cardID))
 	if svcErr != nil {
-		c.Error(svcErr)
+		_ = c.Error(svcErr)
 		return
 	}
 
@@ -198,13 +198,13 @@ func (h *CardHandler) UnblockCard(c *gin.Context) {
 func (h *CardHandler) DeactivateCard(c *gin.Context) {
 	cardID, err := strconv.ParseUint(c.Param("cardId"), 10, 64)
 	if err != nil {
-		c.Error(errors.BadRequestErr("invalid card id"))
+		_ = c.Error(errors.BadRequestErr("invalid card id"))
 		return
 	}
 
 	card, svcErr := h.service.DeactivateCard(c.Request.Context(), uint(cardID))
 	if svcErr != nil {
-		c.Error(svcErr)
+		_ = c.Error(svcErr)
 		return
 	}
 

@@ -274,6 +274,7 @@ func (r *listingRepository) FindByAssetIDs(ctx context.Context, assetIDs []uint)
 	err := r.db.WithContext(ctx).
 		Where("asset_id IN ?", assetIDs).
 		Preload("Asset").
+		Preload("Exchange").
 		Preload("DailyPriceInfos", func(db *gorm.DB) *gorm.DB {
 			return db.Order("date DESC").Limit(1)
 		}).

@@ -1,4 +1,15 @@
 services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis_data:/data
+
   user_service_db:
     image: postgres:16
     restart: unless-stopped
@@ -13,6 +24,9 @@ services:
       retries: 5
     volumes:
       - user_service_db_data:/var/lib/postgresql/data
+    depends_on:
+      redis:
+        condition: service_healthy
 
   user_service:
     image: ghcr.io/raf-si-2025/banka-4-backend/user-service
@@ -21,6 +35,8 @@ services:
     env_file: .env
     depends_on:
       user_service_db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: curl -f http://localhost:${PORT}/api/health || exit 1
@@ -39,10 +55,13 @@ services:
       GRPC_PORT: "50052"
       USER_SERVICE_ADDR: user_service:50051
       USER_SERVICE_BASE_URL: http://user_service:${PORT}
+      WORK_CODES_CACHE_TTL: 24h
     depends_on:
       user_service_db:
         condition: service_healthy
       user_service:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: curl -f http://localhost:${BANKING_SERVICE_PORT}/api/health || exit 1
@@ -62,6 +81,8 @@ services:
         condition: service_healthy
       user_service:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: curl -f http://localhost:${TRADING_SERVICE_PORT}/api/health || exit 1
 
@@ -74,9 +95,13 @@ services:
     environment:
       MAILDEV_SMTP_PORT: 1025
       MAILDEV_WEB_PORT: 1080
+    depends_on:
+      redis:
+        condition: service_healthy
     volumes:
       - maildev_data:/data
 
 volumes:
+  redis_data:
   user_service_db_data:
   maildev_data:

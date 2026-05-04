@@ -2684,7 +2684,8 @@ const docTemplate = `{
                 "name",
                 "owner_id",
                 "registration_number",
-                "tax_number"
+                "tax_number",
+                "work_code_id"
             ],
             "properties": {
                 "address": {
@@ -2773,6 +2774,9 @@ const docTemplate = `{
             "properties": {
                 "amount": {
                     "type": "number"
+                },
+                "commission_exempt": {
+                    "type": "boolean"
                 },
                 "payer_account_number": {
                     "type": "string"
@@ -3229,12 +3233,14 @@ const docTemplate = `{
             "enum": [
                 "Personal",
                 "Business",
-                "Bank"
+                "Bank",
+                "Fund"
             ],
             "x-enum-varnames": [
                 "AccountTypePersonal",
                 "AccountTypeBusiness",
-                "AccountTypeBank"
+                "AccountTypeBank",
+                "AccountTypeFund"
             ]
         },
         "model.CurrencyCode": {

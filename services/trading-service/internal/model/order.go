@@ -25,8 +25,12 @@ const (
 )
 
 type Order struct {
-	OrderID           uint   `gorm:"primaryKey;autoIncrement"`
-	UserID            uint   `gorm:"not null;index"`
+	OrderID          uint      `gorm:"primaryKey;autoIncrement"`
+	OrderOwnerUserID uint      `gorm:"not null;index"`
+	OrderOwnerType   OwnerType `gorm:"not null;size:10;default:'CLIENT'"`
+	AssetOwnerUserID uint      `gorm:"not null;default:0"`
+	AssetOwnerType   OwnerType `gorm:"not null;size:10;default:''"`
+
 	AccountNumber     string `gorm:"not null;size:18;index"`
 	ListingID         uint   `gorm:"not null;index"`
 	Listing           Listing
@@ -46,7 +50,7 @@ type Order struct {
 	AfterHours        bool `gorm:"not null;default:false"`
 	Triggered         bool `gorm:"not null;default:false"`
 	NextExecutionAt   *time.Time
-	CommissionCharged bool `gorm:"not null;default:false"`
+	CommissionCharged bool      `gorm:"not null;default:false"`
 	CommissionExempt  bool      `gorm:"not null;default:false"`
 	OwnerType         OwnerType `gorm:"not null;size:10;default:'CLIENT'"`
 	CreatedAt         time.Time

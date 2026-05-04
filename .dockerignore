@@ -26,7 +26,7 @@ vendor/
 # Test files are not needed in runtime image builds.
 *_test.go
 
-# Local env and compose overrides
+# Local .env and compose overrides
 .env
 .env.*
 !env.example

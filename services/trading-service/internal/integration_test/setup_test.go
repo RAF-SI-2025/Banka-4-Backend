@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http/httptest"
 	"os"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -78,6 +77,12 @@ func TestMain(m *testing.M) {
 		&model.OrderTransaction{},
 		&model.AccumulatedTax{},
 		&model.TaxCollection{},
+		&model.OtcOffer{},
+		&model.OtcOptionContract{},
+		&model.InvestmentFund{},
+		&model.ClientFundPosition{},
+		&model.ClientFundInvestment{},
+		&model.ClientFundRedemption{},
 	); err != nil {
 		log.Fatalf("auto migrate test schema: %v", err)
 	}
@@ -108,11 +113,29 @@ func (f *fakeUserClient) GetClientById(_ context.Context, id uint64) (*pb.GetCli
 	}, nil
 }
 
-func (f *fakeBankingClient) GetAccountCurrency(_ context.Context, _ string) (string, error) {
-	return "RSD", nil
+func (f *fakeUserClient) GetEmployeeById(_ context.Context, id uint64) (*pb.GetEmployeeByIdResponse, error) {
+	isSupervisor := f.supervisorIDs[id]
+	isAgent := f.agentIDs[id]
+	return &pb.GetEmployeeByIdResponse{
+		Id:           id,
+		Email:        fmt.Sprintf("employee-%d@example.com", id),
+		FullName:     fmt.Sprintf("Employee %d", id),
+		IsSupervisor: isSupervisor,
+		IsAgent:      isAgent,
+		IdentityId:   id,
+	}, nil
 }
 
-func (f *fakeUserClient) GetEmployeeById(_ context.Context, id uint64) (*pb.GetEmployeeByIdResponse, error) {
+func (f *fakeUserClient) GetClientByIdentityId(_ context.Context, id uint64) (*pb.GetClientByIdResponse, error) {
+	return &pb.GetClientByIdResponse{
+		Id:         id,
+		Email:      fmt.Sprintf("client-%d@example.com", id),
+		FullName:   fmt.Sprintf("Client %d", id),
+		IdentityId: id,
+	}, nil
+}
+
+func (f *fakeUserClient) GetEmployeeByIdentityId(_ context.Context, id uint64) (*pb.GetEmployeeByIdResponse, error) {
 	isSupervisor := f.supervisorIDs[id]
 	isAgent := f.agentIDs[id]
 	return &pb.GetEmployeeByIdResponse{
@@ -157,16 +180,34 @@ func (f *fakeTaxRecorder) RecordTax(_ context.Context, _ string, _ *uint, _ floa
 	return nil
 }
 
-type fakeBankingClient struct{}
+type fakeBankingClient struct {
+	accountByNumber map[string]uint64
+}
 
 func (f *fakeBankingClient) GetAccountByNumber(_ context.Context, accountNumber string) (*pb.GetAccountByNumberResponse, error) {
+	clientID, ok := f.accountByNumber[accountNumber]
+	if !ok {
+		return &pb.GetAccountByNumberResponse{
+			AccountNumber:    accountNumber,
+			ClientId:         1,
+			AccountType:      "Bank",
+			CurrencyCode:     "RSD",
+			AvailableBalance: 1_000_000,
+		}, nil
+	}
 	return &pb.GetAccountByNumberResponse{
+		ClientId:         clientID,
 		AccountNumber:    accountNumber,
-		ClientId:         1,
-		AccountType:      "Bank",
 		CurrencyCode:     "RSD",
 		AvailableBalance: 1_000_000,
 	}, nil
+}
+func (f *fakeBankingClient) GetAccountCurrency(_ context.Context, _ string) (string, error) {
+	return "RSD", nil
+}
+
+func (f *fakeBankingClient) CreateFundAccount(_ context.Context, fundName string, _ uint64) (string, error) {
+	return fmt.Sprintf("444000199999%06d", uniqueCounter.Add(1)), nil
 }
 
 func (f *fakeBankingClient) HasActiveLoan(_ context.Context, _ uint64) (*pb.HasActiveLoanResponse, error) {
@@ -244,7 +285,13 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 		supervisorIDs: map[uint64]bool{10: true},
 		agentIDs:      map[uint64]bool{20: true},
 	}
-	var bankingClient client.BankingClient = &fakeBankingClient{}
+	var bankingClient client.BankingClient = &fakeBankingClient{
+		accountByNumber: map[string]uint64{
+			"seller-acc": 20,
+			"buyer-acc":  10,
+		},
+	}
+
 	var permProvider auth.PermissionProvider = &fakePermissionProvider{perms: perms}
 
 	exchangeRepo := repository.NewExchangeRepository(db)
@@ -257,15 +304,24 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 	forexRepo := repository.NewForexRepository(db)
 	optionRepo := repository.NewOptionRepository(db)
 	taxRepo := repository.NewTaxRepository(db)
+	otcOfferRepo := repository.NewOtcOfferRepository(db)
+	otcContractRepo := repository.NewOtcOptionContractRepository(db)
 
 	exchangeSvc := service.NewExchangeService(exchangeRepo)
 	listingSvc := service.NewListingService(listingRepo, futuresRepo, forexRepo, optionRepo)
-
+	fundRepo := repository.NewInvestmentFundRepository(db)
 	var taxRecorder service.TaxRecorder = &fakeTaxRecorder{}
-	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, assetOwnershipRepo, futuresRepo, optionRepo, userClient, bankingClient, taxRecorder)
+	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, assetOwnershipRepo, futuresRepo, optionRepo, fundRepo, userClient, bankingClient, taxRecorder)
+	positionRepo := repository.NewClientFundPositionRepository(db)
+	investmentRepo := repository.NewClientFundInvestmentRepository(db)
+	redemptionRepo := repository.NewClientFundRedemptionRepository(db)
+	fundSvc := service.NewInvestmentFundService(fundRepo, positionRepo, listingRepo, investmentRepo, redemptionRepo, assetOwnershipRepo, exchangeRepo, stockRepo, optionRepo, futuresRepo, forexRepo, bankingClient, userClient, nil)
+	fundHandler := handler.NewInvestmentFundHandler(fundSvc)
 	portfolioSvc := service.NewPortfolioService(assetOwnershipRepo, stockRepo, optionRepo, futuresRepo, forexRepo, bankingClient, userClient)
 
 	taxSvc := service.NewTaxService(taxRepo, bankingClient, cfg)
+	otcSvc := service.NewOTCService(assetOwnershipRepo, listingRepo, userClient)
+	otcOfferSvc := service.NewOtcOfferService(otcOfferRepo, otcContractRepo, assetOwnershipRepo, stockRepo, bankingClient)
 
 	healthHandler := handler.NewHealthHandler()
 	exchangeHandler := handler.NewExchangeHandler(exchangeSvc)
@@ -273,12 +329,14 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 	orderHandler := handler.NewOrderHandler(orderSvc)
 	portfolioHandler := handler.NewPortfolioHandler(portfolioSvc)
 	taxHandler := handler.NewTaxHandler(taxSvc, userClient)
+	otcHandler := handler.NewOTCHandler(otcSvc)
+	otcOfferHandler := handler.NewOtcOfferHandler(otcOfferSvc)
 
 	verifier := auth.TokenVerifier(commonjwt.NewJWTVerifier(cfg.JWTSecret))
 
 	r := gin.New()
 	server.InitRouter(r, cfg)
-	server.SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, verifier, permProvider, userClient)
+	server.SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, verifier, permProvider, userClient)
 
 	return r, userClient
 }
@@ -448,23 +506,6 @@ func seedOrder(t *testing.T, db *gorm.DB, userID, listingID uint, direction mode
 	return order
 }
 
-func seedAssetOwnership(t *testing.T, db *gorm.DB, identityID uint, ownerType model.OwnerType, assetID uint, amount float64) *model.AssetOwnership {
-	t.Helper()
-
-	ownership := &model.AssetOwnership{
-		IdentityID: identityID,
-		OwnerType:  ownerType,
-		AssetID:    assetID,
-		Amount:     amount,
-	}
-
-	if err := db.Create(ownership).Error; err != nil {
-		t.Fatalf("seed asset ownership: %v", err)
-	}
-
-	return ownership
-}
-
 func seedDailyPriceInfo(t *testing.T, db *gorm.DB, listingID uint) {
 	t.Helper()
 
@@ -483,6 +524,24 @@ func seedDailyPriceInfo(t *testing.T, db *gorm.DB, listingID uint) {
 	}
 }
 
+func seedInvestmentFund(t *testing.T, db *gorm.DB, name string, managerID uint) *model.InvestmentFund {
+	t.Helper()
+
+	fund := &model.InvestmentFund{
+		Name:                name,
+		Description:         fmt.Sprintf("Description for %s", name),
+		MinimumContribution: 1000.0,
+		ManagerID:           managerID,
+		AccountNumber:       fmt.Sprintf("444000199999%06d", uniqueCounter.Add(1)),
+		CreatedAt:           time.Now(),
+	}
+
+	if err := db.Create(fund).Error; err != nil {
+		t.Fatalf("seed investment fund: %v", err)
+	}
+
+	return fund
+}
 func authHeaderForSupervisor(t *testing.T) string {
 	t.Helper()
 
@@ -533,11 +592,7 @@ func authHeaderForClient(t *testing.T, identityID, clientID uint) string {
 
 func uniqueValue(t *testing.T, prefix string) string {
 	t.Helper()
-	name := strings.NewReplacer("/", "-", " ", "-", ":", "-").Replace(strings.ToLower(t.Name()))
-	if len(name) > 15 {
-		name = name[:15]
-	}
-	return fmt.Sprintf("%s-%s-%d-%d", prefix, name, time.Now().UnixNano(), uniqueCounter.Add(1))
+	return fmt.Sprintf("%s%d", prefix, uniqueCounter.Add(1))
 }
 
 func performRequest(t *testing.T, router *gin.Engine, method, path string, body any, authorization string) *httptest.ResponseRecorder {

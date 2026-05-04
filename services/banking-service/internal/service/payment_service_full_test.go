@@ -318,10 +318,10 @@ func TestVerifyPayment_MobileSecretError(t *testing.T) {
 		ClientID:     &clientID,
 	})
 	svc := &PaymentService{
-		paymentRepo:        paymentRepo,
-		accountRepo:        newFakePaymentAccountRepo(&model.Account{AccountNumber: "PAYER-1", ClientID: 1}),
-		mobileSecretClient: &fakeMobileSecretClient{err: errors.New("secret service down")},
-		txManager:          &fakeBankingTxManager{},
+		paymentRepo:          paymentRepo,
+		accountRepo:          newFakePaymentAccountRepo(&model.Account{AccountNumber: "PAYER-1", ClientID: 1}),
+		mobileSecretClient:   &fakeMobileSecretClient{err: errors.New("secret service down")},
+		txManager:            &fakeBankingTxManager{},
 		transactionProcessor: &fakeVerifyTransactionProcessor{},
 	}
 

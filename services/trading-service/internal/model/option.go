@@ -11,7 +11,7 @@ const (
 
 type Option struct {
 	OptionID          uint `gorm:"primaryKey;autoIncrement"`
-	AssetID           uint     `gorm:"not null;uniqueIndex"`
+	AssetID           uint `gorm:"not null;uniqueIndex"`
 	Asset             Asset
 	Listing           *Listing `gorm:"foreignKey:AssetID;references:AssetID;constraint:-"`
 	StockID           uint     `gorm:"not null;"`

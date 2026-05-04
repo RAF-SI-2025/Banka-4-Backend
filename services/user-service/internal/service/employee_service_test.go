@@ -249,7 +249,7 @@ func TestUpdateEmployee(t *testing.T) {
 			name: "admin cannot modify other admin permissions",
 			empRepo: &fakeEmployeeRepo{byIDs: map[uint]*model.Employee{
 				existingAdmin.EmployeeID: existingAdmin,
-				actor.EmployeeID:        actor,
+				actor.EmployeeID:         actor,
 			}},
 			identityRepo: &fakeIdentityRepo{byID: identity},
 			positionRepo: &fakePositionRepo{exists: true},

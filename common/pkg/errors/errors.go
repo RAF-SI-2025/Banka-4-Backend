@@ -47,8 +47,6 @@ type AppError struct {
 	Err       error     `json:"-"`
 }
 
-
-
 func (e *AppError) Error() string {
 	if e.Err != nil {
 		return e.Err.Error()

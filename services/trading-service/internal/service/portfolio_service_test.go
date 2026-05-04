@@ -18,24 +18,43 @@ var errTest = errors.New("repo error")
 // --- Fake repos ---
 
 type fakeAssetOwnershipRepo struct {
-	ownerships []model.AssetOwnership
-	err        error
-	upserted   []*model.AssetOwnership
-	upsertErr  error
-	findErr    error
+	ownerships     []model.AssetOwnership
+	byID           *model.AssetOwnership
+	findByIDErr    error
+	allPublic      []model.AssetOwnership
+	allPublicTotal int64
+	allPublicErr   error
+	updateOTCErr   error
+	upserted       []*model.AssetOwnership
+	upsertErr      error
+	findErr        error
 }
 
-func (r *fakeAssetOwnershipRepo) FindByIdentity(_ context.Context, _ uint, _ model.OwnerType) ([]model.AssetOwnership, error) {
+func (r *fakeAssetOwnershipRepo) FindByUserId(_ context.Context, _ uint, _ model.OwnerType) ([]model.AssetOwnership, error) {
 	return r.ownerships, r.findErr
 }
 
 func (r *fakeAssetOwnershipRepo) Upsert(_ context.Context, ownership *model.AssetOwnership) error {
-  if r.upsertErr != nil {
-    return r.upsertErr
-  }
-  
+	if r.upsertErr != nil {
+		return r.upsertErr
+	}
+
 	copy := *ownership
 	r.upserted = append(r.upserted, &copy)
+	return nil
+}
+func (r *fakeAssetOwnershipRepo) FindByID(_ context.Context, _ uint) (*model.AssetOwnership, error) {
+	return r.byID, r.findByIDErr
+}
+func (r *fakeAssetOwnershipRepo) FindAllPublic(_ context.Context, _, _ int) ([]model.AssetOwnership, int64, error) {
+	return r.allPublic, r.allPublicTotal, r.allPublicErr
+}
+
+func (r *fakeAssetOwnershipRepo) UpdateOTCFields(_ context.Context, _ uint, _, _ float64) error {
+	return r.updateOTCErr
+}
+
+func (r *fakeAssetOwnershipRepo) IncreaseReservedAmount(_ context.Context, _ uint, _ model.OwnerType, _ uint, _ float64) error {
 	return nil
 }
 
@@ -91,7 +110,7 @@ func (r *fakeForexRepo) FindAll(_ context.Context, _ repository.ListingFilter) (
 
 func makeOwnership(assetID uint, ticker string, amount, avgBuyPrice float64) model.AssetOwnership {
 	return model.AssetOwnership{
-		IdentityID:     1,
+		UserId:         1,
 		OwnerType:      model.OwnerTypeClient,
 		AssetID:        assetID,
 		Asset:          model.Asset{AssetID: assetID, Ticker: ticker, AssetType: model.AssetTypeStock},
@@ -116,6 +135,7 @@ func makeListing(assetID uint, price float64) *model.Listing {
 
 func TestGetPortfolio_HappyPath_Stock(t *testing.T) {
 	ownership := makeOwnership(10, "AAPL", 10, 100.0)
+	ownership.PublicAmount = 5.0
 
 	svc := NewPortfolioService(
 		&fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}},
@@ -138,8 +158,7 @@ func TestGetPortfolio_HappyPath_Stock(t *testing.T) {
 	require.Equal(t, float64(10), a.Amount)
 	require.Equal(t, 150.0, a.PricePerUnitRSD)
 	require.InDelta(t, (150.0-100.0)*10, a.Profit, 0.001)
-	require.NotNil(t, a.OutstandingShares)
-	require.Equal(t, float64(1_000_000), *a.OutstandingShares)
+	require.Equal(t, 5.0, a.PublicAmount)
 }
 
 func TestGetPortfolio_HappyPath_Option(t *testing.T) {
@@ -165,7 +184,7 @@ func TestGetPortfolio_HappyPath_Option(t *testing.T) {
 	require.Equal(t, dto.AssetTypeOption, a.Type)
 	require.Equal(t, float64(200), a.Amount)
 	require.InDelta(t, (8.0-5.0)*200, a.Profit, 0.001)
-	require.Nil(t, a.OutstandingShares)
+	require.Equal(t, 0.0, a.PublicAmount)
 }
 
 func TestGetPortfolio_HappyPath_Futures(t *testing.T) {
@@ -534,6 +553,7 @@ func TestExerciseOption_PutOptionRejected(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "only call options can be exercised")
 }
+
 // --- GetClientPortfolio / GetActuaryPortfolio ---
 
 func newPortfolioSvc(ownershipRepo *fakeAssetOwnershipRepo, stockRepo *fakeStockRepo, userClient *fakeUserServiceClient) *PortfolioService {
@@ -544,7 +564,7 @@ func TestGetClientPortfolio_ResolvesIdentityID(t *testing.T) {
 	const clientID = uint64(5)
 	const identityID = uint64(42)
 	ownership := makeOwnership(10, "AAPL", 10, 100.0)
-	ownership.IdentityID = uint(identityID)
+	ownership.UserId = uint(identityID)
 
 	svc := newPortfolioSvc(
 		&fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}},
@@ -562,18 +582,19 @@ func TestGetClientPortfolio_ClientNotFound(t *testing.T) {
 	svc := newPortfolioSvc(
 		&fakeAssetOwnershipRepo{},
 		&fakeStockRepo{},
-		&fakeUserServiceClient{clientErr: errors.New("not found")},
+		&fakeUserServiceClient{},
 	)
 
-	_, err := svc.GetClientPortfolio(context.Background(), 99)
-	require.Error(t, err)
+	result, err := svc.GetClientPortfolio(context.Background(), 999)
+	require.NoError(t, err)
+	require.Empty(t, result)
 }
 
 func TestGetActuaryPortfolio_ResolvesIdentityID(t *testing.T) {
 	const actuaryID = uint64(7)
 	const identityID = uint64(55)
 	ownership := makeOwnership(20, "MSFT", 5, 200.0)
-	ownership.IdentityID = uint(identityID)
+	ownership.UserId = uint(identityID)
 	ownership.OwnerType = model.OwnerTypeActuary
 
 	svc := newPortfolioSvc(
@@ -592,9 +613,10 @@ func TestGetActuaryPortfolio_ActuaryNotFound(t *testing.T) {
 	svc := newPortfolioSvc(
 		&fakeAssetOwnershipRepo{},
 		&fakeStockRepo{},
-		&fakeUserServiceClient{employeeErr: errors.New("not found")},
+		&fakeUserServiceClient{},
 	)
 
-	_, err := svc.GetActuaryPortfolio(context.Background(), 99)
-	require.Error(t, err)
+	result, err := svc.GetActuaryPortfolio(context.Background(), 99)
+	require.NoError(t, err)
+	require.Empty(t, result)
 }

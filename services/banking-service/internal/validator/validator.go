@@ -17,9 +17,9 @@ var registerOnce sync.Once
 func RegisterValidators() {
 	registerOnce.Do(func() {
 		if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-			v.RegisterValidation("account_type", validateAccountType)
-			v.RegisterValidation("account_kind", validateAccountKind)
-			v.RegisterValidation("currency_code", validateForeignCurrency)
+			_ = v.RegisterValidation("account_type", validateAccountType)
+			_ = v.RegisterValidation("account_kind", validateAccountKind)
+			_ = v.RegisterValidation("currency_code", validateForeignCurrency)
 			v.RegisterStructValidation(validateCurrentAccountStruct, dto.CreateAccountRequest{})
 		}
 	})

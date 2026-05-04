@@ -35,13 +35,13 @@ func NewAccountHandler(service *service.AccountService) *AccountHandler {
 func (h *AccountHandler) Create(c *gin.Context) {
 	var req dto.CreateAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	account, err := h.service.Create(c.Request.Context(), req)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -70,7 +70,7 @@ func (h *AccountHandler) ListAccounts(c *gin.Context) {
 	var req dto.ListAccountsQuery
 
 	if err := c.ShouldBindQuery(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
@@ -84,7 +84,7 @@ func (h *AccountHandler) ListAccounts(c *gin.Context) {
 
 	accounts, total, err := h.service.GetAllAccounts(c.Request.Context(), &req)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -102,7 +102,7 @@ func GetParamUint(c *gin.Context, key string) (uint, bool) {
 	val, err := strconv.ParseUint(valStr, 10, 64)
 
 	if err != nil {
-		c.Error(errors.BadRequestErr("client id must be a number"))
+		_ = c.Error(errors.BadRequestErr("client id must be a number"))
 		return 0, false
 	}
 
@@ -129,7 +129,7 @@ func (h *AccountHandler) GetClientAccounts(c *gin.Context) {
 
 	accounts, err := h.service.GetClientAccounts(c.Request.Context(), clientId)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -162,7 +162,7 @@ func (h *AccountHandler) GetAccountDetails(c *gin.Context) {
 	accountNumber := c.Param("accountNumber")
 	account, err := h.service.GetAccountDetails(c.Request.Context(), accountNumber, clientId)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -194,12 +194,12 @@ func (h *AccountHandler) UpdateAccountName(c *gin.Context) {
 
 	var req dto.UpdateAccountNameRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	if err := h.service.UpdateAccountName(c.Request.Context(), accountNumber, clientId, req.Name); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -231,12 +231,12 @@ func (h *AccountHandler) RequestLimitsChange(c *gin.Context) {
 
 	var req dto.RequestLimitsChangeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	if err := h.service.RequestLimitsChange(c.Request.Context(), accountNumber, clientId, req.DailyLimit, req.MonthlyLimit); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -268,12 +268,12 @@ func (h *AccountHandler) ConfirmLimitsChange(c *gin.Context) {
 
 	var req dto.ConfirmLimitsChangeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.BadRequestErr(err.Error()))
+		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
 
 	if err := h.service.ConfirmLimitsChange(c.Request.Context(), accountNumber, clientId, req.Code, c.GetHeader("Authorization")); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 

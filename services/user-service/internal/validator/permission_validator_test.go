@@ -11,7 +11,7 @@ import (
 
 func newPermissionValidator() *validator.Validate {
 	v := validator.New()
-	v.RegisterValidation("permission", validatePermission)
+	_ = v.RegisterValidation("permission", validatePermission)
 	return v
 }
 
@@ -59,7 +59,7 @@ type uniquePermissionsField struct {
 func TestValidateUniquePermissions(t *testing.T) {
 	t.Parallel()
 	v := validator.New()
-	v.RegisterValidation("unique_permissions", validateUniquePermissions)
+	_ = v.RegisterValidation("unique_permissions", validateUniquePermissions)
 
 	tests := []struct {
 		name    string

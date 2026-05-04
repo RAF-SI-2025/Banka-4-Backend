@@ -18,7 +18,7 @@ func SeedDailyPriceHistory(db *gorm.DB, daysBack int) error {
 		return err
 	}
 
-	endDate := time.Now().Truncate(24 * time.Hour).AddDate(0, 0, -1) // yesterday
+	endDate := time.Now().Truncate(24*time.Hour).AddDate(0, 0, -1) // yesterday
 	startDate := endDate.AddDate(0, 0, -daysBack+1)
 
 	for _, listing := range listings {
@@ -39,11 +39,10 @@ func SeedDailyPriceHistory(db *gorm.DB, daysBack int) error {
 		prices := make([]float64, daysBack)
 		prices[daysBack-1] = currentPrice
 
-		
 		const volatility = 0.03
 		for i := daysBack - 2; i >= 0; i-- {
 			returnPct := (rng.Float64()*2 - 1) * volatility
-			prevPrice := prices[i+1] / (1+returnPct)
+			prevPrice := prices[i+1] / (1 + returnPct)
 			if prevPrice <= 0 {
 				prevPrice = prices[i+1] * 0.5
 			}

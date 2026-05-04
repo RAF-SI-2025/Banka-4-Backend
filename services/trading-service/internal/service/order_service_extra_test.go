@@ -19,13 +19,13 @@ import (
 func TestResolveDailyVolume_ReturnsVolume(t *testing.T) {
 	dailyInfo := &model.ListingDailyPriceInfo{Volume: 5000}
 	listingRepo := &fakeListingRepo{dailyPriceInfo: dailyInfo}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo,
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	}, 
-	&fakeOrderBankingClient{}, &fakeTaxRecorder{})
+		&fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	vol := svc.resolveDailyVolume(context.Background(), 1)
 	require.Equal(t, uint(5000), vol)
@@ -33,13 +33,13 @@ func TestResolveDailyVolume_ReturnsVolume(t *testing.T) {
 
 func TestResolveDailyVolume_NilDailyInfo_ReturnsZero(t *testing.T) {
 	listingRepo := &fakeListingRepo{dailyPriceInfo: nil}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo,
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	}, 
-	&fakeOrderBankingClient{}, &fakeTaxRecorder{})
+		&fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	vol := svc.resolveDailyVolume(context.Background(), 1)
 	require.Equal(t, uint(0), vol)
@@ -48,13 +48,13 @@ func TestResolveDailyVolume_NilDailyInfo_ReturnsZero(t *testing.T) {
 func TestResolveDailyVolume_ZeroVolume_ReturnsZero(t *testing.T) {
 	dailyInfo := &model.ListingDailyPriceInfo{Volume: 0}
 	listingRepo := &fakeListingRepo{dailyPriceInfo: dailyInfo}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo,
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	}, 
-	&fakeOrderBankingClient{}, &fakeTaxRecorder{})
+		&fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	vol := svc.resolveDailyVolume(context.Background(), 1)
 	require.Equal(t, uint(0), vol)
@@ -62,13 +62,13 @@ func TestResolveDailyVolume_ZeroVolume_ReturnsZero(t *testing.T) {
 
 func TestResolveDailyVolume_RepoError_ReturnsZero(t *testing.T) {
 	listingRepo := &fakeListingRepo{dailyPriceErr: errors.New("db error")}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo,
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	}, 
-	&fakeOrderBankingClient{}, &fakeTaxRecorder{})
+		&fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	vol := svc.resolveDailyVolume(context.Background(), 1)
 	require.Equal(t, uint(0), vol)
@@ -77,13 +77,13 @@ func TestResolveDailyVolume_RepoError_ReturnsZero(t *testing.T) {
 // ── nextExecutionAt Tests ─────────────────────────────────────────
 
 func TestNextExecutionAt_RemainingZero_ReturnsNow(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{},
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	}, 
-	&fakeOrderBankingClient{}, &fakeTaxRecorder{})
+		&fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 5, FilledQty: 5}
 	result := svc.nextExecutionAt(context.Background(), order)
@@ -93,13 +93,13 @@ func TestNextExecutionAt_RemainingZero_ReturnsNow(t *testing.T) {
 func TestNextExecutionAt_WithDailyVolume_ReturnsFutureOrNowTime(t *testing.T) {
 	dailyInfo := &model.ListingDailyPriceInfo{Volume: 1000}
 	listingRepo := &fakeListingRepo{dailyPriceInfo: dailyInfo}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo,
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	}, 
-	&fakeOrderBankingClient{}, &fakeTaxRecorder{})
+		&fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 10, FilledQty: 5, ListingID: 1, AfterHours: false}
 	result := svc.nextExecutionAt(context.Background(), order)
@@ -109,13 +109,13 @@ func TestNextExecutionAt_WithDailyVolume_ReturnsFutureOrNowTime(t *testing.T) {
 func TestNextExecutionAt_AfterHours_AddsDelay(t *testing.T) {
 	dailyInfo := &model.ListingDailyPriceInfo{Volume: 1000}
 	listingRepo := &fakeListingRepo{dailyPriceInfo: dailyInfo}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo,
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	}, 
-	&fakeOrderBankingClient{}, &fakeTaxRecorder{})
+		&fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 10, FilledQty: 5, ListingID: 1, AfterHours: true}
 	result := svc.nextExecutionAt(context.Background(), order)
@@ -125,13 +125,13 @@ func TestNextExecutionAt_AfterHours_AddsDelay(t *testing.T) {
 
 func TestNextExecutionAt_ZeroVolume_StillReturnsValidTime(t *testing.T) {
 	listingRepo := &fakeListingRepo{dailyPriceInfo: nil}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo,
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	}, 
-	&fakeOrderBankingClient{}, &fakeTaxRecorder{})
+		&fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 10, FilledQty: 0, ListingID: 1, AfterHours: false}
 	result := svc.nextExecutionAt(context.Background(), order)
@@ -241,13 +241,13 @@ func TestProcessOrder_LimitNotMet_Reschedules(t *testing.T) {
 	orderRepo := &fakeOrderRepo{}
 	listingRepo := &fakeListingRepo{listing: listing}
 	exchangeRepo := &fakeExchangeRepo{exchange: exchange}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo,
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	},
-	&fakeOrderBankingClient{}, &fakeTaxRecorder{})
+		&fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	limitVal := 100.0
 	order := &model.Order{
@@ -280,13 +280,13 @@ func TestProcessOrder_SettlementTransientError_Reschedules(t *testing.T) {
 	bankingClient := &fakeOrderBankingClient{
 		settlementErr: errors.New("network timeout"),
 	}
-	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo,
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	}, 
-	bankingClient, &fakeTaxRecorder{})
+		bankingClient, &fakeTaxRecorder{})
 
 	order := &model.Order{
 		OrderID:          1,
@@ -328,13 +328,13 @@ func TestProcessOrder_MarketOrder_PartialFill_SchedulesNext(t *testing.T) {
 			DestinationCurrencyCode: "USD",
 		},
 	}
-	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo,
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	}, 
-	bankingClient, &fakeTaxRecorder{})
+		bankingClient, &fakeTaxRecorder{})
 	svc.rng = rand.New(rand.NewSource(42))
 
 	order := &model.Order{
@@ -364,14 +364,14 @@ func TestProcessOrder_MarketOrder_PartialFill_SchedulesNext(t *testing.T) {
 func TestCalculateInitialPricePerUnit_StopLimit(t *testing.T) {
 	listing := &model.Listing{Price: 150.0, Ask: 151.0}
 	lv := 155.0
-	p := calculateInitialPricePerUnit(dto.CreateOrderRequest{OrderType: model.OrderTypeStopLimit, LimitValue: &lv}, listing)
+	p := calculateInitialPricePerUnit(placeOrderParams{OrderType: model.OrderTypeStopLimit, LimitValue: &lv}, listing)
 	require.NotNil(t, p)
 	require.Equal(t, 155.0, *p)
 }
 
 func TestCalculateInitialPricePerUnit_Unknown(t *testing.T) {
 	listing := &model.Listing{Price: 150.0, Ask: 151.0}
-	p := calculateInitialPricePerUnit(dto.CreateOrderRequest{OrderType: "UNKNOWN"}, listing)
+	p := calculateInitialPricePerUnit(placeOrderParams{OrderType: "UNKNOWN"}, listing)
 	require.Nil(t, p)
 }
 
@@ -403,13 +403,13 @@ func TestProcessOrder_FillQtyZero_Reschedules(t *testing.T) {
 	orderRepo := &fakeOrderRepo{}
 	listingRepo := &fakeListingRepo{listing: listing, dailyPriceInfo: nil}
 	exchangeRepo := &fakeExchangeRepo{exchange: exchange}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo,
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	}, 
-	&fakeOrderBankingClient{}, &fakeTaxRecorder{})
+		&fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{
 		OrderID:      1,
@@ -448,17 +448,20 @@ func TestProcessOrder_MarketSell_WithCommission(t *testing.T) {
 			DestinationCurrencyCode: "USD",
 		},
 	}
-	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo,
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	}, 
-	bankingClient, &fakeTaxRecorder{})
+		bankingClient, &fakeTaxRecorder{})
 	svc.assetOwnershipRepo = &fakeAssetOwnershipRepo{
 		ownerships: []model.AssetOwnership{
 			{AssetID: listing.AssetID, Amount: 10},
 		},
+	}
+	svc.now = func() time.Time {
+		return time.Date(2025, 6, 4, 10, 0, 0, 0, time.UTC)
 	}
 
 	order := &model.Order{
@@ -488,13 +491,13 @@ func TestCreateOrder_ExpiredFuture_ReturnsError(t *testing.T) {
 	listing.AssetID = 1
 	listing.Asset.AssetType = model.AssetTypeFuture
 
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{exchange: defaultExchange()}, &fakeListingRepo{listing: listing}, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{exchange: defaultExchange()}, &fakeListingRepo{listing: listing},
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	}, 
-	&fakeOrderBankingClient{accountResp: defaultAccountResp(10)}, &fakeTaxRecorder{})
+		&fakeOrderBankingClient{accountResp: defaultAccountResp(10)}, &fakeTaxRecorder{})
 	svc.futuresRepo = &fakeFuturesRepo{futures: []model.FuturesContract{{SettlementDate: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}}}
 
 	order, err := svc.CreateOrder(clientAuthCtx(), dto.CreateOrderRequest{ListingID: 1, AccountNumber: "444000100000000110", OrderType: model.OrderTypeMarket, Direction: model.OrderDirectionBuy, Quantity: 10})
@@ -508,13 +511,13 @@ func TestCreateOrder_ExpiredOption_ReturnsError(t *testing.T) {
 	listing.AssetID = 1
 	listing.Asset.AssetType = model.AssetTypeOption
 
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{exchange: defaultExchange()}, &fakeListingRepo{listing: listing}, 
-	&fakeUserServiceClient{
-		identityResp: &pb.GetIdentityByUserIdResponse{
-			IdentityId: 5,
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{exchange: defaultExchange()}, &fakeListingRepo{listing: listing},
+		&fakeUserServiceClient{
+			identityResp: &pb.GetIdentityByUserIdResponse{
+				IdentityId: 5,
+			},
 		},
-	}, 
-	&fakeOrderBankingClient{accountResp: defaultAccountResp(10)}, &fakeTaxRecorder{})
+		&fakeOrderBankingClient{accountResp: defaultAccountResp(10)}, &fakeTaxRecorder{})
 	svc.optionRepo = &fakeOptionRepo{options: []model.Option{{SettlementDate: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}}}
 
 	order, err := svc.CreateOrder(clientAuthCtx(), dto.CreateOrderRequest{ListingID: 1, AccountNumber: "444000100000000110", OrderType: model.OrderTypeMarket, Direction: model.OrderDirectionBuy, Quantity: 10})

@@ -15,9 +15,9 @@ var registerOnce sync.Once
 func RegisterValidators() {
 	registerOnce.Do(func() {
 		if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-			v.RegisterValidation("password", validatePassword)
-			v.RegisterValidation("permission", validatePermission)
-			v.RegisterValidation("unique_permissions", validateUniquePermissions)
+			_ = v.RegisterValidation("password", validatePassword)
+			_ = v.RegisterValidation("permission", validatePermission)
+			_ = v.RegisterValidation("unique_permissions", validateUniquePermissions)
 		}
 	})
 }

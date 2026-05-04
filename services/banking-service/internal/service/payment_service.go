@@ -52,25 +52,23 @@ func NewPaymentService(
 	}
 }
 
-func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymentRequest) (*model.Payment, error) {
-
-	// Proveri da payer racun postoji
+func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymentRequest, skipSameClientCheck ...bool) (*model.Payment, error) {
 	payerAccount, err := s.accountRepo.FindByAccountNumber(ctx, req.PayerAccountNumber)
 	if err != nil {
 		return nil, errors.NotFoundErr("payer account not found")
 	}
 
-	// Proveri da recipient racun postoji
 	recipientAccount, err := s.accountRepo.FindByAccountNumber(ctx, req.RecipientAccountNumber)
 	if err != nil {
 		return nil, errors.NotFoundErr("recipient account not found")
 	}
 
 	if recipientAccount.ClientID == payerAccount.ClientID {
-		return nil, errors.BadRequestErr("cannot make payment for same client accounts, that is a transfer")
+		if len(skipSameClientCheck) == 0 || !skipSameClientCheck[0] {
+			return nil, errors.BadRequestErr("cannot make payment for same client accounts, that is a transfer")
+		}
 	}
 
-	// Konverzija valuta ako su razlicite
 	commission := 0.0
 	startAmount := req.Amount
 	endAmount := req.Amount
@@ -81,23 +79,24 @@ func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymen
 		if err != nil {
 			return nil, errors.InternalErr(err)
 		}
-		commission = s.exchangeService.CalculateFee(req.Amount)
-		startAmount = req.Amount + commission
+
+		if !req.CommissionExempt {
+			commission = s.exchangeService.CalculateFee(req.Amount)
+			startAmount = req.Amount + commission
+		}
+
 		endAmount = converted
 		endCurrencyCode = recipientAccount.Currency.Code
 	}
 
-	// Proveri dovoljno sredstava
 	if payerAccount.AvailableBalance < startAmount {
 		return nil, errors.BadRequestErr("insufficient funds")
 	}
 
-	// Proveri dnevni limit
 	if payerAccount.DailySpending+startAmount > payerAccount.DailyLimit {
 		return nil, errors.BadRequestErr("daily limit exceeded")
 	}
 
-	// Proveri mesecni limit
 	if payerAccount.MonthlySpending+startAmount > payerAccount.MonthlyLimit {
 		return nil, errors.BadRequestErr("monthly limit exceeded")
 	}
@@ -140,7 +139,7 @@ func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymen
 }
 
 func (s *PaymentService) CreatePaymentWithoutVerification(ctx context.Context, req dto.CreatePaymentRequest) (*model.Payment, error) {
-	payment, err := s.CreatePayment(ctx, req)
+	payment, err := s.CreatePayment(ctx, req, true)
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +284,6 @@ func (s *PaymentService) VerifyPayment(ctx context.Context, id uint, code, autho
 	}
 
 	if code != "123456" && !verifyTOTPCode(secret, code, s.now(), totpAllowedSkew) {
-
 		payment.FailedAttempts++
 		if updateErr := s.paymentRepo.Update(ctx, payment); updateErr != nil {
 			return nil, errors.InternalErr(updateErr)
@@ -300,7 +298,6 @@ func (s *PaymentService) VerifyPayment(ctx context.Context, id uint, code, autho
 		return nil, errors.BadRequestErr("invalid verification code")
 	}
 
-	// Process transaction
 	err = s.transactionProcessor.Process(ctx, transaction.TransactionID)
 	if err != nil {
 		return nil, err

@@ -8,6 +8,7 @@ type CreatePaymentRequest struct {
 	PaymentCode            string  `json:"payment_code"`
 	Purpose                string  `json:"purpose"`
 	PayerAccountNumber     string  `json:"payer_account_number" binding:"required"`
+	CommissionExempt       bool    `json:"commission_exempt"`
 }
 
 type VerifyPaymentRequest struct {

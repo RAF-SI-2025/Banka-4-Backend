@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -30,6 +31,13 @@ type URLConfig struct {
 	BackendBaseURL  string
 }
 
+type RedisConfig struct {
+	Addr              string
+	Password          string
+	DB                int
+	WorkCodesCacheTTL time.Duration
+}
+
 func (c *DBConfig) DSN() string {
 	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", c.Host, c.Port, c.User, c.Password, c.DBName)
 }
@@ -45,6 +53,21 @@ type Configuration struct {
 	UserServiceBaseURL string
 	ExchangeRateAPIKey string
 	URLs               URLConfig
+	Redis              RedisConfig
+}
+
+func GetDurationOrDefault(env string, defaultValue time.Duration) time.Duration {
+	value, ok := os.LookupEnv(env)
+	if !ok {
+		return defaultValue
+	}
+
+	duration, err := time.ParseDuration(value)
+	if err != nil {
+		return defaultValue
+	}
+
+	return duration
 }
 
 func GetAsIntOrDefault(env string, defaultValue int) int {
@@ -106,6 +129,12 @@ func Load() *Configuration {
 		URLs: URLConfig{
 			FrontendBaseURL: GetOrDefault("FRONTEND_BASE_URL", "http://localhost:5173"),
 			BackendBaseURL:  GetOrDefault("BACKEND_BASE_URL", "http://localhost:8081"),
+		},
+		Redis: RedisConfig{
+			Addr:              GetOrDefault("REDIS_ADDR", "redis:6379"),
+			Password:          GetOrDefault("REDIS_PASSWORD", ""),
+			DB:                GetAsIntOrDefault("REDIS_DB", 0),
+			WorkCodesCacheTTL: GetDurationOrDefault("WORK_CODES_CACHE_TTL", 24*time.Hour),
 		},
 	}
 }

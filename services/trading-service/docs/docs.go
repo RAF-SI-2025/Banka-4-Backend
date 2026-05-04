@@ -134,6 +134,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/actuary/{actId}/assets/funds": {
+            "get": {
+                "description": "Returns all investment funds managed by the specified actuary (supervisor). Shows fund value and liquidity.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "investment-funds"
+                ],
+                "summary": "Get funds managed by an actuary",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Actuary ID",
+                        "name": "actId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.ActuaryFundResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/actuary/{actId}/assets/profit": {
             "get": {
                 "security": [
@@ -164,6 +214,76 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/dto.PortfolioProfitResponse"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/actuary/{actId}/assets/{ownershipId}/publish": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Appends the number of assets the caller makes publicly visible on the OTC portal.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "Publish assets for OTC trading",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Asset ownership ID",
+                        "name": "ownershipId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Amount to make public",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.PublishAssetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -464,6 +584,131 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/client/{clientId}/assets/{ownershipId}/publish": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Appends the number of assets the caller makes publicly visible on the OTC portal.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "Publish assets for OTC trading",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Asset ownership ID",
+                        "name": "ownershipId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Amount to make public",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.PublishAssetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/client/{clientId}/funds": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all investment fund positions for the specified client, including share percentage and current value in RSD.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "investment-funds"
+                ],
+                "summary": "Get client's investment fund positions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Client ID",
+                        "name": "clientId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.FundPositionSummaryResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/exchanges": {
             "get": {
                 "description": "Returns a paginated list of all stock exchanges",
@@ -564,6 +809,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/funds": {
+            "get": {
+                "description": "Returns a paginated list of all investment funds with optional filtering and sorting. Accessible to actuaries and clients.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "investment-funds"
+                ],
+                "summary": "Get all investment funds",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by fund name (case-insensitive substring)",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort by field: name, minimum_contribution, created_at, liquid_assets",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort direction: asc, desc",
+                        "name": "sort_dir",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ListFundsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/health": {
             "get": {
                 "description": "Returns service health status",
@@ -582,6 +891,250 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/investment-funds": {
+            "post": {
+                "description": "Supervisor creates a new investment fund. An RSD account is automatically created for the fund.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "investment-funds"
+                ],
+                "summary": "Create a new investment fund",
+                "parameters": [
+                    {
+                        "description": "Fund details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateFundRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateFundResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/investment-funds/{fundId}": {
+            "get": {
+                "description": "Retrieves detailed information about an investment fund, including holdings, current value, performance history, and account balance.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "investment-funds"
+                ],
+                "summary": "Get investment fund details",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fund ID",
+                        "name": "fundId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.FundDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/investment-funds/{fundId}/invest": {
+            "post": {
+                "description": "Allows a client or supervisor to invest money into an investment fund.\nClients must provide one of their own accounts; supervisors must provide a bank account.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "investment-funds"
+                ],
+                "summary": "Invest into a fund",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fund ID",
+                        "name": "fundId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Investment details",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.InvestInFundRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.InvestInFundResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/investment-funds/{fundId}/withdraw": {
+            "post": {
+                "description": "Allows a client or supervisor to withdraw money from an investment fund position.\nClients must provide one of their own accounts; supervisors must provide a bank account.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "investment-funds"
+                ],
+                "summary": "Withdraw from a fund",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fund ID",
+                        "name": "fundId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Withdrawal details",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.WithdrawFromFundRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.WithdrawFromFundResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
                         }
                     }
                 }
@@ -1347,6 +1900,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/orders/invest": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Supervisor places a buy or sell order for a listing using a fund's account. The fund becomes the asset owner.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Create an order on behalf of an investment fund",
+                "parameters": [
+                    {
+                        "description": "Fund order details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateFundOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/orders/{id}/approve": {
             "patch": {
                 "description": "Supervisor approves a pending order",
@@ -1463,6 +2079,469 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/otc/contracts": {
+            "get": {
+                "description": "Returns all option contracts (CALL) created from accepted OTC offers where the",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "List OTC option contracts",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.OtcOptionContractResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/otc/offers": {
+            "post": {
+                "description": "Buyer initiates a new OTC negotiation with a seller for publicly listed shares.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "Create OTC offer",
+                "parameters": [
+                    {
+                        "description": "Offer details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateOtcOfferRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OtcOfferResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/otc/offers/active": {
+            "get": {
+                "description": "Returns all ongoing negotiations (status=ACTIVE) where the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "List active OTC offers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.OtcOfferResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/otc/offers/{id}/accept": {
+            "patch": {
+                "description": "The party opposite to ModifiedBy accepts the offer. An option contract is created",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "Accept OTC offer",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Offer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Seller account number (required on seller's first participation)",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/dto.AcceptOfferRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OtcOptionContractResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/otc/offers/{id}/counter": {
+            "put": {
+                "description": "Either party may update the offer parameters (amount, price, premium, settlement date).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "Send counter-offer",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Offer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated offer parameters",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CounterOfferRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OtcOfferResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/otc/offers/{id}/reject": {
+            "patch": {
+                "description": "Either party may reject the offer, terminating the negotiation.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "Reject OTC offer",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Offer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Optional rejection comment",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/dto.RejectOfferRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OtcOfferResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/otc/public": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns a paginated list of assets that have been marked public by their owners on the OTC portal.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "List all publicly available OTC assets",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10)",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/profit/actuaries": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns paginated list of actuaries with their profits (agents and supervisors)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profit"
+                ],
+                "summary": "Get actuary profits",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by first name",
+                        "name": "first_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by last name",
+                        "name": "last_name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.ActuaryProfitResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/profit/funds": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all investment funds with bank share, manager info and profit calculation",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profit"
+                ],
+                "summary": "Get investment fund positions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.FundPositionResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/errors.AppError"
                         }
@@ -1587,6 +2666,51 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "dto.AcceptOfferRequest": {
+            "type": "object",
+            "properties": {
+                "account_number": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.ActuaryFundResponse": {
+            "type": "object",
+            "properties": {
+                "account_number": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "fund_id": {
+                    "type": "integer"
+                },
+                "fund_value": {
+                    "type": "number"
+                },
+                "liquid_assets": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.ActuaryProfitResponse": {
+            "type": "object",
+            "properties": {
+                "first_name": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "profit_rsd": {
+                    "type": "number"
+                }
+            }
+        },
         "dto.AssetType": {
             "type": "string",
             "enum": [
@@ -1606,6 +2730,134 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CounterOfferRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "premium",
+                "price_per_stock",
+                "settlement_date"
+            ],
+            "properties": {
+                "account_number": {
+                    "type": "string"
+                },
+                "amount": {
+                    "type": "integer"
+                },
+                "premium": {
+                    "type": "number"
+                },
+                "price_per_stock": {
+                    "type": "number"
+                },
+                "settlement_date": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CreateFundOrderRequest": {
+            "type": "object",
+            "required": [
+                "direction",
+                "fund_id",
+                "listing_id",
+                "order_type",
+                "quantity"
+            ],
+            "properties": {
+                "all_or_none": {
+                    "type": "boolean"
+                },
+                "direction": {
+                    "enum": [
+                        "BUY",
+                        "SELL"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.OrderDirection"
+                        }
+                    ]
+                },
+                "fund_id": {
+                    "type": "integer"
+                },
+                "limit_value": {
+                    "type": "number"
+                },
+                "listing_id": {
+                    "type": "integer"
+                },
+                "margin": {
+                    "type": "boolean"
+                },
+                "order_type": {
+                    "enum": [
+                        "MARKET",
+                        "LIMIT",
+                        "STOP",
+                        "STOP_LIMIT"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.OrderType"
+                        }
+                    ]
+                },
+                "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "stop_value": {
+                    "type": "number"
+                }
+            }
+        },
+        "dto.CreateFundRequest": {
+            "type": "object",
+            "required": [
+                "description",
+                "name"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "minimum_contribution": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CreateFundResponse": {
+            "type": "object",
+            "properties": {
+                "account_number": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "fund_id": {
+                    "type": "integer"
+                },
+                "manager_id": {
+                    "type": "integer"
+                },
+                "minimum_contribution": {
+                    "type": "number"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -1665,6 +2917,37 @@ const docTemplate = `{
                 },
                 "stop_value": {
                     "type": "number"
+                }
+            }
+        },
+        "dto.CreateOtcOfferRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "asset_ownership_id",
+                "buyer_account_number",
+                "premium",
+                "price_per_stock",
+                "settlement_date"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "asset_ownership_id": {
+                    "type": "integer"
+                },
+                "buyer_account_number": {
+                    "type": "string"
+                },
+                "premium": {
+                    "type": "number"
+                },
+                "price_per_stock": {
+                    "type": "number"
+                },
+                "settlement_date": {
+                    "type": "string"
                 }
             }
         },
@@ -1884,6 +3167,142 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.FundDetailResponse": {
+            "type": "object",
+            "properties": {
+                "account_balance": {
+                    "type": "number"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "fund_value": {
+                    "type": "number"
+                },
+                "holdings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.SecurityHoldingResponse"
+                    }
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "manager": {
+                    "type": "string"
+                },
+                "min_investment": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "performance_history": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.FundPerformanceEntry"
+                    }
+                },
+                "profit": {
+                    "type": "number"
+                }
+            }
+        },
+        "dto.FundPerformanceEntry": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "liquid_assets": {
+                    "type": "number"
+                },
+                "profit": {
+                    "type": "number"
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
+        "dto.FundPositionResponse": {
+            "type": "object",
+            "properties": {
+                "bank_share_pct": {
+                    "type": "number"
+                },
+                "bank_share_value": {
+                    "type": "number"
+                },
+                "fund_name": {
+                    "type": "string"
+                },
+                "manager_name": {
+                    "type": "string"
+                },
+                "profit": {
+                    "type": "number"
+                }
+            }
+        },
+        "dto.FundPositionSummaryResponse": {
+            "type": "object",
+            "properties": {
+                "clients_share_percent": {
+                    "type": "number"
+                },
+                "clients_share_value_rsd": {
+                    "type": "number"
+                },
+                "fund_description": {
+                    "type": "string"
+                },
+                "fund_id": {
+                    "type": "integer"
+                },
+                "fund_name": {
+                    "type": "string"
+                },
+                "total_profit": {
+                    "type": "number"
+                }
+            }
+        },
+        "dto.FundSummaryResponse": {
+            "type": "object",
+            "properties": {
+                "account_number": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "fund_id": {
+                    "type": "integer"
+                },
+                "fund_value": {
+                    "type": "number"
+                },
+                "liquid_assets": {
+                    "type": "number"
+                },
+                "manager_id": {
+                    "type": "integer"
+                },
+                "minimum_contribution": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "profit": {
+                    "type": "number"
+                }
+            }
+        },
         "dto.FutureDetailedResponse": {
             "type": "object",
             "properties": {
@@ -1980,6 +3399,65 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "volume": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.InvestInFundRequest": {
+            "type": "object",
+            "required": [
+                "account_number",
+                "amount"
+            ],
+            "properties": {
+                "account_number": {
+                    "description": "AccountNumber is the source account for the investment.\nFor clients this must be one of their own accounts.\nFor supervisors this must be a bank account.",
+                    "type": "string"
+                },
+                "amount": {
+                    "type": "number"
+                }
+            }
+        },
+        "dto.InvestInFundResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "currency_code": {
+                    "type": "string"
+                },
+                "fund_id": {
+                    "type": "integer"
+                },
+                "fund_name": {
+                    "type": "string"
+                },
+                "invested_now": {
+                    "type": "number"
+                },
+                "total_invested_rsd": {
+                    "type": "number"
+                }
+            }
+        },
+        "dto.ListFundsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.FundSummaryResponse"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
                     "type": "integer"
                 }
             }
@@ -2139,6 +3617,20 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.OptionSpecificAssetData": {
+            "type": "object",
+            "properties": {
+                "option_type": {
+                    "type": "string"
+                },
+                "settlement_date": {
+                    "type": "string"
+                },
+                "strike_price": {
+                    "type": "number"
+                }
+            }
+        },
         "dto.OrderResponse": {
             "type": "object",
             "properties": {
@@ -2257,6 +3749,112 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.OtcOfferResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "buyer_account_number": {
+                    "type": "string"
+                },
+                "buyer_id": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "last_modified": {
+                    "type": "string"
+                },
+                "modified_by": {
+                    "type": "integer"
+                },
+                "option_contract_id": {
+                    "type": "integer"
+                },
+                "otc_offer_id": {
+                    "type": "integer"
+                },
+                "premium": {
+                    "type": "number"
+                },
+                "price_per_stock": {
+                    "type": "number"
+                },
+                "seller_account_number": {
+                    "type": "string"
+                },
+                "seller_id": {
+                    "type": "integer"
+                },
+                "settlement_date": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/model.OtcOfferStatus"
+                },
+                "stock_asset_id": {
+                    "type": "integer"
+                },
+                "stock_name": {
+                    "type": "string"
+                },
+                "ticker": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.OtcOptionContractResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "buyer_id": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "exercised_at": {
+                    "type": "string"
+                },
+                "is_exercised": {
+                    "type": "boolean"
+                },
+                "otc_offer_id": {
+                    "type": "integer"
+                },
+                "otc_option_contract_id": {
+                    "type": "integer"
+                },
+                "premium": {
+                    "type": "number"
+                },
+                "seller_id": {
+                    "type": "integer"
+                },
+                "settlement_date": {
+                    "type": "string"
+                },
+                "stock_asset_id": {
+                    "type": "integer"
+                },
+                "stock_name": {
+                    "type": "string"
+                },
+                "strike_price": {
+                    "type": "number"
+                },
+                "ticker": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.PaginatedForexResponse": {
             "type": "object",
             "properties": {
@@ -2343,22 +3941,25 @@ const docTemplate = `{
                 "amount": {
                     "type": "number"
                 },
-                "assetId": {
+                "asset_id": {
                     "type": "integer"
                 },
-                "avgBuyPrice": {
+                "avg_buy_price_rsd": {
                     "type": "number"
                 },
-                "lastModified": {
+                "last_modified": {
                     "type": "string"
                 },
-                "outstandingShares": {
-                    "type": "number"
+                "option_data": {
+                    "$ref": "#/definitions/dto.OptionSpecificAssetData"
                 },
-                "pricePerUnitRSD": {
+                "price_per_unit_rsd": {
                     "type": "number"
                 },
                 "profit": {
+                    "type": "number"
+                },
+                "public_amount": {
                     "type": "number"
                 },
                 "ticker": {
@@ -2372,8 +3973,56 @@ const docTemplate = `{
         "dto.PortfolioProfitResponse": {
             "type": "object",
             "properties": {
-                "totalProfit": {
+                "total_profit_rsd": {
                     "type": "number"
+                }
+            }
+        },
+        "dto.PublishAssetRequest": {
+            "type": "object",
+            "required": [
+                "amount"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number"
+                }
+            }
+        },
+        "dto.RejectOfferRequest": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.SecurityHoldingResponse": {
+            "type": "object",
+            "properties": {
+                "acquisition_date": {
+                    "type": "string"
+                },
+                "amount": {
+                    "type": "number"
+                },
+                "change": {
+                    "type": "number"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "initial_margin_cost": {
+                    "type": "number"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "ticker": {
+                    "type": "string"
+                },
+                "volume": {
+                    "type": "integer"
                 }
             }
         },
@@ -2508,6 +4157,59 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.WithdrawFromFundRequest": {
+            "type": "object",
+            "required": [
+                "account_number",
+                "amount"
+            ],
+            "properties": {
+                "account_number": {
+                    "type": "string"
+                },
+                "amount": {
+                    "type": "number"
+                }
+            }
+        },
+        "dto.WithdrawFromFundResponse": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "destination_account_number": {
+                    "type": "string"
+                },
+                "destination_currency_code": {
+                    "type": "string"
+                },
+                "fund_id": {
+                    "type": "integer"
+                },
+                "fund_name": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "requested_amount_rsd": {
+                    "type": "number"
+                },
+                "status": {
+                    "$ref": "#/definitions/model.FundRedemptionStatus"
+                },
+                "total_invested_rsd": {
+                    "type": "number"
+                },
+                "withdrawn_amount_rsd": {
+                    "type": "number"
+                }
+            }
+        },
         "errors.AppError": {
             "type": "object",
             "properties": {
@@ -2535,6 +4237,17 @@ const docTemplate = `{
                 "AssetTypeOption",
                 "AssetTypeFuture",
                 "AssetTypeForexPair"
+            ]
+        },
+        "model.FundRedemptionStatus": {
+            "type": "string",
+            "enum": [
+                "COMPLETED",
+                "PENDING_LIQUIDATION"
+            ],
+            "x-enum-varnames": [
+                "FundRedemptionCompleted",
+                "FundRedemptionPendingLiquidation"
             ]
         },
         "model.OrderDirection": {
@@ -2576,15 +4289,30 @@ const docTemplate = `{
                 "OrderTypeStopLimit"
             ]
         },
+        "model.OtcOfferStatus": {
+            "type": "string",
+            "enum": [
+                "ACTIVE",
+                "ACCEPTED",
+                "REJECTED"
+            ],
+            "x-enum-varnames": [
+                "OtcOfferStatusActive",
+                "OtcOfferStatusAccepted",
+                "OtcOfferStatusRejected"
+            ]
+        },
         "model.OwnerType": {
             "type": "string",
             "enum": [
                 "CLIENT",
-                "ACTUARY"
+                "ACTUARY",
+                "FUND"
             ],
             "x-enum-varnames": [
                 "OwnerTypeClient",
-                "OwnerTypeActuary"
+                "OwnerTypeActuary",
+                "OwnerTypeFund"
             ]
         }
     },

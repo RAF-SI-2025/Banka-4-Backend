@@ -29,7 +29,9 @@ func (r *fakeCardServiceAccountRepo) Create(_ context.Context, _ *model.Account)
 func (r *fakeCardServiceAccountRepo) AccountNumberExists(_ context.Context, _ string) (bool, error) {
 	return false, nil
 }
-
+func (r *fakeCardServiceAccountRepo) FindByAccountType(ctx context.Context, accountType model.AccountType) (*model.Account, error) {
+	return nil, nil
+}
 func (r *fakeCardServiceAccountRepo) FindByAccountNumber(_ context.Context, accountNumber string) (*model.Account, error) {
 	account, ok := r.accounts[accountNumber]
 	if !ok {
@@ -68,8 +70,8 @@ func (f *fakeCardServiceAccountRepo) UpdateLimits(_ context.Context, _ string, _
 	return nil
 }
 
-func (f *fakeCardServiceAccountRepo) GetByAccountNumber(_ context.Context, accountNumber string) (*model.Account, error) {
-	return f.FindByAccountNumber(nil, accountNumber)
+func (f *fakeCardServiceAccountRepo) GetByAccountNumber(ctx context.Context, accountNumber string) (*model.Account, error) {
+	return f.FindByAccountNumber(ctx, accountNumber)
 }
 
 func (f *fakeCardServiceAccountRepo) Update(_ context.Context, _ *model.Account) error {

@@ -21,4 +21,5 @@ type AccountRepository interface {
 	UpdateBalance(ctx context.Context, account *model.Account) error
 	FindAll(ctx context.Context, query *dto.ListAccountsQuery) ([]*model.Account, int64, error)
 	FindByClientID(ctx context.Context, clientID uint) ([]model.Account, error)
+	FindByAccountType(ctx context.Context, accountType model.AccountType) (*model.Account, error)
 }
