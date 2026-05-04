@@ -252,6 +252,45 @@ func (s *OrderService) CreateFundOrder(ctx context.Context, req dto.CreateFundOr
 	})
 }
 
+func (s *OrderService) CreateFundLiquidationOrder(ctx context.Context, fund *model.InvestmentFund, listingID uint, quantity uint) (*model.Order, error) {
+	if fund == nil {
+		return nil, errors.NotFoundErr("investment fund not found")
+	}
+
+	account, err := s.bankingClient.GetAccountByNumber(ctx, fund.AccountNumber)
+	if err != nil {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.NotFound {
+			return nil, errors.NotFoundErr("account not found")
+		}
+		return nil, errors.ServiceUnavailableErr(err)
+	}
+
+	managerID := fund.ManagerID
+	managerCtx := auth.SetAuthOnContext(ctx, &auth.AuthContext{
+		IdentityID:   managerID,
+		IdentityType: auth.IdentityEmployee,
+		EmployeeID:   &managerID,
+	})
+	managerAuth := auth.GetAuthFromContext(managerCtx)
+
+	return s.placeOrder(managerCtx, managerAuth, placeOrderParams{
+		AccountNumber:    fund.AccountNumber,
+		ListingID:        listingID,
+		OrderType:        model.OrderTypeMarket,
+		Direction:        model.OrderDirectionSell,
+		Quantity:         quantity,
+		AllOrNone:        false,
+		Margin:           false,
+		OrderOwnerUserID: fund.ManagerID,
+		OrderOwnerType:   model.OwnerTypeActuary,
+		AssetOwnerUserID: fund.FundID,
+		AssetOwnerType:   model.OwnerTypeFund,
+		CommissionExempt: true,
+		account:          account,
+	})
+}
+
 func (s *OrderService) placeOrder(ctx context.Context, authCtx *auth.AuthContext, p placeOrderParams) (*model.Order, error) {
 	listing, err := s.listingRepo.FindByID(ctx, p.ListingID, 0)
 	if err != nil {

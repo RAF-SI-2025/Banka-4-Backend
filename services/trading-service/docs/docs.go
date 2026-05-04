@@ -1075,6 +1075,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/investment-funds/{fundId}/withdraw": {
+            "post": {
+                "description": "Allows a client or supervisor to withdraw money from an investment fund position.\nClients must provide one of their own accounts; supervisors must provide a bank account.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "investment-funds"
+                ],
+                "summary": "Withdraw from a fund",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fund ID",
+                        "name": "fundId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Withdrawal details",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.WithdrawFromFundRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.WithdrawFromFundResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/listings/forex": {
             "get": {
                 "produces": [
@@ -4092,6 +4157,59 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.WithdrawFromFundRequest": {
+            "type": "object",
+            "required": [
+                "account_number",
+                "amount"
+            ],
+            "properties": {
+                "account_number": {
+                    "type": "string"
+                },
+                "amount": {
+                    "type": "number"
+                }
+            }
+        },
+        "dto.WithdrawFromFundResponse": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "destination_account_number": {
+                    "type": "string"
+                },
+                "destination_currency_code": {
+                    "type": "string"
+                },
+                "fund_id": {
+                    "type": "integer"
+                },
+                "fund_name": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "requested_amount_rsd": {
+                    "type": "number"
+                },
+                "status": {
+                    "$ref": "#/definitions/model.FundRedemptionStatus"
+                },
+                "total_invested_rsd": {
+                    "type": "number"
+                },
+                "withdrawn_amount_rsd": {
+                    "type": "number"
+                }
+            }
+        },
         "errors.AppError": {
             "type": "object",
             "properties": {
@@ -4119,6 +4237,17 @@ const docTemplate = `{
                 "AssetTypeOption",
                 "AssetTypeFuture",
                 "AssetTypeForexPair"
+            ]
+        },
+        "model.FundRedemptionStatus": {
+            "type": "string",
+            "enum": [
+                "COMPLETED",
+                "PENDING_LIQUIDATION"
+            ],
+            "x-enum-varnames": [
+                "FundRedemptionCompleted",
+                "FundRedemptionPendingLiquidation"
             ]
         },
         "model.OrderDirection": {

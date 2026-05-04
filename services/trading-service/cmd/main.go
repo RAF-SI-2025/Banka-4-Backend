@@ -78,6 +78,7 @@ func main() {
 			repository.NewStockRepository,
 			repository.NewOptionRepository,
 			job.NewDailyPriceJob,
+			job.NewFundRedemptionJob,
 			service.NewStockService,
 			repository.NewExchangeRepository,
 			service.NewExchangeService,
@@ -107,6 +108,7 @@ func main() {
 			repository.NewInvestmentFundRepository,
 			repository.NewClientFundPositionRepository,
 			repository.NewClientFundInvestmentRepository,
+			repository.NewClientFundRedemptionRepository,
 			service.NewInvestmentFundService,
 			handler.NewInvestmentFundHandler,
 		),
@@ -141,6 +143,7 @@ func main() {
 				&model.InvestmentFund{},
 				&model.ClientFundPosition{},
 				&model.ClientFundInvestment{},
+				&model.ClientFundRedemption{},
 				&model.FundPerformance{},
 			)
 		}),
@@ -232,6 +235,29 @@ func main() {
 				},
 				OnStop: func(ctx context.Context) error {
 					orderService.Stop()
+					return nil
+				},
+			})
+		}),
+		fx.Invoke(func(lc fx.Lifecycle, fundRedemptionJob *job.FundRedemptionJob) {
+			c := cron.New(cron.WithLocation(time.UTC))
+			_, err := c.AddFunc("@every 5m", func() {
+				ctx := context.Background()
+				if err := fundRedemptionJob.Run(ctx); err != nil {
+					logging.Error("Fund redemption job failed", zap.Error(err))
+				}
+			})
+			if err != nil {
+				log.Fatal("Failed to schedule fund redemption job", zap.Error(err))
+			}
+
+			lc.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					c.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					c.Stop()
 					return nil
 				},
 			})

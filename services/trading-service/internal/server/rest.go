@@ -135,6 +135,13 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 				),
 				fundHandler.InvestInFund,
 			)
+			funds.POST("/:fundId/withdraw",
+				auth.AnyOf(
+					auth.RequireIdentityType(auth.IdentityClient),
+					middleware.RequireSupervisor(userClient),
+				),
+				fundHandler.WithdrawFromFund,
+			)
 			funds.GET("/:fundId", fundHandler.GetFundDetail)
 		}
 

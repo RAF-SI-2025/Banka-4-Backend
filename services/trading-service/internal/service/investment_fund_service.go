@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
+	"math"
+	"sort"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -31,6 +34,8 @@ type InvestmentFundService struct {
 	bankingClient  client.BankingClient
 	userClient     client.UserServiceClient
 	now            func() time.Time
+	redemptionRepo repository.ClientFundRedemptionRepository
+	orderService   *OrderService
 }
 
 func NewInvestmentFundService(
@@ -38,6 +43,7 @@ func NewInvestmentFundService(
 	positionRepo repository.ClientFundPositionRepository,
 	listingRepo repository.ListingRepository,
 	investmentRepo repository.ClientFundInvestmentRepository,
+	redemptionRepo repository.ClientFundRedemptionRepository,
 	ownershipRepo repository.AssetOwnershipRepository,
 	exchangeRepo repository.ExchangeRepository,
 	stockRepo repository.StockRepository,
@@ -46,12 +52,14 @@ func NewInvestmentFundService(
 	forexRepo repository.ForexRepository,
 	bankingClient client.BankingClient,
 	userClient client.UserServiceClient,
+	orderService *OrderService,
 ) *InvestmentFundService {
 	return &InvestmentFundService{
 		fundRepo:       fundRepo,
 		positionRepo:   positionRepo,
 		listingRepo:    listingRepo,
 		investmentRepo: investmentRepo,
+		redemptionRepo: redemptionRepo,
 		ownershipRepo:  ownershipRepo,
 		exchangeRepo:   exchangeRepo,
 		stockRepo:      stockRepo,
@@ -60,9 +68,12 @@ func NewInvestmentFundService(
 		forexRepo:      forexRepo,
 		bankingClient:  bankingClient,
 		userClient:     userClient,
+		orderService:   orderService,
 		now:            time.Now,
 	}
 }
+
+const pendingRedemptionBatchSize = 25
 
 func (s *InvestmentFundService) sumSecuritiesValue(ctx context.Context, fundID uint) (float64, error) {
 	ownerships, err := s.ownershipRepo.FindByUserId(ctx, fundID, model.OwnerTypeFund)
@@ -332,19 +343,7 @@ func (s *InvestmentFundService) InvestInFund(ctx context.Context, fundID uint, r
 	})
 
 	if err != nil {
-		st, ok := status.FromError(err)
-		if ok {
-			switch st.Code() {
-			case codes.NotFound:
-				return nil, commonErrors.NotFoundErr(st.Message())
-			case codes.FailedPrecondition:
-				return nil, commonErrors.BadRequestErr(st.Message())
-			case codes.InvalidArgument:
-				return nil, commonErrors.BadRequestErr(st.Message()) // insufficient funds returns this
-			}
-
-		}
-		return nil, commonErrors.ServiceUnavailableErr(err)
+		return nil, mapFundPaymentError(err)
 	}
 
 	now := s.now()
@@ -392,6 +391,320 @@ func (s *InvestmentFundService) InvestInFund(ctx context.Context, fundID uint, r
 	}, nil
 }
 
+func (s *InvestmentFundService) WithdrawFromFund(ctx context.Context, fundID uint, req dto.WithdrawFromFundRequest) (*dto.WithdrawFromFundResponse, error) {
+	authCtx := auth.GetAuthFromContext(ctx)
+	if authCtx == nil {
+		return nil, commonErrors.UnauthorizedErr("not authenticated")
+	}
+
+	fund, err := s.fundRepo.FindByID(ctx, fundID)
+	if err != nil {
+		return nil, commonErrors.InternalErr(err)
+	}
+	if fund == nil {
+		return nil, commonErrors.NotFoundErr("fund not found")
+	}
+
+	callerID, ownerType, err := resolveCallerIdentity(authCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	destinationAccount, err := s.validateFundAccount(ctx, req.AccountNumber, authCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	position, err := s.positionRepo.FindByClientAndFund(ctx, callerID, ownerType, fundID)
+	if err != nil {
+		return nil, commonErrors.InternalErr(err)
+	}
+	if position == nil || position.TotalInvestedAmount <= 0 {
+		return nil, commonErrors.NotFoundErr("fund position not found")
+	}
+
+	pendingAmount, err := s.redemptionRepo.SumPendingByClientAndFund(ctx, callerID, ownerType, fundID)
+	if err != nil {
+		return nil, commonErrors.InternalErr(err)
+	}
+
+	if req.Amount > position.TotalInvestedAmount-pendingAmount {
+		return nil, commonErrors.BadRequestErr("withdrawal amount exceeds available fund position")
+	}
+
+	now := s.now()
+	redemption := &model.ClientFundRedemption{
+		ClientID:      callerID,
+		OwnerType:     ownerType,
+		FundID:        fundID,
+		AccountNumber: req.AccountNumber,
+		Amount:        req.Amount,
+		CurrencyCode:  "RSD",
+		Status:        model.FundRedemptionPendingLiquidation,
+		CreatedAt:     now,
+	}
+
+	liquidAssets, err := s.getLiquidAssets(ctx, fund.AccountNumber)
+	if err != nil {
+		return nil, commonErrors.ServiceUnavailableErr(err)
+	}
+
+	if liquidAssets < req.Amount {
+		ordersCreated, err := s.liquidateFundAssets(ctx, fund, req.Amount-liquidAssets)
+		if err != nil {
+			return nil, err
+		}
+		if ordersCreated == 0 {
+			return nil, commonErrors.BadRequestErr("fund has insufficient liquid assets for this withdrawal")
+		}
+
+		liquidAssets, err = s.getLiquidAssets(ctx, fund.AccountNumber)
+		if err != nil {
+			return nil, commonErrors.ServiceUnavailableErr(err)
+		}
+	}
+
+	if liquidAssets >= req.Amount {
+		return s.completeFundRedemption(ctx, fund, position, redemption, destinationAccount, authCtx.IdentityType == auth.IdentityEmployee)
+	}
+
+	if err := s.redemptionRepo.Create(ctx, redemption); err != nil {
+		return nil, commonErrors.InternalErr(err)
+	}
+
+	return &dto.WithdrawFromFundResponse{
+		FundID:                   fund.FundID,
+		FundName:                 fund.Name,
+		DestinationAccountNumber: req.AccountNumber,
+		DestinationCurrencyCode:  destinationAccount.GetCurrencyCode(),
+		RequestedAmountRSD:       req.Amount,
+		WithdrawnAmountRSD:       0,
+		TotalInvestedRSD:         position.TotalInvestedAmount,
+		Status:                   redemption.Status,
+		Message:                  "Fund liquidation has started; the payout will be completed when liquidity is available",
+		CreatedAt:                redemption.CreatedAt,
+	}, nil
+}
+
+func (s *InvestmentFundService) completeFundRedemption(
+	ctx context.Context,
+	fund *model.InvestmentFund,
+	position *model.ClientFundPosition,
+	redemption *model.ClientFundRedemption,
+	destinationAccount *pb.GetAccountByNumberResponse,
+	commissionExempt bool,
+) (*dto.WithdrawFromFundResponse, error) {
+	_, err := s.bankingClient.CreatePaymentWithoutVerification(ctx, &pb.CreatePaymentRequest{
+		PayerAccountNumber:     fund.AccountNumber,
+		RecipientAccountNumber: redemption.AccountNumber,
+		RecipientName:          fund.Name,
+		Amount:                 redemption.Amount,
+		PaymentCode:            "289",
+		Purpose:                fmt.Sprintf("Withdrawal from fund %s", fund.Name),
+		CommissionExempt:       commissionExempt,
+	})
+	if err != nil {
+		return nil, mapFundPaymentError(err)
+	}
+
+	now := s.now()
+	position.TotalInvestedAmount -= redemption.Amount
+	if position.TotalInvestedAmount < 0 {
+		position.TotalInvestedAmount = 0
+	}
+	position.UpdatedAt = now
+	if err := s.positionRepo.Upsert(ctx, position); err != nil {
+		return nil, commonErrors.InternalErr(err)
+	}
+
+	redemption.Status = model.FundRedemptionCompleted
+	redemption.CompletedAt = &now
+	if redemption.ClientFundRedemptionID == 0 {
+		if err := s.redemptionRepo.Create(ctx, redemption); err != nil {
+			return nil, commonErrors.InternalErr(err)
+		}
+	} else if err := s.redemptionRepo.Update(ctx, redemption); err != nil {
+		return nil, commonErrors.InternalErr(err)
+	}
+
+	return &dto.WithdrawFromFundResponse{
+		FundID:                   fund.FundID,
+		FundName:                 fund.Name,
+		DestinationAccountNumber: redemption.AccountNumber,
+		DestinationCurrencyCode:  destinationAccount.GetCurrencyCode(),
+		RequestedAmountRSD:       redemption.Amount,
+		WithdrawnAmountRSD:       redemption.Amount,
+		TotalInvestedRSD:         position.TotalInvestedAmount,
+		Status:                   redemption.Status,
+		CreatedAt:                redemption.CreatedAt,
+		CompletedAt:              redemption.CompletedAt,
+	}, nil
+}
+
+type fundLiquidationCandidate struct {
+	listing  model.Listing
+	amount   float64
+	priceRSD float64
+}
+
+func (s *InvestmentFundService) liquidateFundAssets(ctx context.Context, fund *model.InvestmentFund, targetRSD float64) (int, error) {
+	ownerships, err := s.ownershipRepo.FindByUserId(ctx, fund.FundID, model.OwnerTypeFund)
+	if err != nil {
+		return 0, commonErrors.InternalErr(err)
+	}
+	if len(ownerships) == 0 {
+		return 0, nil
+	}
+
+	assetIDs := make([]uint, 0, len(ownerships))
+	ownershipByAssetID := make(map[uint]model.AssetOwnership, len(ownerships))
+	for _, ownership := range ownerships {
+		if ownership.Amount <= 0 {
+			continue
+		}
+		assetIDs = append(assetIDs, ownership.AssetID)
+		ownershipByAssetID[ownership.AssetID] = ownership
+	}
+	if len(assetIDs) == 0 {
+		return 0, nil
+	}
+
+	listings, err := s.listingRepo.FindByAssetIDs(ctx, assetIDs)
+	if err != nil {
+		return 0, commonErrors.InternalErr(err)
+	}
+
+	candidates := make([]fundLiquidationCandidate, 0, len(listings))
+	for _, listing := range listings {
+		ownership, ok := ownershipByAssetID[listing.AssetID]
+		if !ok || listing.Price <= 0 {
+			continue
+		}
+
+		currency := "RSD"
+		if listing.Exchange != nil && listing.Exchange.Currency != "" {
+			currency = listing.Exchange.Currency
+		}
+		priceRSD, err := s.bankingClient.ConvertCurrency(ctx, listing.Price, currency, "RSD")
+		if err != nil {
+			return 0, commonErrors.ServiceUnavailableErr(err)
+		}
+		if priceRSD <= 0 {
+			continue
+		}
+
+		candidates = append(candidates, fundLiquidationCandidate{
+			listing:  listing,
+			amount:   ownership.Amount,
+			priceRSD: priceRSD,
+		})
+	}
+
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].amount*candidates[i].priceRSD > candidates[j].amount*candidates[j].priceRSD
+	})
+	if len(candidates) == 0 {
+		return 0, nil
+	}
+	if s.orderService == nil {
+		return 0, commonErrors.ServiceUnavailableErr(fmt.Errorf("order service unavailable"))
+	}
+
+	remaining := targetRSD
+	ordersCreated := 0
+	for _, candidate := range candidates {
+		if remaining <= 0 {
+			break
+		}
+
+		availableQuantity := uint(math.Floor(candidate.amount))
+		if availableQuantity == 0 {
+			continue
+		}
+
+		quantity := uint(math.Ceil(remaining / candidate.priceRSD))
+		if quantity == 0 {
+			quantity = 1
+		}
+		if quantity > availableQuantity {
+			quantity = availableQuantity
+		}
+
+		order, err := s.orderService.CreateFundLiquidationOrder(ctx, fund, candidate.listing.ListingID, quantity)
+		if err != nil {
+			return ordersCreated, err
+		}
+
+		ordersCreated++
+		remaining -= float64(quantity) * candidate.priceRSD
+
+		if order.Status == model.OrderStatusApproved {
+			if err := s.orderService.processOrder(ctx, order); err != nil {
+				log.Printf("[fund-redemptions] liquidation order %d processing failed: %v", order.OrderID, err)
+			}
+		}
+	}
+
+	return ordersCreated, nil
+}
+
+func (s *InvestmentFundService) ProcessPendingRedemptions(ctx context.Context) error {
+	if s.redemptionRepo == nil {
+		return nil
+	}
+
+	redemptions, err := s.redemptionRepo.FindPending(ctx, pendingRedemptionBatchSize)
+	if err != nil {
+		return commonErrors.InternalErr(err)
+	}
+
+	for i := range redemptions {
+		if err := s.processPendingRedemption(ctx, &redemptions[i]); err != nil {
+			log.Printf("[fund-redemptions] failed to process redemption %d: %v", redemptions[i].ClientFundRedemptionID, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *InvestmentFundService) processPendingRedemption(ctx context.Context, redemption *model.ClientFundRedemption) error {
+	fund := &redemption.Fund
+	if fund.FundID == 0 {
+		found, err := s.fundRepo.FindByID(ctx, redemption.FundID)
+		if err != nil {
+			return commonErrors.InternalErr(err)
+		}
+		if found == nil {
+			return commonErrors.NotFoundErr("fund not found")
+		}
+		fund = found
+	}
+
+	liquidAssets, err := s.getLiquidAssets(ctx, fund.AccountNumber)
+	if err != nil {
+		return commonErrors.ServiceUnavailableErr(err)
+	}
+	if liquidAssets < redemption.Amount {
+		return nil
+	}
+
+	position, err := s.positionRepo.FindByClientAndFund(ctx, redemption.ClientID, redemption.OwnerType, redemption.FundID)
+	if err != nil {
+		return commonErrors.InternalErr(err)
+	}
+	if position == nil || position.TotalInvestedAmount < redemption.Amount {
+		return commonErrors.BadRequestErr("withdrawal amount exceeds available fund position")
+	}
+
+	destinationAccount, err := s.bankingClient.GetAccountByNumber(ctx, redemption.AccountNumber)
+	if err != nil {
+		return commonErrors.ServiceUnavailableErr(err)
+	}
+
+	_, err = s.completeFundRedemption(ctx, fund, position, redemption, destinationAccount, redemption.OwnerType == model.OwnerTypeActuary)
+	return err
+}
+
 func (s *InvestmentFundService) validateFundAccount(ctx context.Context, accountNumber string, authCtx *auth.AuthContext) (*pb.GetAccountByNumberResponse, error) {
 	account, err := s.bankingClient.GetAccountByNumber(ctx, accountNumber)
 	if err != nil {
@@ -401,6 +714,9 @@ func (s *InvestmentFundService) validateFundAccount(ctx context.Context, account
 		}
 		return nil, commonErrors.ServiceUnavailableErr(err)
 	}
+	if account == nil {
+		return nil, commonErrors.NotFoundErr("account not found")
+	}
 
 	switch authCtx.IdentityType {
 	case auth.IdentityClient:
@@ -409,11 +725,24 @@ func (s *InvestmentFundService) validateFundAccount(ctx context.Context, account
 		}
 	case auth.IdentityEmployee:
 		if account.GetAccountType() != "Bank" {
-			return nil, commonErrors.BadRequestErr("supervisors must use a bank account for fund investments")
+			return nil, commonErrors.BadRequestErr("supervisors must use a bank account for fund transactions")
 		}
 	}
 
 	return account, nil
+}
+
+func mapFundPaymentError(err error) error {
+	st, ok := status.FromError(err)
+	if ok {
+		switch st.Code() {
+		case codes.NotFound:
+			return commonErrors.NotFoundErr(st.Message())
+		case codes.FailedPrecondition:
+			return commonErrors.BadRequestErr(st.Message())
+		}
+	}
+	return commonErrors.ServiceUnavailableErr(err)
 }
 
 func resolveCallerIdentity(authCtx *auth.AuthContext) (uint, model.OwnerType, error) {

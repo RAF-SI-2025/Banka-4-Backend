@@ -2268,3 +2268,29 @@ func TestCreateFundOrder_Sell_Success(t *testing.T) {
 	require.Equal(t, model.OrderDirectionSell, order.Direction)
 	require.Equal(t, model.OwnerTypeFund, order.AssetOwnerType)
 }
+
+func TestCreateFundLiquidationOrder_UsesFundOrderSemantics(t *testing.T) {
+	const managerID uint = 5
+	fund := defaultFund(managerID)
+	listing := defaultListing()
+	svc := newFundOrderService(
+		&fakeFundRepo{findByIDResult: fund},
+		&fakeAssetOwnershipRepo{
+			ownerships: []model.AssetOwnership{
+				{AssetID: listing.AssetID, UserId: fund.FundID, OwnerType: model.OwnerTypeFund, Amount: 20},
+			},
+		},
+	)
+
+	order, err := svc.CreateFundLiquidationOrder(clientAuthCtx(), fund, listing.ListingID, 5)
+
+	require.NoError(t, err)
+	require.NotNil(t, order)
+	require.Equal(t, managerID, order.OrderOwnerUserID)
+	require.Equal(t, model.OwnerTypeActuary, order.OrderOwnerType)
+	require.Equal(t, fund.FundID, order.AssetOwnerUserID)
+	require.Equal(t, model.OwnerTypeFund, order.AssetOwnerType)
+	require.Equal(t, model.OrderDirectionSell, order.Direction)
+	require.True(t, order.CommissionExempt)
+	require.Equal(t, model.OrderStatusApproved, order.Status)
+}

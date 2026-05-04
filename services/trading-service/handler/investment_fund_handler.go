@@ -169,6 +169,44 @@ func (h *InvestmentFundHandler) InvestInFund(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+// WithdrawFromFund godoc
+//
+//	@Summary		Withdraw from a fund
+//	@Description	Allows a client or supervisor to withdraw money from an investment fund position.
+//	@Description	Clients must provide one of their own accounts; supervisors must provide a bank account.
+//	@Tags			investment-funds
+//	@Accept			json
+//	@Produce		json
+//	@Param			fundId	path		int								true	"Fund ID"
+//	@Param			body	body		dto.WithdrawFromFundRequest	true	"Withdrawal details"
+//	@Success		200		{object}	dto.WithdrawFromFundResponse
+//	@Failure		400		{object}	errors.AppError
+//	@Failure		401		{object}	errors.AppError
+//	@Failure		403		{object}	errors.AppError
+//	@Failure		404		{object}	errors.AppError
+//	@Router			/api/investment-funds/{fundId}/withdraw [post]
+func (h *InvestmentFundHandler) WithdrawFromFund(c *gin.Context) {
+	fundID, err := strconv.ParseUint(c.Param("fundId"), 10, 64)
+	if err != nil || fundID == 0 {
+		_ = c.Error(errors.BadRequestErr("invalid fund id"))
+		return
+	}
+
+	var req dto.WithdrawFromFundRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		_ = c.Error(errors.BadRequestErr(err.Error()))
+		return
+	}
+
+	resp, err := h.service.WithdrawFromFund(c.Request.Context(), uint(fundID), req)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
 // GetFundDetail godoc
 // @Summary Get investment fund details
 // @Description Retrieves detailed information about an investment fund, including holdings, current value, performance history, and account balance.

@@ -985,6 +985,41 @@ definitions:
       userType:
         type: string
     type: object
+  dto.WithdrawFromFundRequest:
+    properties:
+      account_number:
+        type: string
+      amount:
+        type: number
+    required:
+    - account_number
+    - amount
+    type: object
+  dto.WithdrawFromFundResponse:
+    properties:
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      destination_account_number:
+        type: string
+      destination_currency_code:
+        type: string
+      fund_id:
+        type: integer
+      fund_name:
+        type: string
+      message:
+        type: string
+      requested_amount_rsd:
+        type: number
+      status:
+        $ref: '#/definitions/model.FundRedemptionStatus'
+      total_invested_rsd:
+        type: number
+      withdrawn_amount_rsd:
+        type: number
+    type: object
   errors.AppError:
     properties:
       message:
@@ -1006,6 +1041,14 @@ definitions:
     - AssetTypeOption
     - AssetTypeFuture
     - AssetTypeForexPair
+  model.FundRedemptionStatus:
+    enum:
+    - COMPLETED
+    - PENDING_LIQUIDATION
+    type: string
+    x-enum-varnames:
+    - FundRedemptionCompleted
+    - FundRedemptionPendingLiquidation
   model.OrderDirection:
     enum:
     - BUY
@@ -1767,6 +1810,51 @@ paths:
           schema:
             $ref: '#/definitions/errors.AppError'
       summary: Invest into a fund
+      tags:
+      - investment-funds
+  /api/investment-funds/{fundId}/withdraw:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Allows a client or supervisor to withdraw money from an investment fund position.
+        Clients must provide one of their own accounts; supervisors must provide a bank account.
+      parameters:
+      - description: Fund ID
+        in: path
+        name: fundId
+        required: true
+        type: integer
+      - description: Withdrawal details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.WithdrawFromFundRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.WithdrawFromFundResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Withdraw from a fund
       tags:
       - investment-funds
   /api/listings/forex:
