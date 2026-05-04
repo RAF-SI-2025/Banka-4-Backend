@@ -119,10 +119,16 @@ func TestCalculateAndSaveDailyHistory_ErrorHandlingSkip(t *testing.T) {
 		&fakePositionRepo{},
 		&fakeListingRepo{},
 		&fakeInvestmentRepo{},
+		nil,
 		&fakeAssetOwnershipRepo{},
 		&fakeExchangeRepo{exchange: exchange},
+		nil,
+		nil,
+		nil,
+		nil,
 		customBankingClient,
 		&fakeFundUserClient{},
+		nil,
 	)
 
 	historyRepo := &fakeFundHistoryRepo{}

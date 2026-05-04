@@ -93,6 +93,10 @@ func (d *dummyOwnershipRepo) UpdateOTCFields(ctx context.Context, ownershipID ui
 	return nil
 }
 
+func (d *dummyOwnershipRepo) IncreaseReservedAmount(ctx context.Context, identityID uint, ownerType model.OwnerType, assetID uint, delta float64) error {
+	return nil
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────
 
 func TestFundHistoryJob_Run_Success(t *testing.T) {
@@ -110,10 +114,16 @@ func TestFundHistoryJob_Run_Success(t *testing.T) {
 		nil, // positionRepo
 		nil, // listingRepo
 		nil, // investmentRepo
+		nil, // clientFundRedemptionRepo (NOVO)
 		&dummyOwnershipRepo{},
 		nil, // exchangeRepo
+		nil, // stockRepo (NOVO)
+		nil, // optionRepo (NOVO)
+		nil, // futuresContractRepo (NOVO)
+		nil, // forexRepo (NOVO)
 		&dummyBankingClient{},
 		nil, // userClient
+		nil, // orderService (NOVO)
 	)
 
 	job := NewFundHistoryJob(svc, historyRepo)
@@ -133,13 +143,19 @@ func TestFundHistoryJob_Run_ServiceError(t *testing.T) {
 
 	svc := service.NewInvestmentFundService(
 		fundRepo,
-		nil, // positionRepo
-		nil, // listingRepo
-		nil, // investmentRepo
+		nil,
+		nil,
+		nil,
+		nil,
 		&dummyOwnershipRepo{},
-		nil, // exchangeRepo
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
 		&dummyBankingClient{},
-		nil, // userClient
+		nil,
+		nil,
 	)
 
 	job := NewFundHistoryJob(svc, historyRepo)
