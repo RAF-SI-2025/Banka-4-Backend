@@ -219,7 +219,7 @@ func (h *InvestmentFundHandler) TransferManagerFunds(c *gin.Context) {
 		_ = c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
-	
+
 	if err := h.service.TransferManagerFunds(c.Request.Context(), req.FromManagerID, req.ToManagerID); err != nil {
 		_ = c.Error(err)
 		return

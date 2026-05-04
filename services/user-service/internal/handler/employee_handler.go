@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -139,7 +141,13 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 		return
 	}
 
-	employee, svcErr := h.service.UpdateEmployee(c.Request.Context(), uint(id), &req)
+	ctx := c.Request.Context()
+	if authHeader := c.GetHeader("Authorization"); authHeader != "" {
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		ctx = context.WithValue(ctx, "jwt_token", token)
+	}
+
+	employee, svcErr := h.service.UpdateEmployee(ctx, uint(id), &req)
 	if svcErr != nil {
 		_ = c.Error(svcErr)
 		return

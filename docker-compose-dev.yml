@@ -39,6 +39,7 @@ services:
     env_file: .env
     environment:
       AIR_CONFIG_PATH: /app/services/user-service/.air.toml
+      TRADING_SERVICE_URL: http://trading_service:${TRADING_SERVICE_PORT}
     depends_on:
       user_service_db:
         condition: service_healthy

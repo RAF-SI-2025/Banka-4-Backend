@@ -138,7 +138,6 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 			funds.GET("/:fundId", fundHandler.GetFundDetail)
 			funds.POST("/transfer-manager",
 				auth.RequireIdentityType(auth.IdentityEmployee),
-				middleware.RequireSupervisor(userClient),
 				fundHandler.TransferManagerFunds,
 			)
 		}

@@ -33,6 +33,8 @@ services:
     ports:
       - "${PORT}:${PORT}"
     env_file: .env
+    environment:
+      TRADING_SERVICE_URL: http://trading_service:${TRADING_SERVICE_PORT}
     depends_on:
       user_service_db:
         condition: service_healthy
