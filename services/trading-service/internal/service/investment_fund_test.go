@@ -576,3 +576,7 @@ func fundClientCtx() context.Context {
 		ClientID:     &clientID,
 	})
 }
+
+func (f *fakeFundRepo) TransferManagerFunds(_ context.Context, _ uint, _ uint) error {
+	return nil
+}

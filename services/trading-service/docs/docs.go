@@ -893,6 +893,61 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/investment-funds/transfer-manager": {
+            "post": {
+                "description": "Transfers all investment funds managed by fromManagerID to toManagerID. Called internally when admin removes isSupervisor permission.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "investment-funds"
+                ],
+                "summary": "Transfer funds from one manager to another",
+                "parameters": [
+                    {
+                        "description": "Transfer details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.TransferManagerFundsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/investment-funds/{fundId}": {
             "get": {
                 "description": "Retrieves detailed information about an investment fund, including holdings, current value, performance history, and account balance.",
@@ -3988,6 +4043,21 @@ const docTemplate = `{
             "properties": {
                 "totalTax": {
                     "type": "number"
+                }
+            }
+        },
+        "dto.TransferManagerFundsRequest": {
+            "type": "object",
+            "required": [
+                "from_manager_id",
+                "to_manager_id"
+            ],
+            "properties": {
+                "from_manager_id": {
+                    "type": "integer"
+                },
+                "to_manager_id": {
+                    "type": "integer"
                 }
             }
         },

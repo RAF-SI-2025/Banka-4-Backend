@@ -955,6 +955,16 @@ definitions:
       totalTax:
         type: number
     type: object
+  dto.TransferManagerFundsRequest:
+    properties:
+      from_manager_id:
+        type: integer
+      to_manager_id:
+        type: integer
+    required:
+    - from_manager_id
+    - to_manager_id
+    type: object
   dto.UserTaxEntry:
     properties:
       email:
@@ -1716,6 +1726,43 @@ paths:
           schema:
             $ref: '#/definitions/errors.AppError'
       summary: Invest into a fund
+      tags:
+      - investment-funds
+  /api/investment-funds/transfer-manager:
+    post:
+      consumes:
+      - application/json
+      description: Transfers all investment funds managed by fromManagerID to toManagerID.
+        Called internally when admin removes isSupervisor permission.
+      parameters:
+      - description: Transfer details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TransferManagerFundsRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Transfer funds from one manager to another
       tags:
       - investment-funds
   /api/listings/forex:
