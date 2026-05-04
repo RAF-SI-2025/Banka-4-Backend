@@ -68,12 +68,6 @@ func (tp *TransactionProcessor) Process(ctx context.Context, transactionID uint)
 			return errors.BadRequestErr("cannot make payment to the same account")
 		}
 
-		for _, acc := range BankAccounts {
-			if recipient.AccountNumber == acc {
-				return errors.BadRequestErr("recipient account cannot be one of the banks accounts")
-			}
-		}
-
 		if transaction.StartCurrencyCode != transaction.EndCurrencyCode {
 			banksAccountTo, err := tp.accountRepo.FindByAccountNumber(ctx, BankAccounts[transaction.StartCurrencyCode])
 			if err != nil {

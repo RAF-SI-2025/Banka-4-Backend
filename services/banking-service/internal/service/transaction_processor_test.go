@@ -300,31 +300,6 @@ func TestProcess_SelfPayment(t *testing.T) {
 	require.Contains(t, err.Error(), "cannot make payment to the same account")
 }
 
-func TestProcess_RecipientIsBankAccount(t *testing.T) {
-	bankNum := BankAccounts[model.RSD]
-	payer := tpAccount("PAYER", 10_000, model.RSD)
-	bankAcc := tpAccount(bankNum, 1_000_000, model.RSD)
-
-	txRepo := &fakeTpTransactionRepo{
-		tx: &model.Transaction{
-			TransactionID:          1,
-			PayerAccountNumber:     "PAYER",
-			RecipientAccountNumber: bankNum,
-			StartAmount:            100,
-			StartCurrencyCode:      model.RSD,
-			EndAmount:              100,
-			EndCurrencyCode:        model.RSD,
-			Status:                 model.TransactionProcessing,
-		},
-	}
-	accRepo := newFakeTpAccountRepo(payer, bankAcc)
-	tp := newTpProcessor(accRepo, txRepo)
-
-	err := tp.Process(context.Background(), 1)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "recipient account cannot be one of the banks accounts")
-}
-
 func TestProcess_SameCurrencySuccess(t *testing.T) {
 	payer := tpAccount("PAYER", 1000, model.RSD)
 	recip := tpAccount("RECIP", 500, model.RSD)
