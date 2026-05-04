@@ -375,7 +375,7 @@ func newTestFundService(
 	bankingClient *fakeFundBankingClient,
 	userClient *fakeFundUserClient,
 ) *InvestmentFundService {
-  exchange := defaultExchange()
+	exchange := defaultExchange()
 	return NewInvestmentFundService(fundRepo, &fakePositionRepo{}, listingRepo, &fakeInvestmentRepo{}, &fakeRedemptionRepo{}, ownershipRepo, &fakeExchangeRepo{exchange: exchange}, bankingClient, userClient, nil)
 }
 
@@ -628,7 +628,7 @@ func TestWithdrawFromFund_ClientSuccess(t *testing.T) {
 		},
 	}
 
-  exchange := defaultExchange()
+	exchange := defaultExchange()
 	svc := NewInvestmentFundService(&fakeFundRepo{findByIDResult: fund}, positionRepo, &fakeListingRepo{}, &fakeInvestmentRepo{}, redemptionRepo, &fakeAssetOwnershipRepo{}, &fakeExchangeRepo{exchange: exchange}, bankingClient, &fakeFundUserClient{}, nil)
 
 	resp, err := svc.WithdrawFromFund(fundClientCtx(), 1, dto.WithdrawFromFundRequest{
@@ -665,7 +665,7 @@ func TestWithdrawFromFund_SupervisorSuccessCommissionExempt(t *testing.T) {
 			"bank-account": {AccountNumber: "bank-account", AccountType: "Bank", CurrencyCode: "RSD"},
 		},
 	}
-  
+
 	exchange := defaultExchange()
 	svc := NewInvestmentFundService(&fakeFundRepo{findByIDResult: fund}, positionRepo, &fakeListingRepo{}, &fakeInvestmentRepo{}, &fakeRedemptionRepo{}, &fakeAssetOwnershipRepo{}, &fakeExchangeRepo{exchange: exchange}, bankingClient, &fakeFundUserClient{}, nil)
 
@@ -695,7 +695,7 @@ func TestWithdrawFromFund_ExceedsAvailablePosition(t *testing.T) {
 			"client-account": {AccountNumber: "client-account", ClientId: 99, AccountType: "Current", CurrencyCode: "RSD"},
 		},
 	}
-	
+
 	exchange := defaultExchange()
 	svc := NewInvestmentFundService(&fakeFundRepo{findByIDResult: fund}, positionRepo, &fakeListingRepo{}, &fakeInvestmentRepo{}, redemptionRepo, &fakeAssetOwnershipRepo{}, &fakeExchangeRepo{exchange: exchange}, bankingClient, &fakeFundUserClient{}, nil)
 

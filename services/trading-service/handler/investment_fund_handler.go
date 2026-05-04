@@ -199,7 +199,7 @@ func (h *InvestmentFundHandler) WithdrawFromFund(c *gin.Context) {
 	}
 
 	resp, err := h.service.WithdrawFromFund(c.Request.Context(), uint(fundID), req)
-  if err != nil {
+	if err != nil {
 		_ = c.Error(err)
 		return
 	}
