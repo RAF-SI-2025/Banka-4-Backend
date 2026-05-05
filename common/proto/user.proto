@@ -13,6 +13,7 @@ service UserService {
   rpc GetAllClients(GetAllClientsRequest)                 returns (GetAllClientsResponse);
   rpc GetAllActuaries(GetAllActuariesRequest)             returns (GetAllActuariesResponse);
   rpc GetIdentityByUserId(GetIdentityByUserIdRequest) returns (GetIdentityByUserIdResponse);
+  rpc IncrementUsedLimit(IncrementUsedLimitRequest)   returns (IncrementUsedLimitResponse);
 }
 
 
@@ -102,4 +103,13 @@ message GetIdentityByUserIdRequest {
 
 message GetIdentityByUserIdResponse {
   uint64 identity_id = 1;
+}
+
+message IncrementUsedLimitRequest {
+  uint64 employee_id = 1;
+  double amount      = 2;
+}
+
+message IncrementUsedLimitResponse {
+  double used_limit = 1;
 }

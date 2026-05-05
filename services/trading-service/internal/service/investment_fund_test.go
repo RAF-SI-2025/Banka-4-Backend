@@ -237,6 +237,9 @@ type fakeFundUserClient struct {
 
 	getIdentityByUserIdResp *pb.GetIdentityByUserIdResponse
 	getIdentityByUserIdErr  error
+
+	incrementUsedLimitResp *pb.IncrementUsedLimitResponse
+	incrementUsedLimitErr  error
 }
 
 func (f *fakeFundUserClient) GetClientById(_ context.Context, _ uint64) (*pb.GetClientByIdResponse, error) {
@@ -269,6 +272,10 @@ func (f *fakeFundUserClient) GetAllActuaries(_ context.Context, _, _ int32, _, _
 
 func (f *fakeFundUserClient) GetIdentityByUserId(_ context.Context, _ uint64, _ string) (*pb.GetIdentityByUserIdResponse, error) {
 	return f.getIdentityByUserIdResp, f.getIdentityByUserIdErr
+}
+
+func (f *fakeFundUserClient) IncrementUsedLimit(ctx context.Context, employeeID uint64, amount float64) (*pb.IncrementUsedLimitResponse, error) {
+	return f.incrementUsedLimitResp, f.incrementUsedLimitErr
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -307,6 +314,9 @@ func (f *fakeUserClient) GetAllActuaries(ctx context.Context, page, pageSize int
 	return nil, nil
 }
 func (f *fakeUserClient) GetIdentityByUserId(ctx context.Context, userID uint64, userType string) (*pb.GetIdentityByUserIdResponse, error) {
+	return nil, nil
+}
+func (f *fakeUserClient) IncrementUsedLimit(ctx context.Context, employeeID uint64, amount float64) (*pb.IncrementUsedLimitResponse, error) {
 	return nil, nil
 }
 

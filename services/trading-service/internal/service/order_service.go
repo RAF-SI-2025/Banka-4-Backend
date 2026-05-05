@@ -354,7 +354,17 @@ func (s *OrderService) placeOrder(ctx context.Context, authCtx *auth.AuthContext
 	if order.Status == model.OrderStatusApproved {
 		nextExecutionAt := s.initialExecutionTime(session, order.AfterHours)
 		order.NextExecutionAt = &nextExecutionAt
+
+		if order.PricePerUnit == nil {
+			return nil, errors.BadRequestErr("trying to create an order without a set price per unit")
+		}
+
+		grossAmount := *order.PricePerUnit * float64(order.Quantity)
+		if err := s.updateActuaryUsedLimit(ctx, &order, grossAmount, exchange.Currency); err != nil {
+			return nil, errors.InternalErr(err)
+		}
 	}
+
 	if err := s.orderRepo.Create(ctx, &order); err != nil {
 		return nil, errors.InternalErr(err)
 	}
@@ -431,6 +441,15 @@ func (s *OrderService) ApproveOrder(ctx context.Context, orderID uint) (*model.O
 	order.ApprovedBy = &approverID //TODO careful
 	order.NextExecutionAt = &nextExecutionAt
 	order.UpdatedAt = s.now()
+
+	if order.PricePerUnit == nil {
+		return nil, errors.BadRequestErr("trying to approve an order without a set price per unit")
+	}
+
+	grossAmount := *order.PricePerUnit * float64(order.Quantity)
+	if err := s.updateActuaryUsedLimit(ctx, order, grossAmount, exchange.Currency); err != nil {
+		return nil, errors.InternalErr(err)
+	}
 
 	if err := s.orderRepo.Save(ctx, order); err != nil {
 		return nil, errors.InternalErr(err)
@@ -654,6 +673,35 @@ func (s *OrderService) processOrder(ctx context.Context, order *model.Order) err
 	}
 
 	_ = settlement
+	return nil
+}
+
+func (s *OrderService) updateActuaryUsedLimit(ctx context.Context, order *model.Order, grossAmount float64, tradeCurrency string) error {
+	if order.OwnerType != model.OwnerTypeActuary || order.Direction != model.OrderDirectionBuy || grossAmount <= 0 {
+		return nil
+	}
+
+	employee, err := s.userClient.GetEmployeeById(ctx, uint64(order.OrderOwnerUserID))
+	if err != nil {
+		return err
+	}
+	if !employee.IsAgent {
+		return nil
+	}
+
+	amountRSD := grossAmount
+	if tradeCurrency != "RSD" {
+		amountRSD, err = s.bankingClient.ConvertCurrency(ctx, grossAmount, tradeCurrency, "RSD")
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = s.userClient.IncrementUsedLimit(ctx, uint64(order.OrderOwnerUserID), amountRSD)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

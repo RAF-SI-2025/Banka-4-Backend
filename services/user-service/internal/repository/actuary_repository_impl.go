@@ -90,6 +90,21 @@ func (r *actuaryRepository) Save(ctx context.Context, actuary *model.ActuaryInfo
 	return r.db.WithContext(ctx).Save(actuary).Error
 }
 
+func (r *actuaryRepository) IncrementUsedLimit(ctx context.Context, employeeID uint, amount float64) (*model.ActuaryInfo, error) {
+	result := r.db.WithContext(ctx).
+		Model(&model.ActuaryInfo{}).
+		Where("employee_id = ? AND is_agent = ?", employeeID, true).
+		UpdateColumn("used_limit", gorm.Expr("used_limit + ?", amount))
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	return r.FindByEmployeeID(ctx, employeeID)
+}
+
 func (r *actuaryRepository) ResetUsedLimit(ctx context.Context, employeeID uint) error {
 	return r.db.WithContext(ctx).
 		Model(&model.ActuaryInfo{}).

@@ -176,6 +176,10 @@ func (c *fakeUserClient) GetIdentityByUserId(_ context.Context, _ uint64, _ stri
 	return c.identityResp, c.identityErr
 }
 
+func (c *fakeUserClient) IncrementUsedLimit(_ context.Context, _ uint64, _ float64) (*pb.IncrementUsedLimitResponse, error) {
+	return nil, nil
+}
+
 type fakeTaxRecorder struct{}
 
 func (f *fakeTaxRecorder) RecordTax(_ context.Context, _ string, _ *uint, _ float64, _ string) error {
@@ -486,6 +490,7 @@ func seedOption(t *testing.T, db *gorm.DB, listingID, stockID uint) *model.Optio
 func seedOrder(t *testing.T, db *gorm.DB, userID, listingID uint, direction model.OrderDirection, status model.OrderStatus) *model.Order {
 	t.Helper()
 
+	ppu := 5.0
 	order := &model.Order{
 		OrderOwnerUserID: userID,
 		AccountNumber:    "444000100000000001",
@@ -494,6 +499,7 @@ func seedOrder(t *testing.T, db *gorm.DB, userID, listingID uint, direction mode
 		Direction:        direction,
 		Quantity:         10,
 		ContractSize:     1,
+		PricePerUnit:     &ppu,
 		Status:           status,
 		CreatedAt:        time.Now(),
 		UpdatedAt:        time.Now(),

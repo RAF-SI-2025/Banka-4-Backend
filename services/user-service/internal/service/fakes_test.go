@@ -109,11 +109,12 @@ type fakeActuaryRepo struct {
 	allEmployees []model.Employee
 	allTotal     int64
 
-	findErr     error
-	getAllErr   error
-	saveErr     error
-	resetErr    error
-	resetAllErr error
+	findErr      error
+	getAllErr    error
+	saveErr      error
+	incrementErr error
+	resetErr     error
+	resetAllErr  error
 }
 
 func (f *fakeActuaryRepo) FindByEmployeeID(_ context.Context, employeeID uint) (*model.ActuaryInfo, error) {
@@ -136,6 +137,18 @@ func (f *fakeActuaryRepo) Save(_ context.Context, actuary *model.ActuaryInfo) er
 	copy := *actuary
 	f.byEmployeeID[actuary.EmployeeID] = &copy
 	return f.saveErr
+}
+
+func (f *fakeActuaryRepo) IncrementUsedLimit(_ context.Context, employeeID uint, amount float64) (*model.ActuaryInfo, error) {
+	if f.incrementErr != nil {
+		return nil, f.incrementErr
+	}
+	if f.byEmployeeID == nil || f.byEmployeeID[employeeID] == nil {
+		return nil, nil
+	}
+
+	f.byEmployeeID[employeeID].UsedLimit += amount
+	return f.byEmployeeID[employeeID], nil
 }
 
 func (f *fakeActuaryRepo) ResetUsedLimit(_ context.Context, employeeID uint) error {

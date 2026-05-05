@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	stdErrors "errors"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/repository"
+	"gorm.io/gorm"
 )
 
 type ActuaryService struct {
@@ -67,6 +69,36 @@ func (s *ActuaryService) UpdateActuarySettings(ctx context.Context, employeeID u
 
 	employee.ActuaryInfo = actuary
 	return dto.ToActuaryResponse(employee), nil
+}
+
+func (s *ActuaryService) IncrementUsedLimit(ctx context.Context, employeeID uint, amount float64) (float64, error) {
+	if amount <= 0 {
+		return 0, errors.BadRequestErr("amount must be positive")
+	}
+
+	employee, err := s.employeeRepo.FindByID(ctx, employeeID)
+	if err != nil {
+		return 0, errors.InternalErr(err)
+	}
+	if employee == nil {
+		return 0, errors.NotFoundErr("employee not found")
+	}
+	if !employee.IsAgent() {
+		return 0, errors.BadRequestErr("only agents have used limits")
+	}
+
+	actuary, err := s.actuaryRepo.IncrementUsedLimit(ctx, employeeID, amount)
+	if err != nil {
+		if stdErrors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, errors.NotFoundErr("actuary info not found")
+		}
+		return 0, errors.InternalErr(err)
+	}
+	if actuary == nil {
+		return 0, errors.NotFoundErr("actuary info not found")
+	}
+
+	return actuary.UsedLimit, nil
 }
 
 func (s *ActuaryService) ResetUsedLimit(ctx context.Context, employeeID uint) (*dto.ActuaryResponse, error) {

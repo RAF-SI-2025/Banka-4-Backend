@@ -47,6 +47,10 @@ func (f *fakeOTCUserClient) GetIdentityByUserId(_ context.Context, id uint64, _ 
 	return nil, nil
 }
 
+func (f *fakeOTCUserClient) IncrementUsedLimit(ctx context.Context, employeeID uint64, amount float64) (*pb.IncrementUsedLimitResponse, error) {
+	return nil, nil
+}
+
 // --- Helpers ---
 
 func makeOwnershipForOTC(id, identityID, assetID uint, ownerType model.OwnerType, amount, reserved float64) *model.AssetOwnership {

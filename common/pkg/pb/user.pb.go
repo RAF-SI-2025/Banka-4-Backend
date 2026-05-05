@@ -981,6 +981,102 @@ func (x *GetIdentityByUserIdResponse) GetIdentityId() uint64 {
 	return 0
 }
 
+type IncrementUsedLimitRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EmployeeId    uint64                 `protobuf:"varint,1,opt,name=employee_id,json=employeeId,proto3" json:"employee_id,omitempty"`
+	Amount        float64                `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IncrementUsedLimitRequest) Reset() {
+	*x = IncrementUsedLimitRequest{}
+	mi := &file_common_proto_user_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IncrementUsedLimitRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IncrementUsedLimitRequest) ProtoMessage() {}
+
+func (x *IncrementUsedLimitRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_user_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IncrementUsedLimitRequest.ProtoReflect.Descriptor instead.
+func (*IncrementUsedLimitRequest) Descriptor() ([]byte, []int) {
+	return file_common_proto_user_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *IncrementUsedLimitRequest) GetEmployeeId() uint64 {
+	if x != nil {
+		return x.EmployeeId
+	}
+	return 0
+}
+
+func (x *IncrementUsedLimitRequest) GetAmount() float64 {
+	if x != nil {
+		return x.Amount
+	}
+	return 0
+}
+
+type IncrementUsedLimitResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UsedLimit     float64                `protobuf:"fixed64,1,opt,name=used_limit,json=usedLimit,proto3" json:"used_limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IncrementUsedLimitResponse) Reset() {
+	*x = IncrementUsedLimitResponse{}
+	mi := &file_common_proto_user_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IncrementUsedLimitResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IncrementUsedLimitResponse) ProtoMessage() {}
+
+func (x *IncrementUsedLimitResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_user_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IncrementUsedLimitResponse.ProtoReflect.Descriptor instead.
+func (*IncrementUsedLimitResponse) Descriptor() ([]byte, []int) {
+	return file_common_proto_user_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *IncrementUsedLimitResponse) GetUsedLimit() float64 {
+	if x != nil {
+		return x.UsedLimit
+	}
+	return 0
+}
+
 var File_common_proto_user_proto protoreflect.FileDescriptor
 
 const file_common_proto_user_proto_rawDesc = "" +
@@ -1071,7 +1167,8 @@ const file_common_proto_user_proto_rawDesc = "" +
 	"\x17GetEmployeeByIdentityId\x12'.user.v1.GetEmployeeByIdentityIdRequest\x1a .user.v1.GetEmployeeByIdResponse\x12N\n" +
 	"\rGetAllClients\x12\x1d.user.v1.GetAllClientsRequest\x1a\x1e.user.v1.GetAllClientsResponse\x12T\n" +
 	"\x0fGetAllActuaries\x12\x1f.user.v1.GetAllActuariesRequest\x1a .user.v1.GetAllActuariesResponse\x12`\n" +
-	"\x13GetIdentityByUserId\x12#.user.v1.GetIdentityByUserIdRequest\x1a$.user.v1.GetIdentityByUserIdResponseB\x12Z\x10common/pkg/pb;pbb\x06proto3"
+	"\x13GetIdentityByUserId\x12#.user.v1.GetIdentityByUserIdRequest\x1a$.user.v1.GetIdentityByUserIdResponse\x12]\n" +
+	"\x12IncrementUsedLimit\x12\".user.v1.IncrementUsedLimitRequest\x1a#.user.v1.IncrementUsedLimitResponseB\x12Z\x10common/pkg/pb;pbb\x06proto3"
 
 var (
 	file_common_proto_user_proto_rawDescOnce sync.Once

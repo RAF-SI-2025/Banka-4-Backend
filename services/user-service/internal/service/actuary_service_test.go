@@ -170,6 +170,97 @@ func TestResetUsedLimit(t *testing.T) {
 	}
 }
 
+func TestIncrementUsedLimit(t *testing.T) {
+	t.Parallel()
+
+	agent := activeAgent()
+
+	tests := []struct {
+		name        string
+		empRepo     *fakeEmployeeRepo
+		actuaryRepo *fakeActuaryRepo
+		employeeID  uint
+		amount      float64
+		expectUsed  float64
+		expectErr   bool
+		errMsg      string
+	}{
+		{
+			name: "successful increment",
+			empRepo: &fakeEmployeeRepo{
+				byIDs: map[uint]*model.Employee{agent.EmployeeID: agent},
+			},
+			actuaryRepo: &fakeActuaryRepo{
+				byEmployeeID: map[uint]*model.ActuaryInfo{agent.EmployeeID: agent.ActuaryInfo},
+			},
+			employeeID: agent.EmployeeID,
+			amount:     2500,
+			expectUsed: agent.ActuaryInfo.UsedLimit + 2500,
+		},
+		{
+			name:        "invalid amount",
+			empRepo:     &fakeEmployeeRepo{},
+			actuaryRepo: &fakeActuaryRepo{},
+			employeeID:  agent.EmployeeID,
+			amount:      0,
+			expectErr:   true,
+			errMsg:      "amount must be positive",
+		},
+		{
+			name:        "employee not found",
+			empRepo:     &fakeEmployeeRepo{byIDs: map[uint]*model.Employee{}},
+			actuaryRepo: &fakeActuaryRepo{},
+			employeeID:  999,
+			amount:      1000,
+			expectErr:   true,
+			errMsg:      "employee not found",
+		},
+		{
+			name: "employee is not an agent",
+			empRepo: &fakeEmployeeRepo{
+				byIDs: map[uint]*model.Employee{activeEmployee().EmployeeID: activeEmployee()},
+			},
+			actuaryRepo: &fakeActuaryRepo{},
+			employeeID:  activeEmployee().EmployeeID,
+			amount:      1000,
+			expectErr:   true,
+			errMsg:      "only agents have used limits",
+		},
+		{
+			name: "repo increment error",
+			empRepo: &fakeEmployeeRepo{
+				byIDs: map[uint]*model.Employee{agent.EmployeeID: agent},
+			},
+			actuaryRepo: &fakeActuaryRepo{
+				byEmployeeID: map[uint]*model.ActuaryInfo{agent.EmployeeID: agent.ActuaryInfo},
+				incrementErr: fmt.Errorf("db error"),
+			},
+			employeeID: agent.EmployeeID,
+			amount:     1000,
+			expectErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := NewActuaryService(tt.actuaryRepo, tt.empRepo)
+
+			usedLimit, err := service.IncrementUsedLimit(context.Background(), tt.employeeID, tt.amount)
+
+			if tt.expectErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					require.Contains(t, err.Error(), tt.errMsg)
+				}
+				require.Zero(t, usedLimit)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.expectUsed, usedLimit)
+			}
+		})
+	}
+}
+
 func TestGetAllActuaries(t *testing.T) {
 	t.Parallel()
 

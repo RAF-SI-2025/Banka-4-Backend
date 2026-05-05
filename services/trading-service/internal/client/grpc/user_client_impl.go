@@ -85,3 +85,14 @@ func (c *UserServiceClient) GetIdentityByUserId(ctx context.Context, userID uint
 	}
 	return resp, nil
 }
+
+func (c *UserServiceClient) IncrementUsedLimit(ctx context.Context, employeeID uint64, amount float64) (*pb.IncrementUsedLimitResponse, error) {
+	resp, err := c.stub.IncrementUsedLimit(ctx, &pb.IncrementUsedLimitRequest{
+		EmployeeId: employeeID,
+		Amount:     amount,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("user client IncrementUsedLimit: %w", err)
+	}
+	return resp, nil
+}
