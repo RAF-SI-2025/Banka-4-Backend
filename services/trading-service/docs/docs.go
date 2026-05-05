@@ -3829,6 +3829,9 @@ const docTemplate = `{
                 "is_exercised": {
                     "type": "boolean"
                 },
+                "listing_currency": {
+                    "type": "string"
+                },
                 "otc_offer_id": {
                     "type": "integer"
                 },

@@ -771,6 +771,8 @@ definitions:
         type: string
       is_exercised:
         type: boolean
+      listing_currency:
+        type: string
       otc_offer_id:
         type: integer
       otc_option_contract_id:
