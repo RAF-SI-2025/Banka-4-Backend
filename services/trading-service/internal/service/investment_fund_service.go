@@ -977,13 +977,14 @@ func (s *InvestmentFundService) CalculateAndSaveDailyHistory(ctx context.Context
 
 		perf := &model.FundPerformance{
 			FundID:       fund.FundID,
-			Date:         s.now(), // ili time.Now() ako s.now() pravi problem
+			Date:         s.now(),
 			FundValue:    fundValue,
 			Profit:       profit,
 			LiquidAssets: liquidAssets,
 		}
 
 		if err := s.fundRepo.SavePerformanceSnapshot(ctx, perf); err != nil {
+			log.Printf("failed to get liquid assets for fund %d: %v", fund.FundID, err)
 			// Ako pukne čuvanje za jedan fond, samo nastavljamo dalje
 			continue
 		}
