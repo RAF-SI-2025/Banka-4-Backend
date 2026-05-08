@@ -948,3 +948,47 @@ func (s *InvestmentFundService) GetFundDetail(ctx context.Context, fundID uint) 
 		PerformanceHistory: perfResp,
 	}, nil
 }
+
+func (s *InvestmentFundService) CalculateAndSaveDailyHistory(ctx context.Context) error {
+	funds, err := s.fundRepo.GetAllInvestmentFunds(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, fund := range funds {
+		liquidAssets, err := s.getLiquidAssets(ctx, fund.AccountNumber)
+		if err != nil {
+			continue
+		}
+
+		secVal, err := s.sumSecuritiesValue(ctx, fund.FundID)
+		if err != nil {
+			continue
+		}
+
+		fundValue := liquidAssets + secVal
+
+		var totalInvested float64
+		for _, pos := range fund.Positions {
+			totalInvested += pos.TotalInvestedAmount
+		}
+
+		profit := fundValue - totalInvested
+
+		perf := &model.FundPerformance{
+			FundID:       fund.FundID,
+			Date:         s.now(),
+			FundValue:    fundValue,
+			Profit:       profit,
+			LiquidAssets: liquidAssets,
+		}
+
+		if err := s.fundRepo.SavePerformanceSnapshot(ctx, perf); err != nil {
+			log.Printf("failed to get liquid assets for fund %d: %v", fund.FundID, err)
+			// Ako pukne čuvanje za jedan fond, samo nastavljamo dalje
+			continue
+		}
+	}
+
+	return nil
+}
