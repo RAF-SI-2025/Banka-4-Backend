@@ -183,6 +183,16 @@ func (r *fakeOtcAssetOwnershipRepo) FindByUserId(_ context.Context, id uint, ot 
 	return out, nil
 }
 
+func (r *fakeOtcAssetOwnershipRepo) FindByOwnerType(_ context.Context, ot model.OwnerType) ([]model.AssetOwnership, error) {
+	var out []model.AssetOwnership
+	for _, v := range r.ownerships {
+		if v.OwnerType == ot {
+			out = append(out, *v)
+		}
+	}
+	return out, nil
+}
+
 func (r *fakeOtcAssetOwnershipRepo) Upsert(_ context.Context, o *model.AssetOwnership) error {
 	r.ownerships[otcOwnershipKey(o.UserId, o.OwnerType, o.AssetID)] = o
 	return nil

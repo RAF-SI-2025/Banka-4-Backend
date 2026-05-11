@@ -68,6 +68,9 @@ type dummyOwnershipRepo struct{}
 func (d *dummyOwnershipRepo) FindByUserId(ctx context.Context, userId uint, ownerType model.OwnerType) ([]model.AssetOwnership, error) {
 	return nil, nil
 }
+func (d *dummyOwnershipRepo) FindByOwnerType(ctx context.Context, ownerType model.OwnerType) ([]model.AssetOwnership, error) {
+	return nil, nil
+}
 func (d *dummyOwnershipRepo) FindByID(ctx context.Context, id uint) (*model.AssetOwnership, error) {
 	return nil, nil
 }
