@@ -304,6 +304,9 @@ func (s *OtcOfferService) GetActiveOffersForUser(ctx context.Context, userID uin
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
+	if len(offers) == 0 {
+		return []dto.OtcOfferResponse{}, nil
+	}
 
 	// --- 1. Collect AssetIDs ---
 	assetIDSet := make(map[uint]struct{})
@@ -378,6 +381,9 @@ func (s *OtcOfferService) GetOptionContractsForUser(
 	contracts, err := s.optionContractRepo.FindForUser(ctx, userID)
 	if err != nil {
 		return nil, errors.InternalErr(err)
+	}
+	if len(contracts) == 0 {
+		return []dto.OtcOptionContractResponse{}, nil
 	}
 
 	// --- 1. Collect AssetIDs + UserIDs ---
