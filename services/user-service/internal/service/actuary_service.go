@@ -5,9 +5,9 @@ import (
 	stdErrors "errors"
 	"fmt"
 
-	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/audit"
 	commonauth "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/audit"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/repository"
