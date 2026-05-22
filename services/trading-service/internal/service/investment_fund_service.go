@@ -88,10 +88,6 @@ func unitsFromPosition(position model.ClientFundPosition) float64 {
 	return 0
 }
 
-func hasExplicitUnits(position model.ClientFundPosition) bool {
-	return position.UnitsOwned > 0
-}
-
 func calculateFundNAV(fundTotalValue, totalUnits float64) float64 {
 	if totalUnits <= 0 {
 		return defaultFundNAV
@@ -474,14 +470,11 @@ func (s *InvestmentFundService) WithdrawFromFund(ctx context.Context, fundID uin
 		return nil, commonErrors.InternalErr(err)
 	}
 
-	positionValueRSD := position.TotalInvestedAmount
-	if hasExplicitUnits(*position) {
-		nav, err := s.getFundNAV(ctx, fund.FundID, fund.AccountNumber)
-		if err != nil {
-			return nil, err
-		}
-		positionValueRSD = unitsFromPosition(*position) * nav
+	nav, err := s.getFundNAV(ctx, fund.FundID, fund.AccountNumber)
+	if err != nil {
+		return nil, err
 	}
+	positionValueRSD := unitsFromPosition(*position) * nav
 	if req.Amount > positionValueRSD-pendingAmount+floatTolerance {
 		return nil, commonErrors.BadRequestErr("withdrawal amount exceeds available fund position")
 	}
@@ -548,19 +541,15 @@ func (s *InvestmentFundService) completeFundRedemption(
 	destinationAccount *pb.GetAccountByNumberResponse,
 	commissionExempt bool,
 ) (*dto.WithdrawFromFundResponse, error) {
-	nav := defaultFundNAV
-	if hasExplicitUnits(*position) {
-		var err error
-		nav, err = s.getFundNAV(ctx, fund.FundID, fund.AccountNumber)
-		if err != nil {
-			return nil, err
-		}
+	nav, err := s.getFundNAV(ctx, fund.FundID, fund.AccountNumber)
+	if err != nil {
+		return nil, err
 	}
 	if redemption.Amount > unitsFromPosition(*position)*nav+floatTolerance {
 		return nil, commonErrors.BadRequestErr("withdrawal amount exceeds available fund position")
 	}
 
-	_, err := s.bankingClient.CreatePaymentWithoutVerification(ctx, &pb.CreatePaymentRequest{
+	_, err = s.bankingClient.CreatePaymentWithoutVerification(ctx, &pb.CreatePaymentRequest{
 		PayerAccountNumber:     fund.AccountNumber,
 		RecipientAccountNumber: redemption.AccountNumber,
 		RecipientName:          fund.Name,
@@ -759,14 +748,11 @@ func (s *InvestmentFundService) processPendingRedemption(ctx context.Context, re
 		return commonErrors.BadRequestErr("withdrawal amount exceeds available fund position")
 	}
 
-	positionValueRSD := position.TotalInvestedAmount
-	if hasExplicitUnits(*position) {
-		nav, err := s.getFundNAV(ctx, redemption.FundID, fund.AccountNumber)
-		if err != nil {
-			return err
-		}
-		positionValueRSD = unitsFromPosition(*position) * nav
+	nav, err := s.getFundNAV(ctx, redemption.FundID, fund.AccountNumber)
+	if err != nil {
+		return err
 	}
+	positionValueRSD := unitsFromPosition(*position) * nav
 	if positionValueRSD < redemption.Amount-floatTolerance {
 		return commonErrors.BadRequestErr("withdrawal amount exceeds available fund position")
 	}
@@ -844,19 +830,6 @@ func (s *InvestmentFundService) getFundSharesValueRSD(ctx context.Context, fundI
 	return securitiesValue, nil
 }
 
-func (s *InvestmentFundService) getFundTotalInvestedRSD(ctx context.Context, fundID uint) (float64, error) {
-	positions, err := s.positionRepo.FindByFund(ctx, fundID)
-	if err != nil {
-		return 0, commonErrors.InternalErr(err)
-	}
-
-	var total float64
-	for _, pos := range positions {
-		total += pos.TotalInvestedAmount
-	}
-	return total, nil
-}
-
 func (s *InvestmentFundService) getFundTotalUnits(ctx context.Context, fundID uint) (float64, error) {
 	positions, err := s.positionRepo.FindByFund(ctx, fundID)
 	if err != nil {
@@ -887,14 +860,6 @@ func (s *InvestmentFundService) getFundNAV(ctx context.Context, fundID uint, acc
 }
 
 func applyRedemptionToPosition(position *model.ClientFundPosition, amountRSD, nav float64) {
-	if !hasExplicitUnits(*position) {
-		position.TotalInvestedAmount -= amountRSD
-		if position.TotalInvestedAmount < floatTolerance {
-			position.TotalInvestedAmount = 0
-		}
-		return
-	}
-
 	currentUnits := unitsFromPosition(*position)
 	if currentUnits <= 0 || nav <= 0 {
 		position.UnitsOwned = 0
@@ -919,6 +884,7 @@ func applyRedemptionToPosition(position *model.ClientFundPosition, amountRSD, na
 		costReductionRatio = 1
 	}
 
+	// Always persist explicit units after first redemption, including legacy rows.
 	position.UnitsOwned = currentUnits - redeemedUnits
 	if position.UnitsOwned < floatTolerance {
 		position.UnitsOwned = 0

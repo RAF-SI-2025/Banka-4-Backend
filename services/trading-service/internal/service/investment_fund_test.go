@@ -813,6 +813,45 @@ func TestWithdrawFromFund_InsufficientLiquidityWithoutSecurities(t *testing.T) {
 	require.Empty(t, bankingClient.payments)
 }
 
+func TestWithdrawFromFund_LegacyPositionUsesNAVForAvailableValue(t *testing.T) {
+	fund := &model.InvestmentFund{FundID: 1, Name: "Alpha Growth Fund", AccountNumber: "fund-account"}
+	positionRepo := &fakePositionRepo{
+		findResult: &model.ClientFundPosition{
+			ClientID:            99,
+			OwnerType:           model.OwnerTypeClient,
+			FundID:              1,
+			TotalInvestedAmount: 1000,
+		},
+		findByFundRes: []model.ClientFundPosition{
+			{ClientID: 99, OwnerType: model.OwnerTypeClient, FundID: 1, TotalInvestedAmount: 1000},
+			{ClientID: 100, OwnerType: model.OwnerTypeClient, FundID: 1, TotalInvestedAmount: 1000},
+		},
+	}
+	bankingClient := &fakeFundBankingClient{
+		accountsByNumber: map[string]*pb.GetAccountByNumberResponse{
+			"fund-account":   {AccountNumber: "fund-account", AccountType: "Fund", CurrencyCode: "RSD", AvailableBalance: 4000},
+			"client-account": {AccountNumber: "client-account", ClientId: 99, AccountType: "Current", CurrencyCode: "RSD"},
+		},
+	}
+
+	exchange := defaultExchange()
+	svc := NewInvestmentFundService(&fakeFundRepo{findByIDResult: fund}, positionRepo, &fakeListingRepo{}, &fakeInvestmentRepo{}, &fakeRedemptionRepo{}, &fakeAssetOwnershipRepo{}, &fakeExchangeRepo{exchange: exchange}, &fakeStockRepo{}, &fakeOptionRepo{}, &fakeFuturesRepo{}, &fakeForexRepo{}, bankingClient, &fakeFundUserClient{}, nil)
+
+	resp, err := svc.WithdrawFromFund(fundClientCtx(), 1, dto.WithdrawFromFundRequest{
+		AccountNumber: "client-account",
+		Amount:        1500,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, model.FundRedemptionCompleted, resp.Status)
+	require.Equal(t, 1500.0, resp.WithdrawnAmountRSD)
+	require.InDelta(t, 250.0, resp.TotalInvestedRSD, 0.0001)
+	require.NotNil(t, positionRepo.upserted)
+	require.InDelta(t, 250.0, positionRepo.upserted.UnitsOwned, 0.0001)
+	require.InDelta(t, 250.0, positionRepo.upserted.TotalInvestedAmount, 0.0001)
+	require.Len(t, bankingClient.payments, 1)
+}
+
 func validFundRequest() dto.CreateFundRequest {
 	return dto.CreateFundRequest{
 		Name:                "Alpha Growth Fund",
@@ -1166,6 +1205,59 @@ func TestProcessPendingRedemption_Success(t *testing.T) {
 	require.Equal(t, "client-acc", bankingClient.payments[0].RecipientAccountNumber)
 	require.NotNil(t, positionRepo.upserted)
 	require.Equal(t, 1500.0, positionRepo.upserted.TotalInvestedAmount)
+}
+
+func TestProcessPendingRedemption_LegacyPositionUsesNAV(t *testing.T) {
+	fund := &model.InvestmentFund{
+		FundID:        1,
+		Name:          "Test Fund",
+		AccountNumber: "fund-acc",
+	}
+	redemption := &model.ClientFundRedemption{
+		ClientFundRedemptionID: 10,
+		ClientID:               99,
+		OwnerType:              model.OwnerTypeClient,
+		FundID:                 1,
+		Fund:                   *fund,
+		AccountNumber:          "client-acc",
+		Amount:                 1500,
+		Status:                 model.FundRedemptionPendingLiquidation,
+	}
+	positionRepo := &fakePositionRepo{
+		findResult: &model.ClientFundPosition{
+			ClientID:            99,
+			OwnerType:           model.OwnerTypeClient,
+			FundID:              1,
+			TotalInvestedAmount: 1000,
+		},
+		findByFundRes: []model.ClientFundPosition{
+			{ClientID: 99, OwnerType: model.OwnerTypeClient, FundID: 1, TotalInvestedAmount: 1000},
+			{ClientID: 100, OwnerType: model.OwnerTypeClient, FundID: 1, TotalInvestedAmount: 1000},
+		},
+	}
+	redemptionRepo := &fakeRedemptionRepo{}
+	bankingClient := &fakeFundBankingClient{
+		accountsByNumber: map[string]*pb.GetAccountByNumberResponse{
+			"fund-acc":   {AccountNumber: "fund-acc", AvailableBalance: 5000, CurrencyCode: "RSD"},
+			"client-acc": {AccountNumber: "client-acc", ClientId: 99, CurrencyCode: "RSD"},
+		},
+	}
+
+	exchange := defaultExchange()
+	svc := NewInvestmentFundService(
+		&fakeFundRepo{findByIDResult: fund}, positionRepo, &fakeListingRepo{},
+		&fakeInvestmentRepo{}, redemptionRepo, &fakeAssetOwnershipRepo{},
+		&fakeExchangeRepo{exchange: exchange}, &fakeStockRepo{},
+		&fakeOptionRepo{}, &fakeFuturesRepo{}, &fakeForexRepo{},
+		bankingClient, &fakeFundUserClient{}, nil,
+	)
+
+	err := svc.processPendingRedemption(context.Background(), redemption)
+	require.NoError(t, err)
+	require.Len(t, bankingClient.payments, 1)
+	require.NotNil(t, positionRepo.upserted)
+	require.InDelta(t, 400.0, positionRepo.upserted.UnitsOwned, 0.0001)
+	require.InDelta(t, 400.0, positionRepo.upserted.TotalInvestedAmount, 0.0001)
 }
 
 func TestProcessPendingRedemption_BankingClientFails(t *testing.T) {
