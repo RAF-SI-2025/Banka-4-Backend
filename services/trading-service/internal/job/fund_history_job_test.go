@@ -55,6 +55,10 @@ func (f *fakeFundRepoForJob) UpdateManagerID(ctx context.Context, fromManagerID 
 	return 0, nil
 }
 
+func (f *fakeFundRepoForJob) GetAllPerformanceHistories(ctx context.Context, minSnapshots int) (map[uint][]model.FundPerformance, error) {
+	return map[uint][]model.FundPerformance{}, nil
+}
+
 type dummyBankingClient struct {
 	client.BankingClient
 }

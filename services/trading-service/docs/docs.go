@@ -3232,6 +3232,15 @@ const docTemplate = `{
                 "account_balance": {
                     "type": "number"
                 },
+                "annual_return": {
+                    "type": "number"
+                },
+                "average_market_history": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.FundPerformanceEntry"
+                    }
+                },
                 "description": {
                     "type": "string"
                 },
@@ -3250,6 +3259,9 @@ const docTemplate = `{
                 "manager": {
                     "type": "string"
                 },
+                "max_drawdown": {
+                    "type": "number"
+                },
                 "min_investment": {
                     "type": "number"
                 },
@@ -3263,6 +3275,12 @@ const docTemplate = `{
                     }
                 },
                 "profit": {
+                    "type": "number"
+                },
+                "reward_to_variability": {
+                    "type": "number"
+                },
+                "volatility": {
                     "type": "number"
                 }
             }
@@ -3333,6 +3351,9 @@ const docTemplate = `{
                 "account_number": {
                     "type": "string"
                 },
+                "annual_return": {
+                    "type": "number"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -3351,6 +3372,9 @@ const docTemplate = `{
                 "manager_id": {
                     "type": "integer"
                 },
+                "max_drawdown": {
+                    "type": "number"
+                },
                 "minimum_contribution": {
                     "type": "number"
                 },
@@ -3358,6 +3382,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "profit": {
+                    "type": "number"
+                },
+                "reward_to_variability": {
+                    "type": "number"
+                },
+                "volatility": {
                     "type": "number"
                 }
             }

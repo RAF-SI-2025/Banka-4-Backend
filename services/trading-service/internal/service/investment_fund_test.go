@@ -43,6 +43,9 @@ type fakeFundRepo struct {
 	updateManagerIDErr    error
 
 	savedPerformances []*model.FundPerformance
+
+	getAllPerformanceHistoriesResult map[uint][]model.FundPerformance
+	getAllPerformanceHistoriesErr    error
 }
 
 func (f *fakeFundRepo) FindByName(ctx context.Context, name string) (*model.InvestmentFund, error) {
@@ -93,6 +96,16 @@ func (f *fakeFundRepo) SavePerformanceSnapshot(ctx context.Context, perf *model.
 
 func (f *fakeFundRepo) UpdateManagerID(ctx context.Context, fromManagerID uint, toManagerID uint) (int64, error) {
 	return f.updateManagerIDResult, f.updateManagerIDErr
+}
+
+func (f *fakeFundRepo) GetAllPerformanceHistories(ctx context.Context, minSnapshots int) (map[uint][]model.FundPerformance, error) {
+	if f.getAllPerformanceHistoriesErr != nil {
+		return nil, f.getAllPerformanceHistoriesErr
+	}
+	if f.getAllPerformanceHistoriesResult != nil {
+		return f.getAllPerformanceHistoriesResult, nil
+	}
+	return map[uint][]model.FundPerformance{}, nil
 }
 
 type fakePositionRepo struct {

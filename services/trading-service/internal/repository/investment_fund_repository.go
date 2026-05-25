@@ -18,4 +18,5 @@ type InvestmentFundRepository interface {
 	FindAll(ctx context.Context, name string, sortBy string, sortDir string, page int, pageSize int) ([]model.InvestmentFund, int64, error)
 	FindByManagerID(ctx context.Context, managerID uint) ([]model.InvestmentFund, error)
 	UpdateManagerID(ctx context.Context, fromManagerID uint, toManagerID uint) (int64, error)
+	GetAllPerformanceHistories(ctx context.Context, minSnapshots int) (map[uint][]model.FundPerformance, error)
 }

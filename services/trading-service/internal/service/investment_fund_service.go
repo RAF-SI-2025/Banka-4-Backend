@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -149,10 +150,32 @@ func (s *InvestmentFundService) getLiquidAssets(ctx context.Context, accountNumb
 	return resp.AvailableBalance, nil
 }
 
+// @Param sort_by query string false "Sort by field: name, minimum_contribution, created_at, liquid_assets, annual_return, reward_to_variability, max_drawdown, volatility"
 func (s *InvestmentFundService) GetAllFunds(ctx context.Context, query dto.ListFundsQuery) (*dto.ListFundsResponse, error) {
-	funds, total, err := s.fundRepo.FindAll(ctx, query.Name, query.SortBy, query.SortDir, query.Page, query.PageSize)
+	metricSortFields := map[string]bool{
+		"annual_return":         true,
+		"reward_to_variability": true,
+		"max_drawdown":          true,
+		"volatility":            true,
+	}
+	isMetricSort := metricSortFields[strings.ToLower(query.SortBy)]
+
+	var funds []model.InvestmentFund
+	var total int64
+	var err error
+
+	if isMetricSort {
+		funds, total, err = s.fundRepo.FindAll(ctx, query.Name, "name", "asc", 1, math.MaxInt32)
+	} else {
+		funds, total, err = s.fundRepo.FindAll(ctx, query.Name, query.SortBy, query.SortDir, query.Page, query.PageSize)
+	}
 	if err != nil {
 		return nil, commonErrors.InternalErr(err)
+	}
+
+	allHistories, err := s.fundRepo.GetAllPerformanceHistories(ctx, MinSnapshotsForMetrics)
+	if err != nil {
+		allHistories = map[uint][]model.FundPerformance{}
 	}
 
 	result := make([]dto.FundSummaryResponse, len(funds))
@@ -165,7 +188,35 @@ func (s *InvestmentFundService) GetAllFunds(ctx context.Context, query dto.ListF
 		if err != nil {
 			return nil, commonErrors.InternalErr(err)
 		}
-		result[i] = dto.ToFundSummaryResponse(fund, secVal, liquidAssets)
+
+		metrics := calculateFundMetrics(allHistories[fund.FundID])
+		result[i] = dto.ToFundSummaryResponse(fund, secVal, liquidAssets,
+			metrics.AnnualReturn, metrics.RewardToVariability, metrics.MaxDrawdown, metrics.Volatility)
+	}
+
+	if isMetricSort {
+		switch strings.ToLower(query.SortBy) {
+		case "annual_return":
+			sort.Slice(result, makeMetricSorter(result, func(f dto.FundSummaryResponse) *float64 { return f.AnnualReturn }, query.SortDir))
+		case "reward_to_variability":
+			sort.Slice(result, makeMetricSorter(result, func(f dto.FundSummaryResponse) *float64 { return f.RewardToVariability }, query.SortDir))
+		case "max_drawdown":
+			sort.Slice(result, makeMetricSorter(result, func(f dto.FundSummaryResponse) *float64 { return f.MaxDrawdown }, query.SortDir))
+		case "volatility":
+			sort.Slice(result, makeMetricSorter(result, func(f dto.FundSummaryResponse) *float64 { return f.Volatility }, query.SortDir))
+		}
+
+		total = int64(len(result))
+		start := (query.Page - 1) * query.PageSize
+		if start >= len(result) {
+			result = []dto.FundSummaryResponse{}
+		} else {
+			end := start + query.PageSize
+			if end > len(result) {
+				end = len(result)
+			}
+			result = result[start:end]
+		}
 	}
 
 	return &dto.ListFundsResponse{
@@ -1022,21 +1073,6 @@ func (s *InvestmentFundService) GetFundDetail(ctx context.Context, fundID uint) 
 
 	profit := fundValue - totalInvested
 
-	// 6. Performance history (last 12 entries)
-	perfHistory, err := s.fundRepo.GetPerformanceHistory(ctx, fundID, 12)
-	if err != nil {
-		perfHistory = []model.FundPerformance{}
-	}
-	perfResp := make([]dto.FundPerformanceEntry, len(perfHistory))
-	for i, p := range perfHistory {
-		perfResp[i] = dto.FundPerformanceEntry{
-			Date:         p.Date,
-			Value:        p.FundValue,
-			Profit:       p.Profit,
-			LiquidAssets: p.LiquidAssets,
-		}
-	}
-
 	managerName := fmt.Sprintf("Manager %d", fund.ManagerID)
 	if s.userClient != nil {
 
@@ -1046,17 +1082,63 @@ func (s *InvestmentFundService) GetFundDetail(ctx context.Context, fundID uint) 
 		}
 	}
 
+	allSnapshots, err := s.fundRepo.GetPerformanceHistory(ctx, fundID, 0)
+	if err != nil {
+		allSnapshots = []model.FundPerformance{}
+	}
+
+	for i, j := 0, len(allSnapshots)-1; i < j; i, j = i+1, j-1 {
+		allSnapshots[i], allSnapshots[j] = allSnapshots[j], allSnapshots[i]
+	}
+
+	metrics := calculateFundMetrics(allSnapshots)
+
+	displayHistory := allSnapshots
+	if len(displayHistory) > 12 {
+		displayHistory = displayHistory[len(displayHistory)-12:]
+	}
+
+	perfResp := make([]dto.FundPerformanceEntry, len(displayHistory))
+	for i, p := range displayHistory {
+		perfResp[i] = dto.FundPerformanceEntry{
+			Date:         p.Date,
+			Value:        p.FundValue,
+			Profit:       p.Profit,
+			LiquidAssets: p.LiquidAssets,
+		}
+	}
+
+	allHistories, err := s.fundRepo.GetAllPerformanceHistories(ctx, MinSnapshotsForMetrics)
+	if err != nil {
+		allHistories = map[uint][]model.FundPerformance{}
+	}
+	avgHistory := averagePerformanceHistory(allHistories)
+	avgHistoryResp := make([]dto.FundPerformanceEntry, len(avgHistory))
+	for i, p := range avgHistory {
+		avgHistoryResp[i] = dto.FundPerformanceEntry{
+			Date:         p.Date,
+			Value:        p.FundValue,
+			Profit:       p.Profit,
+			LiquidAssets: p.LiquidAssets,
+		}
+	}
+
 	return &dto.FundDetailResponse{
-		ID:                 fund.FundID,
-		Name:               fund.Name,
-		Description:        fund.Description,
-		Manager:            managerName,
-		FundValue:          fundValue,
-		MinInvestment:      fund.MinimumContribution,
-		Profit:             profit,
-		LiquidAssets:       liquidAssets,
-		Holdings:           holdingsResp,
-		PerformanceHistory: perfResp,
+		ID:                   fund.FundID,
+		Name:                 fund.Name,
+		Description:          fund.Description,
+		Manager:              managerName,
+		FundValue:            fundValue,
+		MinInvestment:        fund.MinimumContribution,
+		Profit:               profit,
+		LiquidAssets:         liquidAssets,
+		Holdings:             holdingsResp,
+		PerformanceHistory:   perfResp,
+		AnnualReturn:         metrics.AnnualReturn,
+		RewardToVariability:  metrics.RewardToVariability,
+		MaxDrawdown:          metrics.MaxDrawdown,
+		Volatility:           metrics.Volatility,
+		AverageMarketHistory: avgHistoryResp,
 	}, nil
 }
 
@@ -1110,4 +1192,30 @@ func (s *InvestmentFundService) CalculateAndSaveDailyHistory(ctx context.Context
 	}
 
 	return nil
+}
+
+func makeMetricSorter(
+	funds []dto.FundSummaryResponse,
+	get func(dto.FundSummaryResponse) *float64,
+	dir string,
+) func(i, j int) bool {
+	desc := strings.ToLower(dir) == "desc"
+	return func(i, j int) bool {
+		vi := get(funds[i])
+		vj := get(funds[j])
+		// nil ide na kraj uvek
+		if vi == nil && vj == nil {
+			return false
+		}
+		if vi == nil {
+			return false
+		}
+		if vj == nil {
+			return true
+		}
+		if desc {
+			return *vi > *vj
+		}
+		return *vi < *vj
+	}
 }

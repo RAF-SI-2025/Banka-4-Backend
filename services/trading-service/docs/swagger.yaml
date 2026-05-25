@@ -336,6 +336,12 @@ definitions:
     properties:
       account_balance:
         type: number
+      annual_return:
+        type: number
+      average_market_history:
+        items:
+          $ref: '#/definitions/dto.FundPerformanceEntry'
+        type: array
       description:
         type: string
       fund_value:
@@ -348,6 +354,8 @@ definitions:
         type: integer
       manager:
         type: string
+      max_drawdown:
+        type: number
       min_investment:
         type: number
       name:
@@ -357,6 +365,10 @@ definitions:
           $ref: '#/definitions/dto.FundPerformanceEntry'
         type: array
       profit:
+        type: number
+      reward_to_variability:
+        type: number
+      volatility:
         type: number
     type: object
   dto.FundPerformanceEntry:
@@ -402,6 +414,8 @@ definitions:
     properties:
       account_number:
         type: string
+      annual_return:
+        type: number
       created_at:
         type: string
       description:
@@ -414,11 +428,17 @@ definitions:
         type: number
       manager_id:
         type: integer
+      max_drawdown:
+        type: number
       minimum_contribution:
         type: number
       name:
         type: string
       profit:
+        type: number
+      reward_to_variability:
+        type: number
+      volatility:
         type: number
     type: object
   dto.FutureDetailedResponse:

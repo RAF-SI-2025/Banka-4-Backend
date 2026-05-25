@@ -85,6 +85,7 @@ func TestMain(m *testing.M) {
 		&model.ClientFundPosition{},
 		&model.ClientFundInvestment{},
 		&model.ClientFundRedemption{},
+		&model.FundPerformance{},
 	); err != nil {
 		log.Fatalf("auto migrate test schema: %v", err)
 	}

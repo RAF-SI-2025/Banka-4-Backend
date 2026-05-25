@@ -17,6 +17,10 @@ type FundSummaryResponse struct {
 	LiquidAssets        float64   `json:"liquid_assets"`
 	AccountNumber       string    `json:"account_number"`
 	CreatedAt           time.Time `json:"created_at"`
+	AnnualReturn        *float64  `json:"annual_return,omitempty"`
+	RewardToVariability *float64  `json:"reward_to_variability,omitempty"`
+	MaxDrawdown         *float64  `json:"max_drawdown,omitempty"`
+	Volatility          *float64  `json:"volatility,omitempty"`
 }
 
 type ListFundsResponse struct {
@@ -35,7 +39,7 @@ type ActuaryFundResponse struct {
 	AccountNumber string  `json:"account_number"`
 }
 
-func ToFundSummaryResponse(fund model.InvestmentFund, securitiesValue, liquidAssets float64) FundSummaryResponse {
+func ToFundSummaryResponse(fund model.InvestmentFund, securitiesValue, liquidAssets float64, annualReturn, rewardToVariability, maxDrawdown, volatility *float64) FundSummaryResponse {
 	fundValue := liquidAssets + securitiesValue
 	var totalInvested float64
 	for _, pos := range fund.Positions {
@@ -53,6 +57,10 @@ func ToFundSummaryResponse(fund model.InvestmentFund, securitiesValue, liquidAss
 		LiquidAssets:        liquidAssets,
 		AccountNumber:       fund.AccountNumber,
 		CreatedAt:           fund.CreatedAt,
+		AnnualReturn:        annualReturn,
+		RewardToVariability: rewardToVariability,
+		MaxDrawdown:         maxDrawdown,
+		Volatility:          volatility,
 	}
 }
 

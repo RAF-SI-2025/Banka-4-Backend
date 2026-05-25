@@ -225,7 +225,7 @@ func (h *InvestmentFundHandler) GetFundDetail(c *gin.Context) {
 	fundIDStr := c.Param("fundId")
 	fundID, err := strconv.ParseUint(fundIDStr, 10, 32)
 	if err != nil {
-		_ = c.Error(err)
+		_ = c.Error(errors.BadRequestErr("invalid fund id"))
 		return
 	}
 
