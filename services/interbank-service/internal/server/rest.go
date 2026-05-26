@@ -27,11 +27,12 @@ func NewServer(
 	cfg *config.Configuration,
 	healthHandler *handler.HealthHandler,
 	interbankHandler *handler.InterbankHandler,
+	peerOtcHandler *handler.PeerOtcHandler,
 	peers *service.PeerResolver,
 ) {
 	r := gin.New()
 	initRouter(r, cfg)
-	setupRoutes(r, healthHandler, interbankHandler, peers)
+	setupRoutes(r, healthHandler, interbankHandler, peerOtcHandler, peers)
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: r}
 	registerLifecycle(lc, srv)
@@ -56,6 +57,7 @@ func setupRoutes(
 	r *gin.Engine,
 	healthHandler *handler.HealthHandler,
 	interbankHandler *handler.InterbankHandler,
+	peerOtcHandler *handler.PeerOtcHandler,
 	peers *service.PeerResolver,
 ) {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -70,7 +72,22 @@ func setupRoutes(
 	interbank := r.Group("/interbank")
 	interbank.Use(middleware.APIKeyAuth(peers))
 	{
+		// §2 transaction protocol.
 		interbank.POST("", interbankHandler.Receive)
+
+		// §3.1 + §3.7 OTC lookups.
+		interbank.GET("/public-stock", peerOtcHandler.PublicStock)
+		interbank.GET("/user/:rn/:id", peerOtcHandler.UserLookup)
+
+		// §3.2–§3.6 OTC negotiation lifecycle.
+		negotiations := interbank.Group("/negotiations")
+		{
+			negotiations.POST("", peerOtcHandler.CreateNegotiation)
+			negotiations.GET("/:rn/:id", peerOtcHandler.GetNegotiation)
+			negotiations.PUT("/:rn/:id", peerOtcHandler.UpdateNegotiation)
+			negotiations.DELETE("/:rn/:id", peerOtcHandler.DeleteNegotiation)
+			negotiations.GET("/:rn/:id/accept", peerOtcHandler.AcceptNegotiation)
+		}
 	}
 }
 

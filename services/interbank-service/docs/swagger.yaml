@@ -99,6 +99,56 @@ definitions:
     - ReasonOptionAmountIncorrect
     - ReasonOptionUsedOrExpired
     - ReasonOptionNegotiationNotFound
+  dto.OtcNegotiation:
+    properties:
+      id:
+        $ref: '#/definitions/dto.ForeignBankId'
+      offer:
+        $ref: '#/definitions/dto.OtcOffer'
+      status:
+        description: ongoing | accepted | cancelled | expired
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  dto.OtcOffer:
+    properties:
+      amount:
+        minimum: 1
+        type: integer
+      buyerId:
+        $ref: '#/definitions/dto.ForeignBankId'
+      lastModifiedBy:
+        $ref: '#/definitions/dto.ForeignBankId'
+      premium:
+        type: number
+      premiumCurrency:
+        maxLength: 8
+        type: string
+      priceCurrency:
+        maxLength: 8
+        type: string
+      pricePerStock:
+        type: number
+      sellerId:
+        $ref: '#/definitions/dto.ForeignBankId'
+      settlementDate:
+        type: string
+      ticker:
+        maxLength: 16
+        type: string
+    required:
+    - amount
+    - buyerId
+    - lastModifiedBy
+    - premium
+    - premiumCurrency
+    - priceCurrency
+    - pricePerStock
+    - sellerId
+    - settlementDate
+    - ticker
+    type: object
   dto.Posting:
     properties:
       account:
@@ -219,4 +269,124 @@ paths:
       summary: Receive an inter-bank message
       tags:
       - interbank
+  /interbank/negotiations:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        §3.2 — peer bank's buyer initiates a negotiation against
+        a seller in our bank. Returns the ForeignBankId of the
+        new negotiation owned by us.
+      parameters:
+      - description: Peer bank API key
+        in: header
+        name: X-Api-Key
+        required: true
+        type: string
+      - description: Initial offer
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.OtcOffer'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ForeignBankId'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Create OTC negotiation (peer-initiated)
+      tags:
+      - interbank-otc
+  /interbank/negotiations/{rn}/{id}:
+    delete:
+      description: §3.5 — STUB. Implementation pending.
+      responses: {}
+      summary: Close OTC negotiation
+      tags:
+      - interbank-otc
+    get:
+      description: |-
+        §3.4 — returns the current state of a negotiation owned by
+        this bank. The :rn path parameter must match this bank's
+        routing number.
+      parameters:
+      - description: Peer bank API key
+        in: header
+        name: X-Api-Key
+        required: true
+        type: string
+      - description: Routing number (this bank)
+        in: path
+        name: rn
+        required: true
+        type: integer
+      - description: Negotiation id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.OtcNegotiation'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Get OTC negotiation
+      tags:
+      - interbank-otc
+    put:
+      description: §3.3 — STUB. Implementation pending.
+      responses: {}
+      summary: Post counter-offer (peer-initiated)
+      tags:
+      - interbank-otc
+  /interbank/negotiations/{rn}/{id}/accept:
+    get:
+      description: |-
+        §3.6 — STUB. Triggers a §2 NEW_TX with the 4 premium +
+        option-pseudo postings. Implementation pending (depends
+        on §2 protocol layer).
+      responses: {}
+      summary: Accept OTC negotiation
+      tags:
+      - interbank-otc
+  /interbank/public-stock:
+    get:
+      description: |-
+        §3.1 — STUB. Will be wired to trading-service for the list
+        of stock holdings marked public for OTC by users in this bank.
+      responses: {}
+      summary: List public stocks
+      tags:
+      - interbank-otc
+  /interbank/user/{rn}/{id}:
+    get:
+      description: §3.7 — STUB. Will be wired to user-service.
+      responses: {}
+      summary: Resolve user display name
+      tags:
+      - interbank-otc
 swagger: "2.0"

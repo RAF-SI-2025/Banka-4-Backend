@@ -71,6 +71,166 @@
                     }
                 }
             }
+        },
+        "/interbank/negotiations": {
+            "post": {
+                "description": "§3.2 — peer bank's buyer initiates a negotiation against\na seller in our bank. Returns the ForeignBankId of the\nnew negotiation owned by us.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "interbank-otc"
+                ],
+                "summary": "Create OTC negotiation (peer-initiated)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Peer bank API key",
+                        "name": "X-Api-Key",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Initial offer",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.OtcOffer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ForeignBankId"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/interbank/negotiations/{rn}/{id}": {
+            "get": {
+                "description": "§3.4 — returns the current state of a negotiation owned by\nthis bank. The :rn path parameter must match this bank's\nrouting number.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "interbank-otc"
+                ],
+                "summary": "Get OTC negotiation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Peer bank API key",
+                        "name": "X-Api-Key",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Routing number (this bank)",
+                        "name": "rn",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Negotiation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OtcNegotiation"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "§3.3 — STUB. Implementation pending.",
+                "tags": [
+                    "interbank-otc"
+                ],
+                "summary": "Post counter-offer (peer-initiated)",
+                "responses": {}
+            },
+            "delete": {
+                "description": "§3.5 — STUB. Implementation pending.",
+                "tags": [
+                    "interbank-otc"
+                ],
+                "summary": "Close OTC negotiation",
+                "responses": {}
+            }
+        },
+        "/interbank/negotiations/{rn}/{id}/accept": {
+            "get": {
+                "description": "§3.6 — STUB. Triggers a §2 NEW_TX with the 4 premium +\noption-pseudo postings. Implementation pending (depends\non §2 protocol layer).",
+                "tags": [
+                    "interbank-otc"
+                ],
+                "summary": "Accept OTC negotiation",
+                "responses": {}
+            }
+        },
+        "/interbank/public-stock": {
+            "get": {
+                "description": "§3.1 — STUB. Will be wired to trading-service for the list\nof stock holdings marked public for OTC by users in this bank.",
+                "tags": [
+                    "interbank-otc"
+                ],
+                "summary": "List public stocks",
+                "responses": {}
+            }
+        },
+        "/interbank/user/{rn}/{id}": {
+            "get": {
+                "description": "§3.7 — STUB. Will be wired to user-service.",
+                "tags": [
+                    "interbank-otc"
+                ],
+                "summary": "Resolve user display name",
+                "responses": {}
+            }
         }
     },
     "definitions": {
@@ -214,6 +374,75 @@
                 "ReasonOptionUsedOrExpired",
                 "ReasonOptionNegotiationNotFound"
             ]
+        },
+        "dto.OtcNegotiation": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "$ref": "#/definitions/dto.ForeignBankId"
+                },
+                "offer": {
+                    "$ref": "#/definitions/dto.OtcOffer"
+                },
+                "status": {
+                    "description": "ongoing | accepted | cancelled | expired",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.OtcOffer": {
+            "type": "object",
+            "required": [
+                "amount",
+                "buyerId",
+                "lastModifiedBy",
+                "premium",
+                "premiumCurrency",
+                "priceCurrency",
+                "pricePerStock",
+                "sellerId",
+                "settlementDate",
+                "ticker"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "buyerId": {
+                    "$ref": "#/definitions/dto.ForeignBankId"
+                },
+                "lastModifiedBy": {
+                    "$ref": "#/definitions/dto.ForeignBankId"
+                },
+                "premium": {
+                    "type": "number"
+                },
+                "premiumCurrency": {
+                    "type": "string",
+                    "maxLength": 8
+                },
+                "priceCurrency": {
+                    "type": "string",
+                    "maxLength": 8
+                },
+                "pricePerStock": {
+                    "type": "number"
+                },
+                "sellerId": {
+                    "$ref": "#/definitions/dto.ForeignBankId"
+                },
+                "settlementDate": {
+                    "type": "string"
+                },
+                "ticker": {
+                    "type": "string",
+                    "maxLength": 16
+                }
+            }
         },
         "dto.Posting": {
             "type": "object",

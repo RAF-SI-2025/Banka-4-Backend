@@ -36,11 +36,14 @@ func main() {
 			repository.NewGormTransactionManager,
 			repository.NewInboundMessageRepository,
 			repository.NewOutboundMessageRepository,
+			repository.NewPeerNegotiationRepository,
 
 			service.NewMessageProcessor,
+			service.NewPeerOtcService,
 
 			handler.NewHealthHandler,
 			handler.NewInterbankHandler,
+			handler.NewPeerOtcHandler,
 		),
 
 		fx.Invoke(func(cfg *config.Configuration) error {
@@ -50,6 +53,7 @@ func main() {
 			return db.AutoMigrate(
 				&model.InboundMessage{},
 				&model.OutboundMessage{},
+				&model.PeerNegotiation{},
 			)
 		}),
 		fx.Invoke(server.NewServer),

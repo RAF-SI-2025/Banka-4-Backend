@@ -6,6 +6,7 @@ require (
 	github.com/RAF-SI-2025/Banka-4-Backend/common v0.0.0-20260321114325-db79371302da
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.12.0
+	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.1
