@@ -44,11 +44,15 @@ func main() {
 				return permission.NewDBPermissionProvider(database)
 			},
 
-			// Trading gRPC klijent
 			client.NewTradingServiceConnection,
 			fx.Annotate(
 				clientgrpc.NewTradingServiceClient,
 				fx.As(new(client.TradingClient)),
+			),
+			client.NewEmailServiceConnection,
+			fx.Annotate(
+				clientgrpc.NewEmailClient,
+				fx.As(new(service.Mailer)),
 			),
 
 			repository.NewIdentityRepository,
@@ -64,7 +68,6 @@ func main() {
 			service.NewEmployeeService,
 			service.NewActuaryService,
 			service.NewClientService,
-			service.NewEmailService,
 			service.NewActuaryLimitScheduler,
 			handler.NewAuthHandler,
 			handler.NewEmployeeHandler,
