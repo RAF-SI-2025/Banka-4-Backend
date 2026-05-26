@@ -3,6 +3,7 @@ go 1.26
 use (
 	common
 	services/banking-service
+	services/email-service
 	services/interbank-service
 	services/trading-service
 	services/user-service

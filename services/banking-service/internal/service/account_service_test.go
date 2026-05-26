@@ -255,8 +255,10 @@ func TestCreateAccount(t *testing.T) {
 		currencyRepo      *fakeCurrencyRepo
 		userClient        *fakeUserClient
 		exchangeConverter *fakeCurrencyConverter
+		mailer            *fakeAccountServiceMailer
 		req               dto.CreateAccountRequest
 		expectErr         bool
+		expectSent        bool
 		errMsg            string
 	}{
 		{
@@ -265,6 +267,8 @@ func TestCreateAccount(t *testing.T) {
 			currencyRepo:      &fakeCurrencyRepo{currency: rsdCurrency()},
 			userClient:        &fakeUserClient{},
 			exchangeConverter: &fakeCurrencyConverter{},
+			mailer:            &fakeAccountServiceMailer{},
+			expectSent:        true,
 			req: dto.CreateAccountRequest{
 				Name:        "My Account",
 				ClientID:    1,
@@ -281,6 +285,8 @@ func TestCreateAccount(t *testing.T) {
 			currencyRepo:      &fakeCurrencyRepo{currency: rsdCurrency()},
 			userClient:        &fakeUserClient{},
 			exchangeConverter: &fakeCurrencyConverter{},
+			mailer:            &fakeAccountServiceMailer{},
+			expectSent:        true,
 			req: dto.CreateAccountRequest{
 				Name:        "Business Account",
 				ClientID:    1,
@@ -298,6 +304,8 @@ func TestCreateAccount(t *testing.T) {
 			currencyRepo:      &fakeCurrencyRepo{currency: eurCurrency()},
 			userClient:        &fakeUserClient{},
 			exchangeConverter: &fakeCurrencyConverter{result: 2500.0},
+			mailer:            &fakeAccountServiceMailer{},
+			expectSent:        true,
 			req: dto.CreateAccountRequest{
 				Name:         "EUR Account",
 				ClientID:     1,
@@ -506,7 +514,7 @@ func TestCreateAccount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := newAccountService(tt.accountRepo, &fakeVerificationTokenRepo{}, tt.currencyRepo, tt.userClient, nil, tt.exchangeConverter, nil)
+			svc := newAccountService(tt.accountRepo, &fakeVerificationTokenRepo{}, tt.currencyRepo, tt.userClient, nil, tt.exchangeConverter, tt.mailer)
 			account, err := svc.Create(context.Background(), tt.req)
 
 			if tt.expectErr {
@@ -523,6 +531,9 @@ func TestCreateAccount(t *testing.T) {
 				require.Equal(t, tt.req.AccountType, account.AccountType)
 				require.Equal(t, tt.req.AccountKind, account.AccountKind)
 				require.Equal(t, tt.currencyRepo.currency.CurrencyID, account.CurrencyID)
+				if tt.expectSent {
+					require.Len(t, tt.mailer.sent, 1)
+				}
 			}
 		})
 	}

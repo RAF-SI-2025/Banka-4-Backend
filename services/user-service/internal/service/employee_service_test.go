@@ -49,6 +49,7 @@ func TestRegister(t *testing.T) {
 		positionRepo *fakePositionRepo
 		mailer       *fakeMailer
 		expectErr    bool
+		expectSent   bool
 		errMsg       string
 	}{
 		{
@@ -57,6 +58,7 @@ func TestRegister(t *testing.T) {
 			identityRepo: &fakeIdentityRepo{},
 			positionRepo: &fakePositionRepo{exists: true},
 			mailer:       &fakeMailer{},
+			expectSent:   true,
 		},
 		{
 			name:         "email already in use",
@@ -124,6 +126,9 @@ func TestRegister(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, emp)
 				require.Equal(t, "Jane", emp.FirstName)
+				if tt.expectSent {
+					require.True(t, tt.mailer.sent)
+				}
 			}
 		})
 	}

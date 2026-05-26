@@ -14,6 +14,7 @@ COPY services/user-service/go.mod services/user-service/go.sum ./services/user-s
 COPY services/banking-service/go.mod services/banking-service/go.sum ./services/banking-service/
 COPY services/trading-service/go.mod services/trading-service/go.sum ./services/trading-service/
 COPY services/interbank-service/go.mod services/interbank-service/go.sum ./services/interbank-service/
+COPY services/email-service/go.mod services/email-service/go.sum ./services/email-service/
 
 WORKDIR /src/services/${SERVICE}
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
