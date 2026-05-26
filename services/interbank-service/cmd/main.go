@@ -40,6 +40,7 @@ func main() {
 
 			service.NewMessageProcessor,
 			service.NewPeerOtcService,
+			service.NewPeerOtcClient,
 
 			handler.NewHealthHandler,
 			handler.NewInterbankHandler,

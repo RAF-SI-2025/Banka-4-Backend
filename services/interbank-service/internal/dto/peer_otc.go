@@ -25,3 +25,24 @@ type OtcNegotiation struct {
 	UpdatedAt string        `json:"updatedAt"`
 	Offer     OtcOffer      `json:"offer"`
 }
+
+// PublicStockSeller is one entry in PublicStock.Sellers — a user at this
+// bank who has flagged some quantity of the stock as public.
+type PublicStockSeller struct {
+	Seller ForeignBankId `json:"seller"`
+	Amount int           `json:"amount"`
+}
+
+// PublicStock is one row in the §3.1 public-stock response. Each unique
+// ticker is reported once with the list of sellers offering it.
+type PublicStock struct {
+	Stock   StockDescription    `json:"stock"`
+	Sellers []PublicStockSeller `json:"sellers"`
+}
+
+// UserInformation is the §3.7 response shape for resolving display names
+// from foreign bank user identifiers.
+type UserInformation struct {
+	BankDisplayName string `json:"bankDisplayName"`
+	DisplayName     string `json:"displayName"`
+}
