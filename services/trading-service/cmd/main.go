@@ -117,6 +117,9 @@ func main() {
 			repository.NewClientFundRedemptionRepository,
 			service.NewInvestmentFundService,
 			handler.NewInvestmentFundHandler,
+			repository.NewWatchlistRepository,
+			service.NewWatchlistService,
+			handler.NewWatchlistHandler,
 			tradinggrpc.NewTradingServiceServer,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
@@ -154,6 +157,8 @@ func main() {
 				&model.ClientFundInvestment{},
 				&model.ClientFundRedemption{},
 				&model.FundPerformance{},
+				&model.Watchlist{},
+				&model.WatchlistItem{},
 			)
 		}),
 		fx.Invoke(func(lc fx.Lifecycle, svc *service.StockService) {

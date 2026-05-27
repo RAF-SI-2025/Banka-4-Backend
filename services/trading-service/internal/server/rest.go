@@ -25,12 +25,12 @@ import (
 	_ "github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/docs"
 )
 
-func NewServer(lc fx.Lifecycle, cfg *config.Configuration, healthHandler *handler.HealthHandler, taxHandler *handler.TaxHandler, exchangeHandler *handler.ExchangeHandler, orderHandler *handler.OrderHandler, portfolioHandler *handler.PortfolioHandler, listingHandler *handler.ListingHandler, otcHandler *handler.OTCHandler, otcOfferHandler *handler.OtcOfferHandler, fundHandler *handler.InvestmentFundHandler, verifier auth.TokenVerifier, permProvider auth.PermissionProvider, userClient client.UserServiceClient) {
+func NewServer(lc fx.Lifecycle, cfg *config.Configuration, healthHandler *handler.HealthHandler, taxHandler *handler.TaxHandler, exchangeHandler *handler.ExchangeHandler, orderHandler *handler.OrderHandler, portfolioHandler *handler.PortfolioHandler, listingHandler *handler.ListingHandler, otcHandler *handler.OTCHandler, otcOfferHandler *handler.OtcOfferHandler, fundHandler *handler.InvestmentFundHandler, watchlistHandler *handler.WatchlistHandler, verifier auth.TokenVerifier, permProvider auth.PermissionProvider, userClient client.UserServiceClient) {
 	r := gin.New()
 
 	InitRouter(r, cfg)
 
-	SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, verifier, permProvider, userClient)
+	SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, verifier, permProvider, userClient)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -58,7 +58,7 @@ func InitRouter(r *gin.Engine, cfg *config.Configuration) {
 	validator.RegisterValidators()
 }
 
-func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler *handler.TaxHandler, exchangeHandler *handler.ExchangeHandler, orderHandler *handler.OrderHandler, portfolioHandler *handler.PortfolioHandler, listingHandler *handler.ListingHandler, otcHandler *handler.OTCHandler, otcOfferHandler *handler.OtcOfferHandler, fundHandler *handler.InvestmentFundHandler, verifier auth.TokenVerifier, permProvider auth.PermissionProvider, userClient client.UserServiceClient) {
+func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler *handler.TaxHandler, exchangeHandler *handler.ExchangeHandler, orderHandler *handler.OrderHandler, portfolioHandler *handler.PortfolioHandler, listingHandler *handler.ListingHandler, otcHandler *handler.OTCHandler, otcOfferHandler *handler.OtcOfferHandler, fundHandler *handler.InvestmentFundHandler, watchlistHandler *handler.WatchlistHandler, verifier auth.TokenVerifier, permProvider auth.PermissionProvider, userClient client.UserServiceClient) {
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -108,6 +108,25 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 				options.GET("", listingHandler.GetOptions)
 				options.GET("/:listingId", listingHandler.GetOptionDetails)
 			}
+		}
+
+		// Watchlists
+		watchlists := api.Group("/watchlists")
+		watchlists.Use(
+			authMw,
+			auth.RequirePermission(permission.Trading),
+			auth.AnyOf(
+				middleware.RequireAgent(userClient),
+				auth.RequireIdentityType(auth.IdentityClient),
+			),
+		)
+		{
+			watchlists.GET("", watchlistHandler.GetWatchlists)
+			watchlists.POST("", watchlistHandler.CreateWatchlist)
+			watchlists.GET("/:watchlistId", watchlistHandler.GetWatchlistDetail)
+			watchlists.DELETE("/:watchlistId", watchlistHandler.DeleteWatchlist)
+			watchlists.POST("/:watchlistId/items", watchlistHandler.AddListing)
+			watchlists.DELETE("/:watchlistId/items/:listingId", watchlistHandler.RemoveListing)
 		}
 		funds := api.Group("/investment-funds")
 		funds.Use(authMw, auth.RequirePermission(permission.Trading))
@@ -203,7 +222,6 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 			orders.PATCH("/:id/approve", middleware.RequireSupervisor(userClient), orderHandler.ApproveOrder)
 			orders.PATCH("/:id/decline", middleware.RequireSupervisor(userClient), orderHandler.DeclineOrder)
 			orders.PATCH("/:id/cancel", orderHandler.CancelOrder)
-			orders.GET("/my", orderHandler.GetMyOrders)
 		}
 
 		tax := api.Group("/tax")
