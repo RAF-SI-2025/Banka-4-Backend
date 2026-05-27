@@ -90,6 +90,8 @@ func TestMain(m *testing.M) {
 		&model.WatchlistItem{},
 		&model.FundPerformance{},
 		&audit.AuditLog{},
+		&model.Watchlist{},
+		&model.WatchlistItem{},
 	); err != nil {
 		log.Fatalf("auto migrate test schema: %v", err)
 	}
