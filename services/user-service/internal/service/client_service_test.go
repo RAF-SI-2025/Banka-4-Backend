@@ -81,6 +81,7 @@ func TestClientRegister(t *testing.T) {
 		tokenRepo    *fakeActivationTokenRepo
 		mailer       *fakeMailer
 		expectErr    bool
+		expectSent   bool
 		errMsg       string
 	}{
 		{
@@ -89,6 +90,7 @@ func TestClientRegister(t *testing.T) {
 			identityRepo: &fakeIdentityRepo{},
 			tokenRepo:    &fakeActivationTokenRepo{},
 			mailer:       &fakeMailer{},
+			expectSent:   true,
 		},
 		{
 			name:         "email already in use",
@@ -163,6 +165,9 @@ func TestClientRegister(t *testing.T) {
 			require.False(t, client.Identity.Active)
 			require.Equal(t, uint(1), client.IdentityID)
 			require.NotEmpty(t, client.MobileVerificationSecret)
+			if tt.expectSent {
+				require.True(t, tt.mailer.sent)
+			}
 		})
 	}
 }

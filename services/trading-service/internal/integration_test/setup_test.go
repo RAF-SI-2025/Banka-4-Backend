@@ -676,3 +676,71 @@ func requireStatus(t *testing.T, recorder *httptest.ResponseRecorder, expected i
 		t.Fatalf("expected status %d, got %d, body=%s", expected, recorder.Code, recorder.Body.String())
 	}
 }
+
+func seedOrderForUser(t *testing.T, db *gorm.DB, userID uint, ownerType model.OwnerType, listingID uint, direction model.OrderDirection, status model.OrderStatus) *model.Order {
+	order := &model.Order{
+		OrderOwnerUserID: userID,
+		OrderOwnerType:   ownerType,
+		AccountNumber:    "444000100000000001",
+		ListingID:        listingID,
+		OrderType:        model.OrderTypeMarket,
+		Direction:        direction,
+		Quantity:         5,
+		Status:           status,
+		IsDone:           status == model.OrderStatusDeclined || status == model.OrderStatusApproved,
+		CommissionExempt: false,
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
+	}
+	if err := db.Create(order).Error; err != nil {
+		t.Fatalf("seed order: %v", err)
+	}
+	return order
+}
+
+func seedOrderWithType(t *testing.T, db *gorm.DB, userID uint, ownerType model.OwnerType, listingID uint, orderType model.OrderType, direction model.OrderDirection, status model.OrderStatus) *model.Order {
+	order := &model.Order{
+		OrderOwnerUserID: userID,
+		OrderOwnerType:   ownerType,
+		AccountNumber:    "444000100000000001",
+		ListingID:        listingID,
+		OrderType:        orderType,
+		Direction:        direction,
+		Quantity:         5,
+		Status:           status,
+		IsDone:           status == model.OrderStatusDeclined || status == model.OrderStatusApproved,
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
+	}
+	if orderType == model.OrderTypeLimit {
+		limit := 100.0
+		order.LimitValue = &limit
+	} else if orderType == model.OrderTypeStop {
+		stop := 90.0
+		order.StopValue = &stop
+	}
+	if err := db.Create(order).Error; err != nil {
+		t.Fatalf("seed order with type: %v", err)
+	}
+	return order
+}
+
+func seedOrderWithCustomDate(t *testing.T, db *gorm.DB, userID uint, ownerType model.OwnerType, listingID uint, direction model.OrderDirection, status model.OrderStatus, createdAt time.Time) *model.Order {
+	order := &model.Order{
+		OrderOwnerUserID: userID,
+		OrderOwnerType:   ownerType,
+		AccountNumber:    "444000100000000001",
+		ListingID:        listingID,
+		OrderType:        model.OrderTypeMarket,
+		Direction:        direction,
+		Quantity:         5,
+		Status:           status,
+		IsDone:           false,
+		CreatedAt:        createdAt,
+		UpdatedAt:        createdAt,
+	}
+	if err := db.Create(order).Error; err != nil {
+		t.Fatalf("seed order with date: %v", err)
+	}
+	return order
+}

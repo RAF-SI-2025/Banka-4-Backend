@@ -4,10 +4,10 @@ package integration_test
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
-
-	"github.com/stretchr/testify/require"
+	"time"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 )
@@ -396,4 +396,213 @@ func TestGetOrders_Unauthorized(t *testing.T) {
 
 	rec := performRequest(t, router, http.MethodGet, "/api/orders", nil, "")
 	require.NotEqual(t, http.StatusOK, rec.Code)
+}
+
+func TestGetMyOrders_Client_Success(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	// Seed listing (stock)
+	ex := seedExchange(t, db, "XNYS")
+	listing := seedListing(t, db, "AAPL", ex.MicCode, model.AssetTypeStock, 150.0)
+	seedStock(t, db, listing.ListingID)
+
+	// Create orders for client with ID 10
+	seedOrderForUser(t, db, 10, model.OwnerTypeClient, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusPending)
+	seedOrderForUser(t, db, 10, model.OwnerTypeClient, listing.ListingID, model.OrderDirectionSell, model.OrderStatusApproved)
+
+	auth := authHeaderForClient(t, 10, 10) // identityID=10, clientID=10
+	rec := performRequest(t, router, http.MethodGet, "/api/orders/my?page=1&page_size=10", nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+
+	resp := decodeResponse[map[string]any](t, rec)
+	data := resp["data"].([]interface{})
+	require.Len(t, data, 2)
+
+	total := resp["total"].(float64)
+	require.Equal(t, float64(2), total)
+}
+
+func TestGetMyOrders_Employee_Success(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	ex := seedExchange(t, db, "XNYS")
+	listing := seedListing(t, db, "MSFT", ex.MicCode, model.AssetTypeStock, 400.0)
+	seedStock(t, db, listing.ListingID)
+
+	// Create orders for employee with identityID=20 (EmployeeID=20)
+	seedOrderForUser(t, db, 20, model.OwnerTypeActuary, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusPending)
+
+	auth := authHeaderForAgent(t) // agent has EmployeeID=20
+	rec := performRequest(t, router, http.MethodGet, "/api/orders/my?page=1&page_size=10", nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+
+	resp := decodeResponse[map[string]any](t, rec)
+	data := resp["data"].([]interface{})
+	require.Len(t, data, 1)
+}
+
+func TestGetMyOrders_FilterByStatus(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	ex := seedExchange(t, db, "XNYS")
+	listing := seedListing(t, db, "AAPL", ex.MicCode, model.AssetTypeStock, 150.0)
+	seedStock(t, db, listing.ListingID)
+
+	seedOrderForUser(t, db, 10, model.OwnerTypeClient, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusPending)
+	seedOrderForUser(t, db, 10, model.OwnerTypeClient, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusApproved)
+
+	auth := authHeaderForClient(t, 10, 10)
+	rec := performRequest(t, router, http.MethodGet, "/api/orders/my?status=PENDING&page=1&page_size=10", nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+
+	resp := decodeResponse[map[string]any](t, rec)
+	data := resp["data"].([]interface{})
+	require.Len(t, data, 1)
+
+	order := data[0].(map[string]interface{})
+	require.Equal(t, "PENDING", order["status"])
+}
+
+func TestGetMyOrders_FilterByOrderType(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	ex := seedExchange(t, db, "XNYS")
+	listing := seedListing(t, db, "AAPL", ex.MicCode, model.AssetTypeStock, 150.0)
+	seedStock(t, db, listing.ListingID)
+
+	// Order with type MARKET
+	seedOrderWithType(t, db, 10, model.OwnerTypeClient, listing.ListingID, model.OrderTypeMarket, model.OrderDirectionBuy, model.OrderStatusPending)
+	// Order with type LIMIT
+	seedOrderWithType(t, db, 10, model.OwnerTypeClient, listing.ListingID, model.OrderTypeLimit, model.OrderDirectionBuy, model.OrderStatusPending)
+
+	auth := authHeaderForClient(t, 10, 10)
+	rec := performRequest(t, router, http.MethodGet, "/api/orders/my?order_type=LIMIT&page=1&page_size=10", nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+
+	resp := decodeResponse[map[string]any](t, rec)
+	data := resp["data"].([]interface{})
+	require.Len(t, data, 1)
+
+	order := data[0].(map[string]interface{})
+	require.Equal(t, "LIMIT", order["order_type"])
+}
+
+func TestGetMyOrders_FilterByAssetType(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	// Stock listing
+	exStock := seedExchange(t, db, "XNYS")
+	stockListing := seedListing(t, db, "AAPL", exStock.MicCode, model.AssetTypeStock, 150.0)
+	seedStock(t, db, stockListing.ListingID)
+
+	// Forex listing (needs asset with type forexPair)
+	exForex := seedExchange(t, db, "FOREX")
+	forexListing := seedListing(t, db, "EUR/USD", exForex.MicCode, model.AssetTypeForexPair, 1.2)
+	// ForexPair may not need additional seed, but asset already has type
+
+	seedOrderForUser(t, db, 10, model.OwnerTypeClient, stockListing.ListingID, model.OrderDirectionBuy, model.OrderStatusPending)
+	seedOrderForUser(t, db, 10, model.OwnerTypeClient, forexListing.ListingID, model.OrderDirectionBuy, model.OrderStatusPending)
+
+	auth := authHeaderForClient(t, 10, 10)
+	rec := performRequest(t, router, http.MethodGet, "/api/orders/my?asset_type=stock&page=1&page_size=10", nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+
+	resp := decodeResponse[map[string]any](t, rec)
+	data := resp["data"].([]interface{})
+	require.Len(t, data, 1)
+
+	order := data[0].(map[string]interface{})
+	require.Equal(t, "AAPL", order["ticker"])
+}
+
+func TestGetMyOrders_FilterByDateRange(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	ex := seedExchange(t, db, "XNYS")
+	listing := seedListing(t, db, "AAPL", ex.MicCode, model.AssetTypeStock, 150.0)
+	seedStock(t, db, listing.ListingID)
+
+	// Create two orders for the client (userID 10)
+	clientID := uint(10)
+	ownerType := model.OwnerTypeClient
+	now := time.Now().UTC()
+	yesterday := now.AddDate(0, 0, -1)
+	tomorrow := now.AddDate(0, 0, 1)
+
+	// Order created today (should be in range)
+	orderToday := seedOrderWithCustomDate(t, db, clientID, ownerType, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusPending, now)
+	// Order created 5 days ago (should be out of range)
+	orderOld := seedOrderWithCustomDate(t, db, clientID, ownerType, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusPending, now.AddDate(0, 0, -5))
+	_ = orderOld // to avoid unused variable warning
+
+	auth := authHeaderForClient(t, 10, 10)
+	from := yesterday.Format("2006-01-02")
+	to := tomorrow.Format("2006-01-02")
+	url := fmt.Sprintf("/api/orders/my?from_date=%s&to_date=%s&page=1&page_size=10", from, to)
+	rec := performRequest(t, router, http.MethodGet, url, nil, auth)
+	requireStatus(t, rec, http.StatusOK)
+
+	resp := decodeResponse[map[string]any](t, rec)
+	data := resp["data"].([]interface{})
+	require.Len(t, data, 1) // Only the order from today should be returned
+
+	// Optional: verify it's the correct order
+	orderMap := data[0].(map[string]interface{})
+	require.Equal(t, float64(orderToday.OrderID), orderMap["order_id"])
+}
+
+func TestGetMyOrders_Pagination(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	ex := seedExchange(t, db, "XNYS")
+	listing := seedListing(t, db, "AAPL", ex.MicCode, model.AssetTypeStock, 150.0)
+	seedStock(t, db, listing.ListingID)
+
+	// Create 3 orders
+	for i := 0; i < 3; i++ {
+		seedOrderForUser(t, db, 10, model.OwnerTypeClient, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusPending)
+	}
+
+	auth := authHeaderForClient(t, 10, 10)
+
+	// First page, size 2
+	rec1 := performRequest(t, router, http.MethodGet, "/api/orders/my?page=1&page_size=2", nil, auth)
+	requireStatus(t, rec1, http.StatusOK)
+	resp1 := decodeResponse[map[string]any](t, rec1)
+	data1 := resp1["data"].([]interface{})
+	require.Len(t, data1, 2)
+	require.Equal(t, float64(3), resp1["total"])
+	require.Equal(t, float64(1), resp1["page"])
+	require.Equal(t, float64(2), resp1["page_size"])
+
+	// Second page, size 2
+	rec2 := performRequest(t, router, http.MethodGet, "/api/orders/my?page=2&page_size=2", nil, auth)
+	requireStatus(t, rec2, http.StatusOK)
+	resp2 := decodeResponse[map[string]any](t, rec2)
+	data2 := resp2["data"].([]interface{})
+	require.Len(t, data2, 1) // third order
+}
+
+// TestGetMyOrders_Unauthorized – no token returns 401
+func TestGetMyOrders_Unauthorized(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	rec := performRequest(t, router, http.MethodGet, "/api/orders/my", nil, "")
+	requireStatus(t, rec, http.StatusUnauthorized)
 }

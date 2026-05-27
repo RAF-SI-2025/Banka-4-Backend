@@ -15,6 +15,7 @@ type DBConfig struct {
 	User     string
 	Password string
 	DBName   string
+	SSLMode  string
 }
 
 type URLConfig struct {
@@ -23,7 +24,7 @@ type URLConfig struct {
 }
 
 func (c *DBConfig) DSN() string {
-	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", c.Host, c.Port, c.User, c.Password, c.DBName)
+	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode)
 }
 
 type Configuration struct {
@@ -90,6 +91,7 @@ func Load() *Configuration {
 			User:     GetOrThrow("DB_USER"),
 			Password: GetOrThrow("DB_PASS"),
 			DBName:   GetOrThrow("DB_NAME"),
+			SSLMode:  GetOrDefault("DB_SSLMODE", "disable"),
 		},
 		URLs: URLConfig{
 			FrontendBaseURL: GetOrDefault("FRONTEND_BASE_URL", "http://localhost:5173"),

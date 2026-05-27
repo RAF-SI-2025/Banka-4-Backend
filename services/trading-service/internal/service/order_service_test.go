@@ -41,6 +41,14 @@ type fakeOrderRepo struct {
 	// captured
 	capturedOrder  *model.Order
 	capturedUserID *uint
+
+	// new fields for FindUserOrders
+	userOrders          []model.Order
+	userOrdersTotal     int64
+	userOrdersErr       error
+	capturedUserQuery   dto.UserOrdersQuery
+	capturedUserIDOrder uint
+	capturedOwnerType   model.OwnerType
 }
 
 func (r *fakeOrderRepo) FindAll(_ context.Context, _, _ int, userID *uint, _ *model.OwnerType, _ *model.OrderStatus, _ *model.OrderDirection, _ *bool) ([]model.Order, int64, error) {
@@ -64,6 +72,13 @@ func (r *fakeOrderRepo) Save(_ context.Context, order *model.Order) error {
 
 func (r *fakeOrderRepo) FindReadyForExecution(_ context.Context, _ time.Time, _ int) ([]model.Order, error) {
 	return r.readyOrders, r.readyErr
+}
+
+func (r *fakeOrderRepo) FindUserOrders(ctx context.Context, userID uint, ownerType model.OwnerType, query dto.UserOrdersQuery) ([]model.Order, int64, error) {
+	r.capturedUserIDOrder = userID
+	r.capturedOwnerType = ownerType
+	r.capturedUserQuery = query
+	return r.userOrders, r.userOrdersTotal, r.userOrdersErr
 }
 
 // ── Fake Order Transaction Repository ─────────────────────────────
@@ -2616,4 +2631,195 @@ func TestCreateFundLiquidationOrder_UsesFundOrderSemantics(t *testing.T) {
 	require.Equal(t, model.OrderDirectionSell, order.Direction)
 	require.True(t, order.CommissionExempt)
 	require.Equal(t, model.OrderStatusApproved, order.Status)
+}
+
+// newTestOrderServiceForMyOrders creates an OrderService with fake dependencies,
+// allowing us to pass a custom orderRepo and other mocks only when needed.
+func newTestOrderServiceForMyOrders(
+	orderRepo *fakeOrderRepo,
+	userClient *fakeUserServiceClient,
+	bankingClient *fakeOrderBankingClient,
+) *OrderService {
+	// Minimal fakes for required dependencies
+	orderTxRepo := &fakeOrderTransactionRepo{}
+	exchangeRepo := &fakeExchangeRepo{}
+	listingRepo := &fakeListingRepo{}
+	taxRecorder := &fakeTaxRecorder{}
+	assetOwnershipRepo := &fakeAssetOwnershipRepo{}
+	futuresRepo := &fakeFuturesRepo{}
+	optionRepo := &fakeOptionRepo{}
+	fundRepo := &fakeFundRepo{}
+
+	return NewOrderService(
+		orderRepo, orderTxRepo, exchangeRepo, listingRepo,
+		assetOwnershipRepo, futuresRepo, optionRepo, fundRepo,
+		userClient, bankingClient, taxRecorder,
+	)
+}
+
+// TestGetMyOrders_Success_Client tests that a client can retrieve their own orders.
+func TestGetMyOrders_Success_Client(t *testing.T) {
+	userID := uint(10)
+	ownerType := model.OwnerTypeClient
+	expectedOrders := []model.Order{
+		{OrderID: 1, OrderOwnerUserID: userID, OrderOwnerType: ownerType, Status: model.OrderStatusApproved},
+		{OrderID: 2, OrderOwnerUserID: userID, OrderOwnerType: ownerType, Status: model.OrderStatusPending},
+	}
+	fakeRepo := &fakeOrderRepo{
+		userOrders:      expectedOrders,
+		userOrdersTotal: 2,
+	}
+	svc := newTestOrderServiceForMyOrders(fakeRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+
+	ctx := clientAuthCtx() // provides client ID 10
+	query := dto.UserOrdersQuery{Page: 1, PageSize: 10}
+
+	orders, total, err := svc.GetMyOrders(ctx, query, userID, ownerType)
+	require.NoError(t, err)
+	require.Len(t, orders, 2)
+	require.Equal(t, int64(2), total)
+
+	// Verify repo received correct parameters
+	require.Equal(t, userID, fakeRepo.capturedUserIDOrder)
+	require.Equal(t, ownerType, fakeRepo.capturedOwnerType)
+	require.Equal(t, query.Page, fakeRepo.capturedUserQuery.Page)
+}
+
+// TestGetMyOrders_Success_Employee tests that an employee (actuary) can retrieve their own orders.
+func TestGetMyOrders_Success_Employee(t *testing.T) {
+	userID := uint(20)
+	ownerType := model.OwnerTypeActuary
+	expectedOrders := []model.Order{
+		{OrderID: 3, OrderOwnerUserID: userID, OrderOwnerType: ownerType, Status: model.OrderStatusApproved},
+	}
+	fakeRepo := &fakeOrderRepo{
+		userOrders:      expectedOrders,
+		userOrdersTotal: 1,
+	}
+	svc := newTestOrderServiceForMyOrders(fakeRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+
+	ctx := employeeAuthCtx(userID) // employee with ID 20
+	query := dto.UserOrdersQuery{Page: 1, PageSize: 10}
+
+	orders, total, err := svc.GetMyOrders(ctx, query, userID, ownerType)
+	require.NoError(t, err)
+	require.Len(t, orders, 1)
+	require.Equal(t, int64(1), total)
+}
+
+// TestGetMyOrders_FilterByStatus tests filtering by order status.
+func TestGetMyOrders_FilterByStatus(t *testing.T) {
+	userID := uint(10)
+	ownerType := model.OwnerTypeClient
+	fakeRepo := &fakeOrderRepo{userOrdersTotal: 0}
+	svc := newTestOrderServiceForMyOrders(fakeRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+
+	ctx := clientAuthCtx()
+	status := model.OrderStatusPending
+	query := dto.UserOrdersQuery{Status: &status, Page: 1, PageSize: 10}
+
+	_, _, err := svc.GetMyOrders(ctx, query, userID, ownerType)
+	require.NoError(t, err)
+	require.Equal(t, status, *fakeRepo.capturedUserQuery.Status)
+}
+
+// TestGetMyOrders_FilterByOrderType tests filtering by order type.
+func TestGetMyOrders_FilterByOrderType(t *testing.T) {
+	userID := uint(10)
+	ownerType := model.OwnerTypeClient
+	fakeRepo := &fakeOrderRepo{userOrdersTotal: 0}
+	svc := newTestOrderServiceForMyOrders(fakeRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+
+	ctx := clientAuthCtx()
+	orderType := model.OrderTypeLimit
+	query := dto.UserOrdersQuery{OrderType: &orderType, Page: 1, PageSize: 10}
+
+	_, _, err := svc.GetMyOrders(ctx, query, userID, ownerType)
+	require.NoError(t, err)
+	require.Equal(t, orderType, *fakeRepo.capturedUserQuery.OrderType)
+}
+
+// TestGetMyOrders_FilterByAssetType tests filtering by asset type.
+func TestGetMyOrders_FilterByAssetType(t *testing.T) {
+	userID := uint(10)
+	ownerType := model.OwnerTypeClient
+	fakeRepo := &fakeOrderRepo{userOrdersTotal: 0}
+	svc := newTestOrderServiceForMyOrders(fakeRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+
+	ctx := clientAuthCtx()
+	assetType := model.AssetTypeStock
+	query := dto.UserOrdersQuery{AssetType: &assetType, Page: 1, PageSize: 10}
+
+	_, _, err := svc.GetMyOrders(ctx, query, userID, ownerType)
+	require.NoError(t, err)
+	require.Equal(t, assetType, *fakeRepo.capturedUserQuery.AssetType)
+}
+
+// TestGetMyOrders_FilterByDateRange tests date range filtering.
+func TestGetMyOrders_FilterByDateRange(t *testing.T) {
+	userID := uint(10)
+	ownerType := model.OwnerTypeClient
+	fakeRepo := &fakeOrderRepo{userOrdersTotal: 0}
+	svc := newTestOrderServiceForMyOrders(fakeRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+
+	ctx := clientAuthCtx()
+	from := time.Now().AddDate(0, 0, -7)
+	to := time.Now()
+	query := dto.UserOrdersQuery{FromDate: &from, ToDate: &to, Page: 1, PageSize: 10}
+
+	_, _, err := svc.GetMyOrders(ctx, query, userID, ownerType)
+	require.NoError(t, err)
+	require.Equal(t, from, *fakeRepo.capturedUserQuery.FromDate)
+	require.Equal(t, to, *fakeRepo.capturedUserQuery.ToDate)
+}
+
+// TestGetMyOrders_Pagination tests that page and page_size are passed correctly.
+func TestGetMyOrders_Pagination(t *testing.T) {
+	userID := uint(10)
+	ownerType := model.OwnerTypeClient
+	fakeRepo := &fakeOrderRepo{userOrdersTotal: 0}
+	svc := newTestOrderServiceForMyOrders(fakeRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+
+	ctx := clientAuthCtx()
+	query := dto.UserOrdersQuery{Page: 2, PageSize: 5}
+
+	_, _, err := svc.GetMyOrders(ctx, query, userID, ownerType)
+	require.NoError(t, err)
+	require.Equal(t, 2, fakeRepo.capturedUserQuery.Page)
+	require.Equal(t, 5, fakeRepo.capturedUserQuery.PageSize)
+}
+
+// TestGetMyOrders_NoOrders tests empty result.
+func TestGetMyOrders_NoOrders(t *testing.T) {
+	userID := uint(10)
+	ownerType := model.OwnerTypeClient
+	fakeRepo := &fakeOrderRepo{
+		userOrders:      []model.Order{},
+		userOrdersTotal: 0,
+	}
+	svc := newTestOrderServiceForMyOrders(fakeRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+
+	ctx := clientAuthCtx()
+	query := dto.UserOrdersQuery{Page: 1, PageSize: 10}
+
+	orders, total, err := svc.GetMyOrders(ctx, query, userID, ownerType)
+	require.NoError(t, err)
+	require.Empty(t, orders)
+	require.Equal(t, int64(0), total)
+}
+
+// TestGetMyOrders_RepoError tests repository error handling.
+func TestGetMyOrders_RepoError(t *testing.T) {
+	userID := uint(10)
+	ownerType := model.OwnerTypeClient
+	fakeRepo := &fakeOrderRepo{
+		userOrdersErr: errors.New("database error"),
+	}
+	svc := newTestOrderServiceForMyOrders(fakeRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+
+	ctx := clientAuthCtx()
+	query := dto.UserOrdersQuery{Page: 1, PageSize: 10}
+
+	_, _, err := svc.GetMyOrders(ctx, query, userID, ownerType)
+	require.Error(t, err)
 }

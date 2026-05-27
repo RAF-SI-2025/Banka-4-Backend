@@ -88,3 +88,27 @@ func ToOrderResponseList(orders []model.Order) []OrderResponse {
 	}
 	return result
 }
+
+type UserOrderResponse struct {
+	OrderID           uint              `json:"order_id"`
+	OrderType         model.OrderType   `json:"order_type"`
+	Ticker            string            `json:"ticker"`
+	ListingName       string            `json:"listing_name"`
+	Quantity          uint              `json:"quantity"`
+	PricePerUnit      *float64          `json:"price_per_unit,omitempty"`
+	Status            model.OrderStatus `json:"status"`
+	CreatedAt         time.Time         `json:"created_at"`
+	ExecutionDate     *time.Time        `json:"execution_date,omitempty"`
+	CommissionCharged bool              `json:"commission_charged"`
+	AssetType         model.AssetType   `json:"asset_type"`
+}
+
+type UserOrdersQuery struct {
+	Status    *model.OrderStatus `form:"status"`
+	OrderType *model.OrderType   `form:"order_type"`
+	AssetType *model.AssetType   `form:"asset_type"`
+	FromDate  *time.Time         `form:"from_date" time_format:"2006-01-02"`
+	ToDate    *time.Time         `form:"to_date" time_format:"2006-01-02"`
+	Page      int                `form:"page,default=1"`
+	PageSize  int                `form:"page_size,default=20"`
+}

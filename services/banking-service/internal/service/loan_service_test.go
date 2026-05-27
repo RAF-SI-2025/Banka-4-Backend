@@ -15,10 +15,14 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
 )
 
-type fakeMailer struct{}
+type fakeMailer struct {
+	sent    bool
+	sendErr error
+}
 
 func (f *fakeMailer) Send(to, subject, body string) error {
-	return nil
+	f.sent = true
+	return f.sendErr
 }
 
 type fakeLoanRequestRepo struct {
@@ -321,6 +325,7 @@ func TestSubmitLoanRequest(t *testing.T) {
 		mailer          *fakeMailer
 		req             *dto.CreateLoanRequest
 		expectErr       bool
+		expectSent      bool
 		errMsg          string
 	}{
 		{
@@ -331,6 +336,7 @@ func TestSubmitLoanRequest(t *testing.T) {
 			loanRequestRepo: &fakeLoanRequestRepo{},
 			userClient:      &fakeUserClient{},
 			mailer:          &fakeMailer{},
+			expectSent:      true,
 			req: &dto.CreateLoanRequest{
 				AccountNumber:   "4440001100000001",
 				LoanTypeID:      1,
@@ -458,6 +464,9 @@ func TestSubmitLoanRequest(t *testing.T) {
 			require.NotNil(t, resp)
 			require.Equal(t, model.LoanRequestPending, resp.Status)
 			require.Greater(t, resp.MonthlyInstallment, 0.0)
+			if tt.expectSent {
+				require.True(t, tt.mailer.sent)
+			}
 		})
 	}
 }
@@ -473,6 +482,7 @@ func TestApproveLoanRequest(t *testing.T) {
 		mailer          *fakeMailer
 		id              uint
 		expectErr       bool
+		expectSent      bool
 		errMsg          string
 	}{
 		{
@@ -492,6 +502,7 @@ func TestApproveLoanRequest(t *testing.T) {
 			userClient: &fakeUserClient{},
 			mailer:     &fakeMailer{},
 			id:         1,
+			expectSent: true,
 		},
 		{
 			name:            "request not found",
@@ -573,6 +584,9 @@ func TestApproveLoanRequest(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, model.LoanRequestApproved, tt.loanRequestRepo.updated.Status)
+			if tt.expectSent {
+				require.True(t, tt.mailer.sent)
+			}
 		})
 	}
 }
@@ -588,6 +602,7 @@ func TestRejectLoanRequest(t *testing.T) {
 		mailer          *fakeMailer
 		id              uint
 		expectErr       bool
+		expectSent      bool
 		errMsg          string
 	}{
 		{
@@ -599,6 +614,7 @@ func TestRejectLoanRequest(t *testing.T) {
 			userClient: &fakeUserClient{},
 			mailer:     &fakeMailer{},
 			id:         1,
+			expectSent: true,
 		},
 		{
 			name:            "request not found",
@@ -640,6 +656,9 @@ func TestRejectLoanRequest(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, model.LoanRequestRejected, tt.loanRequestRepo.updated.Status)
+			if tt.expectSent {
+				require.True(t, tt.mailer.sent)
+			}
 		})
 	}
 }

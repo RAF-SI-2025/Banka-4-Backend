@@ -65,6 +65,13 @@ func main() {
 				clientgrpc.NewUserServiceClient,
 				fx.As(new(client.UserClient)),
 			),
+
+			// Email gRPC client
+			client.NewEmailServiceConnection,
+			fx.Annotate(
+				clientgrpc.NewEmailClient,
+				fx.As(new(service.Mailer)),
+			),
 			func(conn *grpc.ClientConn) pb.PermissionServiceClient {
 				return pb.NewPermissionServiceClient(conn)
 			},
@@ -99,7 +106,6 @@ func main() {
 			service.NewTransactionProcessor,
 			service.NewOtcFundsService,
 			service.NewCardService,
-			service.NewEmailService,
 			service.NewLoanService,
 			service.NewLoanScheduler,
 			handler.NewAccountHandler,

@@ -1786,51 +1786,64 @@
         },
         "/api/orders": {
             "get": {
-                "description": "Returns a paginated and filtered list of orders. Clients see only their own orders, employees see all.",
+                "description": "Returns a paginated list of orders belonging to the authenticated client or actuary",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "orders"
                 ],
-                "summary": "Get all orders",
+                "summary": "Get orders for the authenticated user",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Page number",
+                        "description": "Page number (default: 1)",
                         "name": "page",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Page size",
+                        "description": "Page size (default: 20, max: 100)",
                         "name": "page_size",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Filter by status (PENDING, APPROVED, DECLINED)",
+                        "description": "Filter by order status",
                         "name": "status",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Filter by direction (BUY, SELL)",
-                        "name": "direction",
+                        "description": "Filter by order type",
+                        "name": "order_type",
                         "in": "query"
                     },
                     {
-                        "type": "boolean",
-                        "description": "Filter by completion status",
-                        "name": "is_done",
+                        "type": "string",
+                        "description": "Filter by asset type",
+                        "name": "asset_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter orders created after this date (RFC3339)",
+                        "name": "from_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter orders created before this date (RFC3339)",
+                        "name": "to_date",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "data, total, page, page_size",
                         "schema": {
-                            "$ref": "#/definitions/dto.ListOrdersResponse"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "400": {
@@ -1841,6 +1854,12 @@
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/errors.AppError"
                         }

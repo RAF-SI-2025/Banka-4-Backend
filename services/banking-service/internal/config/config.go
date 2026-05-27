@@ -16,14 +16,7 @@ type DBConfig struct {
 	User     string
 	Password string
 	DBName   string
-}
-
-type SMTPConfig struct {
-	Host string
-	Port string
-	User string
-	Pass string
-	From string
+	SSLMode  string
 }
 
 type URLConfig struct {
@@ -39,18 +32,18 @@ type RedisConfig struct {
 }
 
 func (c *DBConfig) DSN() string {
-	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", c.Host, c.Port, c.User, c.Password, c.DBName)
+	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode)
 }
 
 type Configuration struct {
 	Env                string
 	Port               string
 	DB                 DBConfig
-	SMTP               SMTPConfig
 	JWTSecret          string
-	GrpcPort           string // reserved for future banking-service gRPC endpoints
+	GrpcPort           string
 	UserServiceAddr    string
 	UserServiceBaseURL string
+	EmailServiceAddr   string
 	ExchangeRateAPIKey string
 	URLs               URLConfig
 	Redis              RedisConfig
@@ -111,6 +104,7 @@ func Load() *Configuration {
 		JWTSecret:          GetOrThrow("JWT_SECRET"),
 		UserServiceAddr:    GetOrDefault("USER_SERVICE_ADDR", "localhost:50051"),
 		UserServiceBaseURL: GetOrDefault("USER_SERVICE_BASE_URL", "http://localhost:8080"),
+		EmailServiceAddr:   GetOrDefault("EMAIL_SERVICE_ADDR", "localhost:50054"),
 		ExchangeRateAPIKey: GetOrThrow("EXCHANGE_RATE_API_KEY"),
 		DB: DBConfig{
 			Host:     GetOrThrow("DB_HOST"),
@@ -118,13 +112,7 @@ func Load() *Configuration {
 			User:     GetOrThrow("DB_USER"),
 			Password: GetOrThrow("DB_PASS"),
 			DBName:   GetOrThrow("DB_NAME"),
-		},
-		SMTP: SMTPConfig{
-			Host: GetOrThrow("SMTP_HOST"),
-			Port: GetOrDefault("SMTP_PORT", "587"),
-			User: GetOrDefault("SMTP_USER", ""),
-			Pass: GetOrDefault("SMTP_PASS", ""),
-			From: GetOrThrow("EMAIL_FROM"),
+			SSLMode:  GetOrDefault("DB_SSLMODE", "disable"),
 		},
 		URLs: URLConfig{
 			FrontendBaseURL: GetOrDefault("FRONTEND_BASE_URL", "http://localhost:5173"),
