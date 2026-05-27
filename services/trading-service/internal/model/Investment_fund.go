@@ -20,6 +20,7 @@ type ClientFundPosition struct {
 	Fund                *InvestmentFund `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
 	ClientID            uint            `gorm:"not null;uniqueIndex:idx_fund_client"`
 	OwnerType           OwnerType       `gorm:"not null;size:10;uniqueIndex:idx_fund_client;default:'CLIENT'"`
+	UnitsOwned          float64         `gorm:"not null;default:0"`
 	TotalInvestedAmount float64         `gorm:"not null;default:0"`
 	UpdatedAt           time.Time       `gorm:"not null"`
 }

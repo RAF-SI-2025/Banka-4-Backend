@@ -1330,3 +1330,48 @@ func (s *OrderService) validateSettlementDate(ctx context.Context, listing *mode
 
 	return nil
 }
+
+func (s *OrderService) GetMyOrders(ctx context.Context, query dto.UserOrdersQuery, userID uint, ownerType model.OwnerType) ([]dto.UserOrderResponse, int64, error) {
+	orders, total, err := s.orderRepo.FindUserOrders(ctx, userID, ownerType, query)
+	if err != nil {
+		return nil, 0, errors.InternalErr(err)
+	}
+
+	responses := make([]dto.UserOrderResponse, len(orders))
+	for i, o := range orders {
+
+		var execDate *time.Time
+		if o.IsDone {
+			execDate = &o.UpdatedAt
+		}
+
+		assetType := model.AssetType("")
+		if o.Listing.Asset != nil {
+			assetType = o.Listing.Asset.AssetType
+		}
+		responses[i] = dto.UserOrderResponse{
+			OrderID:   o.OrderID,
+			OrderType: o.OrderType,
+			Ticker: func() string {
+				if o.Listing.Asset != nil {
+					return o.Listing.Asset.Ticker
+				}
+				return ""
+			}(),
+			ListingName: func() string {
+				if o.Listing.Asset != nil {
+					return o.Listing.Asset.Name
+				}
+				return ""
+			}(),
+			Quantity:          o.Quantity,
+			PricePerUnit:      o.PricePerUnit,
+			Status:            o.Status,
+			CreatedAt:         o.CreatedAt,
+			ExecutionDate:     execDate,
+			CommissionCharged: o.CommissionCharged,
+			AssetType:         assetType,
+		}
+	}
+	return responses, total, nil
+}

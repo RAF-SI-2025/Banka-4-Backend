@@ -203,6 +203,7 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 			orders.PATCH("/:id/approve", middleware.RequireSupervisor(userClient), orderHandler.ApproveOrder)
 			orders.PATCH("/:id/decline", middleware.RequireSupervisor(userClient), orderHandler.DeclineOrder)
 			orders.PATCH("/:id/cancel", orderHandler.CancelOrder)
+			orders.GET("/my", orderHandler.GetMyOrders)
 		}
 
 		tax := api.Group("/tax")

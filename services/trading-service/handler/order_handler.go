@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"github.com/gin-gonic/gin"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
@@ -203,4 +205,79 @@ func parseOrderID(c *gin.Context) (uint, error) {
 	}
 
 	return uint(id), nil
+}
+
+// GetMyOrders godoc
+// @Summary Get orders for the authenticated user
+// @Description Returns a paginated list of orders belonging to the authenticated client or actuary
+// @Tags orders
+// @Produce json
+// @Param page query int false "Page number (default: 1)"
+// @Param page_size query int false "Page size (default: 20, max: 100)"
+// @Param status query string false "Filter by order status"
+// @Param order_type query string false "Filter by order type"
+// @Param asset_type query string false "Filter by asset type"
+// @Param from_date query string false "Filter orders created after this date (RFC3339)"
+// @Param to_date query string false "Filter orders created before this date (RFC3339)"
+// @Success 200 {object} map[string]interface{} "data, total, page, page_size"
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Router /api/orders [get]
+func (h *OrderHandler) GetMyOrders(c *gin.Context) {
+	authCtx := auth.GetAuthFromContext(c.Request.Context())
+	if authCtx == nil {
+		c.JSON(http.StatusUnauthorized, errors.UnauthorizedErr("not authenticated"))
+		return
+	}
+
+	var query dto.UserOrdersQuery
+	if err := c.ShouldBindQuery(&query); err != nil {
+		c.JSON(http.StatusBadRequest, errors.BadRequestErr("invalid query parameters"))
+		return
+	}
+
+	if query.Page < 1 {
+		query.Page = 1
+	}
+	if query.PageSize < 1 || query.PageSize > 100 {
+		query.PageSize = 20
+	}
+
+	var userID uint
+	var ownerType model.OwnerType
+
+	switch authCtx.IdentityType {
+	case auth.IdentityClient:
+		if authCtx.ClientID == nil {
+			c.JSON(http.StatusUnauthorized, errors.UnauthorizedErr("client id missing"))
+			return
+		}
+		userID = *authCtx.ClientID
+		ownerType = model.OwnerTypeClient
+	case auth.IdentityEmployee:
+
+		if authCtx.EmployeeID == nil {
+			c.JSON(http.StatusUnauthorized, errors.UnauthorizedErr("employee id missing"))
+			return
+		}
+		userID = *authCtx.EmployeeID
+		ownerType = model.OwnerTypeActuary
+	default:
+		c.JSON(http.StatusForbidden, errors.ForbiddenErr("invalid identity type"))
+		return
+	}
+
+	responses, total, err := h.service.GetMyOrders(c.Request.Context(), query, userID, ownerType)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data":      responses,
+		"total":     total,
+		"page":      query.Page,
+		"page_size": query.PageSize,
+	})
 }

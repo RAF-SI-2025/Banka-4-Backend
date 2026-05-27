@@ -58,6 +58,7 @@ func InvestmentFunds(db *gorm.DB) error {
 			ClientID:            funds[i].ManagerID,
 			OwnerType:           model.OwnerTypeActuary,
 			FundID:              funds[i].FundID,
+			UnitsOwned:          1500000,
 			TotalInvestedAmount: 1500000,
 			UpdatedAt:           now,
 		}
@@ -74,55 +75,109 @@ func InvestmentFunds(db *gorm.DB) error {
 		}
 	}
 
-	// --- ASSUME first fund exists ---
-	var fund model.InvestmentFund
-	if err := db.First(&fund, "name = ?", "Alpha Growth Fund").Error; err != nil {
-		return err
+	// Seed performance history.
+	// 13 monthly snapshots per fund (MinSnapshotsForMetrics = 12).
+	// Values are hand-crafted with realistic oscillations so that all 4 metrics
+	// are non-trivial:
+	//   Alpha: ~73% annual return, ~14% volatility, RtV ~5.2, max drawdown -7.14%
+	//   Beta:  ~11% annual return,  ~0.7% volatility, RtV ~16.4, max drawdown  0%
+
+	type perfSeed struct {
+		fundName string
+		// values[0] = 12 months ago (oldest), values[12] = current month (newest)
+		values       []float64
+		liquidRatios []float64
 	}
 
-	// -------------------------------
-	// 2. Seed Fund Performance (last 3 days)
-	// -------------------------------
-	performances := []model.FundPerformance{
+	perfSeeds := []perfSeed{
 		{
-			FundID:       fund.FundID,
-			Date:         now.AddDate(0, 0, -2),
-			FundValue:    200000,
-			LiquidAssets: 20000,
-			Profit:       5000,
-			CreatedAt:    now,
+			fundName: "Alpha Growth Fund",
+			// Aggressive growth with one drawdown in month 8 (index 7->8)
+			// Expected: annual_return~73%, volatility~14%, RtV~5.2, max_drawdown~-7.14%
+			values: []float64{
+				1500000.00, // month -12
+				1590000.00, // month -11  +6.0%
+				1650000.00, // month -10  +3.8%
+				1750000.00, // month  -9  +6.1%
+				1820000.00, // month  -8  +4.0%
+				1900000.00, // month  -7  +4.4%
+				2050000.00, // month  -6  +7.9%
+				2100000.00, // month  -5  +2.4%
+				1950000.00, // month  -4  -7.1%  <- drawdown
+				2100000.00, // month  -3  +7.7%
+				2300000.00, // month  -2  +9.5%
+				2450000.00, // month  -1  +6.5%
+				2600000.00, // month   0  +6.1%
+			},
+			liquidRatios: []float64{
+				0.15, 0.15, 0.14, 0.16, 0.15, 0.14, 0.16, 0.15,
+				0.20, 0.17, 0.15, 0.14, 0.15,
+			},
 		},
 		{
-			FundID:       fund.FundID,
-			Date:         now.AddDate(0, 0, -1),
-			FundValue:    210000,
-			LiquidAssets: 25000,
-			Profit:       8000,
-			CreatedAt:    now,
-		},
-		{
-			FundID:       fund.FundID,
-			Date:         now,
-			FundValue:    220000,
-			LiquidAssets: 30000,
-			Profit:       12000,
-			CreatedAt:    now,
+			fundName: "Beta Stable Fund",
+			// Conservative steady growth, very low volatility
+			// Expected: annual_return~11%, volatility~0.7%, RtV~16.4, max_drawdown~0%
+			values: []float64{
+				1500000.00, // month -12
+				1510000.00, // month -11  +0.67%
+				1528000.00, // month -10  +1.19%
+				1535000.00, // month  -9  +0.46%
+				1550000.00, // month  -8  +0.98%
+				1562000.00, // month  -7  +0.77%
+				1578000.00, // month  -6  +1.02%
+				1590000.00, // month  -5  +0.76%
+				1608000.00, // month  -4  +1.13%
+				1622000.00, // month  -3  +0.87%
+				1635000.00, // month  -2  +0.80%
+				1650000.00, // month  -1  +0.92%
+				1665000.00, // month   0  +0.91%
+			},
+			liquidRatios: []float64{
+				0.30, 0.30, 0.31, 0.30, 0.31, 0.30, 0.30, 0.31,
+				0.30, 0.30, 0.31, 0.30, 0.30,
+			},
 		},
 	}
 
-	var count int64
-	err := db.Model(&model.FundPerformance{}).Count(&count).Error
-	if err != nil {
-		return err
-	}
+	totalInvested := 1500000.0
 
-	if count == 0 {
-		for _, fp := range performances {
+	for _, ps := range perfSeeds {
+		var fund model.InvestmentFund
+		if err := db.First(&fund, "name = ?", ps.fundName).Error; err != nil {
+			return err
+		}
+
+		// Skip if already enough snapshots
+		var count int64
+		if err := db.Model(&model.FundPerformance{}).
+			Where("fund_id = ?", fund.FundID).
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count >= 12 {
+			continue
+		}
+
+		// values[0] = oldest (12 months ago), values[12] = newest (now)
+		for i, value := range ps.values {
+			monthsAgo := 12 - i
+			date := now.AddDate(0, -monthsAgo, 0)
+			liquid := value * ps.liquidRatios[i]
+			profit := value - totalInvested
+
+			fp := model.FundPerformance{
+				FundID:       fund.FundID,
+				Date:         date,
+				FundValue:    value,
+				LiquidAssets: liquid,
+				Profit:       profit,
+			}
 			if err := db.FirstOrCreate(
 				&fp,
 				model.FundPerformance{
-					FundID: fp.FundID,
-					Date:   fp.Date,
+					FundID: fund.FundID,
+					Date:   date,
 				},
 			).Error; err != nil {
 				return err

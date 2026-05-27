@@ -39,11 +39,14 @@ services:
     env_file: .env
     environment:
       TRADING_SERVICE_ADDR: trading_service:50053
+      EMAIL_SERVICE_ADDR: email_service:50054
       AIR_CONFIG_PATH: /app/services/user-service/.air.toml
     depends_on:
       user_service_db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      email_service:
         condition: service_healthy
     healthcheck:
       test: curl -f http://localhost:${PORT}/api/health || exit 1
@@ -70,11 +73,14 @@ services:
       GRPC_PORT: "50052"
       USER_SERVICE_ADDR: user_service:50051
       USER_SERVICE_BASE_URL: http://user_service:${PORT}
+      EMAIL_SERVICE_ADDR: email_service:50054
       WORK_CODES_CACHE_TTL: 24h
     depends_on:
       user_service_db:
         condition: service_healthy
       user_service:
+        condition: service_healthy
+      email_service:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -141,6 +147,32 @@ services:
       - /app/tmp
       - /go/pkg/mod
     working_dir: /app/services/interbank-service
+
+  email_service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile-dev
+    ports:
+      - "${EMAIL_SERVICE_PORT}:${EMAIL_SERVICE_PORT}"
+    env_file: .env
+    environment:
+      AIR_CONFIG_PATH: /app/services/email-service/.air.toml
+      PORT: ${EMAIL_SERVICE_PORT}
+      GRPC_PORT: "50054"
+    depends_on:
+      maildev:
+        condition: service_started
+    healthcheck:
+      test: curl -f http://localhost:${EMAIL_SERVICE_PORT}/api/health || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    volumes:
+      - .:/app:z
+      - /app/tmp
+      - /go/pkg/mod
+    working_dir: /app/services/email-service
 
   maildev:
     image: maildev/maildev:latest

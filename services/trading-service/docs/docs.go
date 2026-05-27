@@ -1794,51 +1794,64 @@ const docTemplate = `{
         },
         "/api/orders": {
             "get": {
-                "description": "Returns a paginated and filtered list of orders. Clients see only their own orders, employees see all.",
+                "description": "Returns a paginated list of orders belonging to the authenticated client or actuary",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "orders"
                 ],
-                "summary": "Get all orders",
+                "summary": "Get orders for the authenticated user",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Page number",
+                        "description": "Page number (default: 1)",
                         "name": "page",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Page size",
+                        "description": "Page size (default: 20, max: 100)",
                         "name": "page_size",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Filter by status (PENDING, APPROVED, DECLINED)",
+                        "description": "Filter by order status",
                         "name": "status",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Filter by direction (BUY, SELL)",
-                        "name": "direction",
+                        "description": "Filter by order type",
+                        "name": "order_type",
                         "in": "query"
                     },
                     {
-                        "type": "boolean",
-                        "description": "Filter by completion status",
-                        "name": "is_done",
+                        "type": "string",
+                        "description": "Filter by asset type",
+                        "name": "asset_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter orders created after this date (RFC3339)",
+                        "name": "from_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter orders created before this date (RFC3339)",
+                        "name": "to_date",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "data, total, page, page_size",
                         "schema": {
-                            "$ref": "#/definitions/dto.ListOrdersResponse"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "400": {
@@ -1849,6 +1862,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/errors.AppError"
                         }
@@ -3232,6 +3251,15 @@ const docTemplate = `{
                 "account_balance": {
                     "type": "number"
                 },
+                "annual_return": {
+                    "type": "number"
+                },
+                "average_market_history": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.FundPerformanceEntry"
+                    }
+                },
                 "description": {
                     "type": "string"
                 },
@@ -3250,6 +3278,9 @@ const docTemplate = `{
                 "manager": {
                     "type": "string"
                 },
+                "max_drawdown": {
+                    "type": "number"
+                },
                 "min_investment": {
                     "type": "number"
                 },
@@ -3263,6 +3294,12 @@ const docTemplate = `{
                     }
                 },
                 "profit": {
+                    "type": "number"
+                },
+                "reward_to_variability": {
+                    "type": "number"
+                },
+                "volatility": {
                     "type": "number"
                 }
             }
@@ -3333,6 +3370,9 @@ const docTemplate = `{
                 "account_number": {
                     "type": "string"
                 },
+                "annual_return": {
+                    "type": "number"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -3351,6 +3391,9 @@ const docTemplate = `{
                 "manager_id": {
                     "type": "integer"
                 },
+                "max_drawdown": {
+                    "type": "number"
+                },
                 "minimum_contribution": {
                     "type": "number"
                 },
@@ -3358,6 +3401,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "profit": {
+                    "type": "number"
+                },
+                "reward_to_variability": {
+                    "type": "number"
+                },
+                "volatility": {
                     "type": "number"
                 }
             }

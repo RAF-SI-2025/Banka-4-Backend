@@ -336,6 +336,12 @@ definitions:
     properties:
       account_balance:
         type: number
+      annual_return:
+        type: number
+      average_market_history:
+        items:
+          $ref: '#/definitions/dto.FundPerformanceEntry'
+        type: array
       description:
         type: string
       fund_value:
@@ -348,6 +354,8 @@ definitions:
         type: integer
       manager:
         type: string
+      max_drawdown:
+        type: number
       min_investment:
         type: number
       name:
@@ -357,6 +365,10 @@ definitions:
           $ref: '#/definitions/dto.FundPerformanceEntry'
         type: array
       profit:
+        type: number
+      reward_to_variability:
+        type: number
+      volatility:
         type: number
     type: object
   dto.FundPerformanceEntry:
@@ -402,6 +414,8 @@ definitions:
     properties:
       account_number:
         type: string
+      annual_return:
+        type: number
       created_at:
         type: string
       description:
@@ -414,11 +428,17 @@ definitions:
         type: number
       manager_id:
         type: integer
+      max_drawdown:
+        type: number
       minimum_contribution:
         type: number
       name:
         type: string
       profit:
+        type: number
+      reward_to_variability:
+        type: number
+      volatility:
         type: number
     type: object
   dto.FutureDetailedResponse:
@@ -2375,36 +2395,45 @@ paths:
       - listings
   /api/orders:
     get:
-      description: Returns a paginated and filtered list of orders. Clients see only
-        their own orders, employees see all.
+      description: Returns a paginated list of orders belonging to the authenticated
+        client or actuary
       parameters:
-      - description: Page number
+      - description: 'Page number (default: 1)'
         in: query
         name: page
         type: integer
-      - description: Page size
+      - description: 'Page size (default: 20, max: 100)'
         in: query
         name: page_size
         type: integer
-      - description: Filter by status (PENDING, APPROVED, DECLINED)
+      - description: Filter by order status
         in: query
         name: status
         type: string
-      - description: Filter by direction (BUY, SELL)
+      - description: Filter by order type
         in: query
-        name: direction
+        name: order_type
         type: string
-      - description: Filter by completion status
+      - description: Filter by asset type
         in: query
-        name: is_done
-        type: boolean
+        name: asset_type
+        type: string
+      - description: Filter orders created after this date (RFC3339)
+        in: query
+        name: from_date
+        type: string
+      - description: Filter orders created before this date (RFC3339)
+        in: query
+        name: to_date
+        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: data, total, page, page_size
           schema:
-            $ref: '#/definitions/dto.ListOrdersResponse'
+            additionalProperties: true
+            type: object
         "400":
           description: Bad Request
           schema:
@@ -2413,7 +2442,11 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/errors.AppError'
-      summary: Get all orders
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Get orders for the authenticated user
       tags:
       - orders
     post:

@@ -40,11 +40,13 @@ func TestWithdrawFromFund_ClientSuccess(t *testing.T) {
 	require.Equal(t, float64(fund.FundID), resp["fund_id"])
 	require.Equal(t, "COMPLETED", resp["status"])
 	require.Equal(t, 750.0, resp["withdrawn_amount_rsd"])
-	require.Equal(t, 1250.0, resp["total_invested_rsd"])
+	// NAV-based redemption reduces cost basis proportionally to redeemed value,
+	// not by directly subtracting withdrawn amount from invested principal.
+	require.InDelta(t, 1998.5, resp["total_invested_rsd"], 0.0001)
 
 	var updated model.ClientFundPosition
 	require.NoError(t, db.First(&updated, position.PositionID).Error)
-	require.Equal(t, 1250.0, updated.TotalInvestedAmount)
+	require.InDelta(t, 1998.5, updated.TotalInvestedAmount, 0.0001)
 }
 
 func TestWithdrawFromFund_SupervisorSuccess(t *testing.T) {
@@ -72,7 +74,7 @@ func TestWithdrawFromFund_SupervisorSuccess(t *testing.T) {
 
 	resp := decodeResponse[map[string]any](t, rec)
 	require.Equal(t, "COMPLETED", resp["status"])
-	require.Equal(t, 2000.0, resp["total_invested_rsd"])
+	require.InDelta(t, 2997.0, resp["total_invested_rsd"], 0.0001)
 }
 
 func TestWithdrawFromFund_ExceedsPosition(t *testing.T) {
@@ -92,7 +94,8 @@ func TestWithdrawFromFund_ExceedsPosition(t *testing.T) {
 
 	body := map[string]any{
 		"account_number": "444000100000000001",
-		"amount":         1000.0,
+		// Must exceed NAV-based position value (not only principal) to be rejected.
+		"amount": 1_000_000_000.0,
 	}
 
 	rec := performRequest(t, router, http.MethodPost, fmt.Sprintf("/api/investment-funds/%d/withdraw", fund.FundID), body, authHeaderForClient(t, 1, 1))

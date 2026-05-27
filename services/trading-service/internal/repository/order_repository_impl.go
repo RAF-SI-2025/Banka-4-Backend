@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/dto"
 	"gorm.io/gorm"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
@@ -88,4 +89,54 @@ func (r *orderRepositoryImpl) FindReadyForExecution(ctx context.Context, before 
 	}
 
 	return orders, nil
+}
+
+func (r *orderRepositoryImpl) FindUserOrders(ctx context.Context, userID uint, ownerType model.OwnerType, query dto.UserOrdersQuery) ([]model.Order, int64, error) {
+	var orders []model.Order
+	var count int64
+
+	db := r.db.WithContext(ctx).Model(&model.Order{}).
+		Where("order_owner_user_id = ? AND order_owner_type = ?", userID, ownerType)
+
+	// Apply filters
+	if query.Status != nil {
+		db = db.Where("status = ?", *query.Status)
+	}
+	if query.OrderType != nil {
+		db = db.Where("order_type = ?", *query.OrderType)
+	}
+
+	if query.FromDate != nil {
+		start := query.FromDate.Truncate(24 * time.Hour)
+		db = db.Where("created_at >= ?", start)
+	}
+
+	if query.ToDate != nil {
+		end := query.ToDate.Truncate(24 * time.Hour).Add(24 * time.Hour)
+		db = db.Where("created_at < ?", end)
+	}
+
+	// Asset type filter requires join with listings and assets
+	if query.AssetType != nil {
+		db = db.Joins("JOIN listings ON listings.listing_id = orders.listing_id").
+			Joins("JOIN assets ON assets.asset_id = listings.asset_id").
+			Where("assets.asset_type = ?", *query.AssetType)
+	}
+
+	// Count total
+	if err := db.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Pagination
+	offset := (query.Page - 1) * query.PageSize
+	err := db.
+		Preload("Listing").
+		Preload("Listing.Asset").
+		Order("created_at DESC").
+		Limit(query.PageSize).
+		Offset(offset).
+		Find(&orders).Error
+
+	return orders, count, err
 }

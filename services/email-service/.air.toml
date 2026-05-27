@@ -1,0 +1,21 @@
+# services/email-service/.air.toml
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o tmp/email-service ./cmd/main.go"
+bin = "tmp/email-service"
+full_bin = "tmp/email-service"
+delay = 1000
+exclude_dir = ["tmp", "vendor", "node_modules"]
+
+[log]
+time = true
+
+[color]
+main = "yellow"
+
+[watch]
+include_dir = [".", "../../common"]
+include_ext = ["go", "yaml", "sql"]
+exclude_dir = ["tmp", "vendor", "node_modules"]

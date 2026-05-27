@@ -21,14 +21,19 @@ type FundPerformanceEntry struct {
 }
 
 type FundDetailResponse struct {
-	ID                 uint                      `json:"id"`
-	Name               string                    `json:"name"`
-	Description        string                    `json:"description"`
-	Manager            string                    `json:"manager"`
-	FundValue          float64                   `json:"fund_value"`
-	MinInvestment      float64                   `json:"min_investment"`
-	Profit             float64                   `json:"profit"`
-	LiquidAssets       float64                   `json:"account_balance"`
-	Holdings           []SecurityHoldingResponse `json:"holdings"`
-	PerformanceHistory []FundPerformanceEntry    `json:"performance_history"`
+	ID                   uint                      `json:"id"`
+	Name                 string                    `json:"name"`
+	Description          string                    `json:"description"`
+	Manager              string                    `json:"manager"`
+	FundValue            float64                   `json:"fund_value"`
+	MinInvestment        float64                   `json:"min_investment"`
+	Profit               float64                   `json:"profit"`
+	LiquidAssets         float64                   `json:"account_balance"`
+	Holdings             []SecurityHoldingResponse `json:"holdings"`
+	PerformanceHistory   []FundPerformanceEntry    `json:"performance_history"`
+	AnnualReturn         *float64                  `json:"annual_return,omitempty"`
+	RewardToVariability  *float64                  `json:"reward_to_variability,omitempty"`
+	MaxDrawdown          *float64                  `json:"max_drawdown,omitempty"`
+	Volatility           *float64                  `json:"volatility,omitempty"`
+	AverageMarketHistory []FundPerformanceEntry    `json:"average_market_history"`
 }

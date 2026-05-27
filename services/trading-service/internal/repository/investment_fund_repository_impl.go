@@ -60,11 +60,13 @@ func (r *investmentFundRepository) FindHoldings(ctx context.Context, fundID uint
 
 func (r *investmentFundRepository) GetPerformanceHistory(ctx context.Context, fundID uint, limit int) ([]model.FundPerformance, error) {
 	var history []model.FundPerformance
-	err := r.db.WithContext(ctx).
+	q := r.db.WithContext(ctx).
 		Where("fund_id = ?", fundID).
-		Order("date DESC").
-		Limit(limit).
-		Find(&history).Error
+		Order("date DESC")
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	err := q.Find(&history).Error
 	return history, err
 }
 
@@ -135,4 +137,27 @@ func (r *investmentFundRepository) UpdateManagerID(ctx context.Context, fromMana
 		Where("manager_id = ?", fromManagerID).
 		Update("manager_id", toManagerID)
 	return result.RowsAffected, result.Error
+}
+
+func (r *investmentFundRepository) GetAllPerformanceHistories(ctx context.Context, minSnapshots int) (map[uint][]model.FundPerformance, error) {
+	var histories []model.FundPerformance
+	err := r.db.WithContext(ctx).
+		Order("fund_id, date ASC").
+		Find(&histories).Error
+	if err != nil {
+		return nil, err
+	}
+
+	grouped := make(map[uint][]model.FundPerformance)
+	for _, h := range histories {
+		grouped[h.FundID] = append(grouped[h.FundID], h)
+	}
+
+	for fundID, snaps := range grouped {
+		if len(snaps) < minSnapshots {
+			delete(grouped, fundID)
+		}
+	}
+
+	return grouped, nil
 }

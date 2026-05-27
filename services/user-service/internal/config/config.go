@@ -15,14 +15,7 @@ type DBConfig struct {
 	User     string
 	Password string
 	DBName   string
-}
-
-type SMTPConfig struct {
-	Host string
-	Port string
-	User string
-	Pass string
-	From string
+	SSLMode  string
 }
 
 type URLConfig struct {
@@ -31,20 +24,20 @@ type URLConfig struct {
 }
 
 func (c *DBConfig) DSN() string {
-	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", c.Host, c.Port, c.User, c.Password, c.DBName)
+	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode)
 }
 
 type Configuration struct {
 	Env                string
 	Port               string
 	DB                 DBConfig
-	GrpcPort           string // unused for now until we add multiple microservices
+	GrpcPort           string
 	TradingServiceAddr string
-	JWTSecret          string // Dodato za JWT
-	JWTExpiry          int    // U minutima
-	SMTP               SMTPConfig
+	EmailServiceAddr   string
+	JWTSecret          string
+	JWTExpiry          int
 	URLs               URLConfig
-	RefreshExpiry      int // refresh token
+	RefreshExpiry      int
 	FailedLoginWindow  int
 	MaxFailedLogins    int
 }
@@ -88,25 +81,20 @@ func Load() *Configuration {
 		Port:               GetOrDefault("PORT", "8080"),
 		GrpcPort:           GetOrDefault("GRPC_PORT", "50051"),
 		TradingServiceAddr: GetOrDefault("TRADING_SERVICE_ADDR", "localhost:50053"),
+		EmailServiceAddr:   GetOrDefault("EMAIL_SERVICE_ADDR", "localhost:50054"),
 		DB: DBConfig{
 			Host:     GetOrThrow("DB_HOST"),
 			Port:     GetOrThrow("DB_PORT"),
 			User:     GetOrThrow("DB_USER"),
 			Password: GetOrThrow("DB_PASS"),
 			DBName:   GetOrThrow("DB_NAME"),
+			SSLMode:  GetOrDefault("DB_SSLMODE", "disable"),
 		},
 		JWTSecret:         GetOrThrow("JWT_SECRET"),
 		JWTExpiry:         GetAsIntOrDefault("JWT_EXPIRY", 15),
 		RefreshExpiry:     GetAsIntOrDefault("REFRESH_EXPIRY_MINUTES", 10080),
 		FailedLoginWindow: GetAsIntOrDefault("FAILED_LOGIN_WINDOW_MINUTES", 5),
 		MaxFailedLogins:   GetAsIntOrDefault("MAX_FAILED_LOGINS", 4),
-		SMTP: SMTPConfig{
-			Host: GetOrThrow("SMTP_HOST"),
-			Port: GetOrDefault("SMTP_PORT", "587"),
-			User: GetOrThrow("SMTP_USER"),
-			Pass: GetOrDefault("SMTP_PASS", ""),
-			From: GetOrThrow("EMAIL_FROM"),
-		},
 		URLs: URLConfig{
 			FrontendBaseURL: GetOrDefault("FRONTEND_BASE_URL", "http://localhost:5173"),
 			BackendBaseURL:  GetOrDefault("BACKEND_BASE_URL", "http://localhost:8080"),

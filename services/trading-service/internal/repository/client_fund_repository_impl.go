@@ -35,7 +35,7 @@ func (r *clientFundPositionRepository) Upsert(ctx context.Context, position *mod
 	return r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "fund_id"}, {Name: "client_id"}, {Name: "owner_type"}},
-			DoUpdates: clause.AssignmentColumns([]string{"total_invested_amount", "updated_at"}),
+			DoUpdates: clause.AssignmentColumns([]string{"units_owned", "total_invested_amount", "updated_at"}),
 		}).
 		Create(position).Error
 }
