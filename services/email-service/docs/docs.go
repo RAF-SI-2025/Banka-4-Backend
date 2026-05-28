@@ -17,13 +17,14 @@ const docTemplate = `{
     "paths": {}
 }`
 
+// SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
 	Title:            "Email Service API",
-	Description:      "Internal gRPC service for sending emails.",
+	Description:      "Internal gRPC service for sending emails on behalf of other services.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

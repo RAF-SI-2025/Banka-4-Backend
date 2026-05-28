@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/audit"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/config"
@@ -395,6 +397,22 @@ func activeClient() *model.Client {
 		LastName:   "Client",
 		Identity:   *activeClientIdentity(),
 	}
+}
+
+type fakeAuditRepo struct {
+	saveErr error
+}
+
+func (f *fakeAuditRepo) Save(_ context.Context, _ *audit.AuditLog) error {
+	return f.saveErr
+}
+
+func (f *fakeAuditRepo) GetAll(_ context.Context, _ string, _ *uint, _, _ *time.Time, _, _ int) ([]audit.AuditLog, int64, error) {
+	return nil, 0, nil
+}
+
+func fakeAuditService(saveErr error) *audit.Service {
+	return audit.NewService(&fakeAuditRepo{saveErr: saveErr})
 }
 
 func withAuth(ctx context.Context, identityID uint, identityType auth.IdentityType) context.Context {

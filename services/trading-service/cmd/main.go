@@ -22,6 +22,7 @@ import (
 	"go.uber.org/fx"
 	"gorm.io/gorm"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/audit"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
@@ -64,6 +65,8 @@ func main() {
 			func(c pb.PermissionServiceClient) auth.PermissionProvider {
 				return permission.NewGrpcPermissionProvider(c)
 			},
+			audit.NewRepository,
+			audit.NewService,
 			handler.NewHealthHandler,
 			repository.NewAssetRepository,
 			repository.NewAssetOwnershipRepository,
@@ -136,6 +139,7 @@ func main() {
 		}),
 		fx.Invoke(func(db *gorm.DB) error {
 			return db.AutoMigrate(
+				&audit.AuditLog{},
 				&model.Asset{},
 				&model.Listing{},
 				&model.Stock{},

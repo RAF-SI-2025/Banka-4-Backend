@@ -46,6 +46,19 @@ definitions:
       username:
         type: string
     type: object
+  dto.AuditLogResponse:
+    properties:
+      action_type:
+        type: string
+      created_at:
+        type: string
+      details:
+        type: string
+      id:
+        type: integer
+      performed_by_employee_id:
+        type: integer
+    type: object
   dto.AuthUser:
     properties:
       email:
@@ -210,6 +223,21 @@ definitions:
       data:
         items:
           $ref: '#/definitions/dto.ActuaryResponse'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  dto.ListAuditLogsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.AuditLogResponse'
         type: array
       page:
         type: integer
@@ -558,6 +586,62 @@ paths:
       summary: Reset actuary used limit
       tags:
       - actuaries
+  /api/audit-log:
+    get:
+      description: Returns a paginated list of audit log entries with optional filtering.
+        Accessible only to admins and supervisors.
+      parameters:
+      - description: Filter by action type
+        in: query
+        name: action_type
+        type: string
+      - description: Filter by performer employee ID
+        in: query
+        name: performed_by_employee_id
+        type: integer
+      - description: Filter entries from this date (YYYY-MM-DD)
+        in: query
+        name: date_from
+        type: string
+      - description: Filter entries up to this date (YYYY-MM-DD)
+        in: query
+        name: date_to
+        type: string
+      - description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListAuditLogsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List audit log entries
+      tags:
+      - audit-log
   /api/auth/activate:
     post:
       consumes:

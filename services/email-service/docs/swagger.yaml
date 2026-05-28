@@ -1,0 +1,7 @@
+info:
+  contact: {}
+  description: Internal gRPC service for sending emails on behalf of other services.
+  title: Email Service API
+  version: "1.0"
+paths: {}
+swagger: "2.0"

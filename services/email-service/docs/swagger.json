@@ -1,0 +1,10 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Internal gRPC service for sending emails on behalf of other services.",
+        "title": "Email Service API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "paths": {}
+}

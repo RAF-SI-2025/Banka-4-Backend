@@ -176,7 +176,7 @@ func (f *fakeBankingClient) CreateFundAccount(ctx context.Context, fundName stri
 func newTestTaxService(repo *fakeTaxRepo, banking *fakeBankingClient) *TaxService {
 	return NewTaxService(repo, banking, &config.Configuration{
 		TaxAccountNumber: "444000000000000000",
-	})
+	}, fakeAuditService(nil))
 }
 
 // ── RecordTax Tests ────────────────────────────────────────────────

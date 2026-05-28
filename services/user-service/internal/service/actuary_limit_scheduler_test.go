@@ -12,7 +12,7 @@ func TestActuaryLimitScheduler_RunDailyReset(t *testing.T) {
 	t.Parallel()
 
 	repo := &fakeActuaryRepo{}
-	svc := NewActuaryService(repo, &fakeEmployeeRepo{}, nil)
+	svc := NewActuaryService(repo, &fakeEmployeeRepo{}, nil, fakeAuditService(nil))
 	scheduler := NewActuaryLimitScheduler(svc)
 
 	// Use a context we cancel quickly to exercise the ctx.Done() path in runDailyReset.
@@ -25,7 +25,7 @@ func TestActuaryLimitScheduler_StartStop(t *testing.T) {
 	t.Parallel()
 
 	repo := &fakeActuaryRepo{}
-	svc := NewActuaryService(repo, &fakeEmployeeRepo{}, nil)
+	svc := NewActuaryService(repo, &fakeEmployeeRepo{}, nil, fakeAuditService(nil))
 	scheduler := NewActuaryLimitScheduler(svc)
 
 	// Start the scheduler

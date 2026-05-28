@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/audit"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
@@ -78,6 +79,7 @@ type OrderService struct {
 	userClient           client.UserServiceClient
 	bankingClient        client.BankingClient
 	taxService           TaxRecorder
+	auditSvc             *audit.Service
 	now                  func() time.Time
 	rng                  *rand.Rand
 
@@ -97,6 +99,7 @@ func NewOrderService(
 	userClient client.UserServiceClient,
 	bankingClient client.BankingClient,
 	taxService TaxRecorder,
+	auditSvc *audit.Service,
 ) *OrderService {
 	return &OrderService{
 		orderRepo:            orderRepo,
@@ -110,6 +113,7 @@ func NewOrderService(
 		userClient:           userClient,
 		bankingClient:        bankingClient,
 		taxService:           taxService,
+		auditSvc:             auditSvc,
 		now:                  time.Now,
 		rng:                  rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
@@ -455,6 +459,12 @@ func (s *OrderService) ApproveOrder(ctx context.Context, orderID uint) (*model.O
 		return nil, errors.InternalErr(err)
 	}
 
+	if authCtx.EmployeeID != nil {
+		if err := s.auditSvc.Log(ctx, audit.ActionOrderApproved, *authCtx.EmployeeID, fmt.Sprintf("order_id=%d", orderID)); err != nil {
+			return nil, errors.InternalErr(err)
+		}
+	}
+
 	return order, nil
 }
 
@@ -484,6 +494,12 @@ func (s *OrderService) DeclineOrder(ctx context.Context, orderID uint) (*model.O
 
 	if err := s.orderRepo.Save(ctx, order); err != nil {
 		return nil, errors.InternalErr(err)
+	}
+
+	if authCtx.EmployeeID != nil {
+		if err := s.auditSvc.Log(ctx, audit.ActionOrderDeclined, *authCtx.EmployeeID, fmt.Sprintf("order_id=%d", orderID)); err != nil {
+			return nil, errors.InternalErr(err)
+		}
 	}
 
 	return order, nil

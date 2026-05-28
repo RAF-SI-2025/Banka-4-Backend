@@ -2,8 +2,10 @@ module github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service
 
 go 1.26
 
+replace github.com/RAF-SI-2025/Banka-4-Backend/common => ../../common
+
 require (
-	github.com/RAF-SI-2025/Banka-4-Backend/common v0.0.0-20260321114325-db79371302da
+	github.com/RAF-SI-2025/Banka-4-Backend/common v0.0.0-20260522172406-dc3bae7ebfd0
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.12.0
 	github.com/glebarez/sqlite v1.11.0
@@ -115,7 +117,6 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect
 	go.opentelemetry.io/otel v1.41.0 // indirect
 	go.opentelemetry.io/otel/metric v1.41.0 // indirect
-	go.opentelemetry.io/otel/sdk/metric v1.41.0 // indirect
 	go.opentelemetry.io/otel/trace v1.41.0 // indirect
 	go.uber.org/dig v1.19.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect

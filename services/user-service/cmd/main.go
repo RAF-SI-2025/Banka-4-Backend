@@ -6,6 +6,7 @@ import (
 	"go.uber.org/fx"
 	"gorm.io/gorm"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/audit"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
@@ -55,6 +56,8 @@ func main() {
 				fx.As(new(service.Mailer)),
 			),
 
+			audit.NewRepository,
+			audit.NewService,
 			repository.NewIdentityRepository,
 			repository.NewEmployeeRepository,
 			repository.NewActuaryRepository,
@@ -69,11 +72,13 @@ func main() {
 			service.NewActuaryService,
 			service.NewClientService,
 			service.NewActuaryLimitScheduler,
+			service.NewAuditLogService,
 			handler.NewAuthHandler,
 			handler.NewEmployeeHandler,
 			handler.NewActuaryHandler,
 			handler.NewClientHandler,
 			handler.NewHealthHandler,
+			handler.NewAuditLogHandler,
 			servicegrpc.NewPermissionService,
 			servicegrpc.NewUserService,
 		),
@@ -92,6 +97,7 @@ func main() {
 				&model.RefreshToken{},
 				&model.EmployeePermission{},
 				&model.ClientPermission{},
+				&audit.AuditLog{},
 			); err != nil {
 				return err
 			}
