@@ -129,6 +129,33 @@ services:
       - /go/pkg/mod
     working_dir: /app/services/trading-service
 
+  interbank_service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile-dev
+    ports:
+      - "${INTERBANK_SERVICE_PORT}:${INTERBANK_SERVICE_PORT}"
+    env_file: .env
+    environment:
+      AIR_CONFIG_PATH: /app/services/interbank-service/.air.toml
+      PORT: ${INTERBANK_SERVICE_PORT}
+      INTERBANK_ROUTING_NUMBER: "444"
+      INTERBANK_PEERS_CONFIG_PATH: /app/services/interbank-service/peers.yaml
+    depends_on:
+      user_service_db:
+        condition: service_healthy
+      banking_service:
+        condition: service_healthy
+      trading_service:
+        condition: service_healthy
+    healthcheck:
+      test: curl -f http://localhost:${INTERBANK_SERVICE_PORT}/api/health || exit 1
+    volumes:
+      - .:/app:z
+      - /app/tmp
+      - /go/pkg/mod
+    working_dir: /app/services/interbank-service
+
   email_service:
     build:
       context: .
