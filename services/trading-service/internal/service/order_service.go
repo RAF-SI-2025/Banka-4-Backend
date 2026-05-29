@@ -445,6 +445,7 @@ func (s *OrderService) ApproveOrder(ctx context.Context, orderID uint) (*model.O
 	order.ApprovedBy = &approverID //TODO careful
 	order.NextExecutionAt = &nextExecutionAt
 	order.UpdatedAt = s.now()
+	order.ReviewedAt = &order.UpdatedAt
 
 	if order.PricePerUnit == nil {
 		return nil, errors.BadRequestErr("trying to approve an order without a set price per unit")
@@ -491,6 +492,7 @@ func (s *OrderService) DeclineOrder(ctx context.Context, orderID uint) (*model.O
 	order.IsDone = true
 	order.NextExecutionAt = nil
 	order.UpdatedAt = s.now()
+	order.ReviewedAt = &order.UpdatedAt
 
 	if err := s.orderRepo.Save(ctx, order); err != nil {
 		return nil, errors.InternalErr(err)
@@ -1368,6 +1370,7 @@ func (s *OrderService) GetMyOrders(ctx context.Context, query dto.UserOrdersQuer
 			PricePerUnit:      o.PricePerUnit,
 			Status:            o.Status,
 			CreatedAt:         o.CreatedAt,
+			ReviewedAt:        o.ReviewedAt,
 			ExecutionDate:     execDate,
 			CommissionCharged: o.CommissionCharged,
 			AssetType:         assetType,

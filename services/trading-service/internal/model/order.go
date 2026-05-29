@@ -46,6 +46,7 @@ type Order struct {
 	Margin            bool        `gorm:"not null;default:false"`
 	Status            OrderStatus `gorm:"not null;size:20"`
 	ApprovedBy        *uint
+	ReviewedAt        *time.Time
 	IsDone            bool `gorm:"not null;default:false"`
 	AfterHours        bool `gorm:"not null;default:false"`
 	Triggered         bool `gorm:"not null;default:false"`

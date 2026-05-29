@@ -98,6 +98,7 @@ type UserOrderResponse struct {
 	PricePerUnit      *float64          `json:"price_per_unit,omitempty"`
 	Status            model.OrderStatus `json:"status"`
 	CreatedAt         time.Time         `json:"created_at"`
+	ReviewedAt        *time.Time        `json:"reviewed_at,omitempty"`
 	ExecutionDate     *time.Time        `json:"execution_date,omitempty"`
 	CommissionCharged bool              `json:"commission_charged"`
 	AssetType         model.AssetType   `json:"asset_type"`
@@ -110,5 +111,5 @@ type UserOrdersQuery struct {
 	FromDate  *time.Time         `form:"from_date" time_format:"2006-01-02"`
 	ToDate    *time.Time         `form:"to_date" time_format:"2006-01-02"`
 	Page      int                `form:"page,default=1"`
-	PageSize  int                `form:"page_size,default=20"`
+	PageSize  int                `form:"page_size,default=10"`
 }
