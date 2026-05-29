@@ -99,6 +99,56 @@ definitions:
     - ReasonOptionAmountIncorrect
     - ReasonOptionUsedOrExpired
     - ReasonOptionNegotiationNotFound
+  dto.OtcNegotiation:
+    properties:
+      id:
+        $ref: '#/definitions/dto.ForeignBankId'
+      offer:
+        $ref: '#/definitions/dto.OtcOffer'
+      status:
+        description: ongoing | accepted | cancelled | expired
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  dto.OtcOffer:
+    properties:
+      amount:
+        minimum: 1
+        type: integer
+      buyerId:
+        $ref: '#/definitions/dto.ForeignBankId'
+      lastModifiedBy:
+        $ref: '#/definitions/dto.ForeignBankId'
+      premium:
+        type: number
+      premiumCurrency:
+        maxLength: 8
+        type: string
+      priceCurrency:
+        maxLength: 8
+        type: string
+      pricePerStock:
+        type: number
+      sellerId:
+        $ref: '#/definitions/dto.ForeignBankId'
+      settlementDate:
+        type: string
+      ticker:
+        maxLength: 16
+        type: string
+    required:
+    - amount
+    - buyerId
+    - lastModifiedBy
+    - premium
+    - premiumCurrency
+    - priceCurrency
+    - pricePerStock
+    - sellerId
+    - settlementDate
+    - ticker
+    type: object
   dto.Posting:
     properties:
       account:
@@ -111,6 +161,29 @@ definitions:
     - account
     - amount
     - asset
+    type: object
+  dto.PublicStock:
+    properties:
+      sellers:
+        items:
+          $ref: '#/definitions/dto.PublicStockSeller'
+        type: array
+      stock:
+        $ref: '#/definitions/dto.StockDescription'
+    type: object
+  dto.PublicStockSeller:
+    properties:
+      amount:
+        type: integer
+      seller:
+        $ref: '#/definitions/dto.ForeignBankId'
+    type: object
+  dto.StockDescription:
+    properties:
+      ticker:
+        type: string
+    required:
+    - ticker
     type: object
   dto.TransactionVote:
     properties:
@@ -147,6 +220,13 @@ definitions:
     - TxAccountPerson
     - TxAccountAccount
     - TxAccountOption
+  dto.UserInformation:
+    properties:
+      bankDisplayName:
+        type: string
+      displayName:
+        type: string
+    type: object
   dto.VoteKind:
     enum:
     - "YES"
@@ -164,6 +244,63 @@ definitions:
       timestamp:
         type: string
     type: object
+  handler.CounterPeerNegotiationRequest:
+    properties:
+      amount:
+        minimum: 1
+        type: integer
+      premium:
+        type: number
+      premiumCurrency:
+        maxLength: 8
+        type: string
+      priceCurrency:
+        maxLength: 8
+        type: string
+      pricePerStock:
+        type: number
+      settlementDate:
+        type: string
+    required:
+    - amount
+    - premium
+    - premiumCurrency
+    - priceCurrency
+    - pricePerStock
+    - settlementDate
+    type: object
+  handler.CreatePeerNegotiationRequest:
+    properties:
+      amount:
+        minimum: 1
+        type: integer
+      premium:
+        type: number
+      premiumCurrency:
+        maxLength: 8
+        type: string
+      priceCurrency:
+        maxLength: 8
+        type: string
+      pricePerStock:
+        type: number
+      sellerId:
+        $ref: '#/definitions/dto.ForeignBankId'
+      settlementDate:
+        type: string
+      ticker:
+        maxLength: 16
+        type: string
+    required:
+    - amount
+    - premium
+    - premiumCurrency
+    - priceCurrency
+    - pricePerStock
+    - sellerId
+    - settlementDate
+    - ticker
+    type: object
 info:
   contact: {}
   description: |-
@@ -173,6 +310,174 @@ info:
   title: Interbank Service API
   version: "1.0"
 paths:
+  /api/peer-otc/negotiations:
+    get:
+      description: |-
+        Returns every cross-bank negotiation in which the
+        authenticated user is a party.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.OtcNegotiation'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List my cross-bank OTC negotiations
+      tags:
+      - peer-otc
+    post:
+      consumes:
+      - application/json
+      description: |-
+        The authenticated user becomes the buyer. The request is
+        forwarded to the seller's bank via §3.2; on success the
+        authoritative id assigned by the peer is returned.
+      parameters:
+      - description: Offer terms
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreatePeerNegotiationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.ForeignBankId'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "502":
+          description: Peer unreachable or returned non-2xx
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Initiate a cross-bank OTC negotiation
+      tags:
+      - peer-otc
+  /api/peer-otc/negotiations/{rn}/{id}:
+    delete:
+      description: Closes the negotiation locally and notifies the peer via §3.5.
+      parameters:
+      - description: Authoritative bank routing number
+        in: path
+        name: rn
+        required: true
+        type: integer
+      - description: Negotiation id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Withdraw from a cross-bank negotiation
+      tags:
+      - peer-otc
+  /api/peer-otc/negotiations/{rn}/{id}/counter:
+    put:
+      consumes:
+      - application/json
+      description: Forwards a counter-offer to the authoritative bank via §3.3.
+      parameters:
+      - description: Authoritative bank routing number
+        in: path
+        name: rn
+        required: true
+        type: integer
+      - description: Negotiation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Counter terms
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CounterPeerNegotiationRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Post a counter-offer on a cross-bank negotiation
+      tags:
+      - peer-otc
+  /api/peer-otc/public-stocks:
+    get:
+      description: |-
+        Aggregates §3.1 /public-stock results from every peer in
+        the registry. Peers that fail are silently skipped.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.PublicStock'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Browse public OTC stocks across all peer banks
+      tags:
+      - peer-otc
   /interbank:
     post:
       consumes:
@@ -219,4 +524,276 @@ paths:
       summary: Receive an inter-bank message
       tags:
       - interbank
+  /interbank/negotiations:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        §3.2 — peer bank's buyer initiates a negotiation against
+        a seller in our bank. Returns the ForeignBankId of the
+        new negotiation owned by us.
+      parameters:
+      - description: Peer bank API key
+        in: header
+        name: X-Api-Key
+        required: true
+        type: string
+      - description: Initial offer
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.OtcOffer'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ForeignBankId'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Create OTC negotiation (peer-initiated)
+      tags:
+      - interbank-otc
+  /interbank/negotiations/{rn}/{id}:
+    delete:
+      description: |-
+        §3.5 — either party may withdraw from a negotiation. The
+        operation is idempotent: closing an already-closed
+        negotiation returns 204 without changing state.
+      parameters:
+      - description: Peer bank API key
+        in: header
+        name: X-Api-Key
+        required: true
+        type: string
+      - description: Routing number (this bank)
+        in: path
+        name: rn
+        required: true
+        type: integer
+      - description: Negotiation id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Close OTC negotiation
+      tags:
+      - interbank-otc
+    get:
+      description: |-
+        §3.4 — returns the current state of a negotiation owned by
+        this bank. The :rn path parameter must match this bank's
+        routing number.
+      parameters:
+      - description: Peer bank API key
+        in: header
+        name: X-Api-Key
+        required: true
+        type: string
+      - description: Routing number (this bank)
+        in: path
+        name: rn
+        required: true
+        type: integer
+      - description: Negotiation id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.OtcNegotiation'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Get OTC negotiation
+      tags:
+      - interbank-otc
+    put:
+      consumes:
+      - application/json
+      description: |-
+        §3.3 — peer bank posts a counter-offer against an ongoing
+        negotiation owned by us. Buyer/seller and ticker are
+        immutable; only negotiable parameters may change. The
+        same party may not counter twice in a row (turn rule).
+      parameters:
+      - description: Peer bank API key
+        in: header
+        name: X-Api-Key
+        required: true
+        type: string
+      - description: Routing number (this bank)
+        in: path
+        name: rn
+        required: true
+        type: integer
+      - description: Negotiation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated offer
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.OtcOffer'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "409":
+          description: Turn violation or negotiation closed
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Post counter-offer
+      tags:
+      - interbank-otc
+  /interbank/negotiations/{rn}/{id}/accept:
+    get:
+      description: |-
+        §3.6 — STUB. Triggers a §2 NEW_TX with the 4 premium +
+        option-pseudo postings. Implementation pending (depends
+        on §2 protocol layer).
+      responses: {}
+      summary: Accept OTC negotiation
+      tags:
+      - interbank-otc
+  /interbank/public-stock:
+    get:
+      description: |-
+        §3.1 — returns every stock holding at this bank that has
+        a non-zero public amount, grouped by ticker with the list
+        of sellers and their available quantities. Data pulled
+        from trading-service via gRPC.
+      parameters:
+      - description: Peer bank API key
+        in: header
+        name: X-Api-Key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.PublicStock'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: List public stocks at this bank
+      tags:
+      - interbank-otc
+  /interbank/user/{rn}/{id}:
+    get:
+      description: |-
+        §3.7 — peer banks call us to resolve one of our users into
+        a display name. routingNumber must match ours; id is the
+        local user id encoded as a decimal string.
+      parameters:
+      - description: Peer bank API key
+        in: header
+        name: X-Api-Key
+        required: true
+        type: string
+      - description: Routing number (this bank)
+        in: path
+        name: rn
+        required: true
+        type: integer
+      - description: User id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UserInformation'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Resolve user display name
+      tags:
+      - interbank-otc
 swagger: "2.0"

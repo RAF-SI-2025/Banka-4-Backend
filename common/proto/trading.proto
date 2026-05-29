@@ -6,6 +6,7 @@ option go_package = "common/pkg/pb;pb";
 
 service TradingService {
   rpc TransferFunds(TransferFundsRequest) returns (TransferFundsResponse);
+  rpc ListPublicStocks(ListPublicStocksRequest) returns (ListPublicStocksResponse);
 }
 
 message TransferFundsRequest {
@@ -15,4 +16,23 @@ message TransferFundsRequest {
 
 message TransferFundsResponse {
   uint64 funds_transferred = 1;
+}
+
+// ListPublicStocks returns every stock holding at this bank with a
+// non-zero public_amount, grouped by ticker. Consumed by interbank-service
+// to serve §3.1 GET /interbank/public-stock to peer banks.
+message ListPublicStocksRequest {}
+
+message PublicStockSeller {
+  uint64 seller_id = 1;
+  double amount    = 2;
+}
+
+message PublicStockEntry {
+  string ticker                       = 1;
+  repeated PublicStockSeller sellers  = 2;
+}
+
+message ListPublicStocksResponse {
+  repeated PublicStockEntry stocks = 1;
 }

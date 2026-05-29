@@ -117,6 +117,193 @@ func (x *TransferFundsResponse) GetFundsTransferred() uint64 {
 	return 0
 }
 
+// ListPublicStocks returns every stock holding at this bank with a
+// non-zero public_amount, grouped by ticker. Consumed by interbank-service
+// to serve §3.1 GET /interbank/public-stock to peer banks.
+type ListPublicStocksRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPublicStocksRequest) Reset() {
+	*x = ListPublicStocksRequest{}
+	mi := &file_common_proto_trading_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPublicStocksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPublicStocksRequest) ProtoMessage() {}
+
+func (x *ListPublicStocksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_trading_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPublicStocksRequest.ProtoReflect.Descriptor instead.
+func (*ListPublicStocksRequest) Descriptor() ([]byte, []int) {
+	return file_common_proto_trading_proto_rawDescGZIP(), []int{2}
+}
+
+type PublicStockSeller struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SellerId      uint64                 `protobuf:"varint,1,opt,name=seller_id,json=sellerId,proto3" json:"seller_id,omitempty"`
+	Amount        float64                `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublicStockSeller) Reset() {
+	*x = PublicStockSeller{}
+	mi := &file_common_proto_trading_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublicStockSeller) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublicStockSeller) ProtoMessage() {}
+
+func (x *PublicStockSeller) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_trading_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublicStockSeller.ProtoReflect.Descriptor instead.
+func (*PublicStockSeller) Descriptor() ([]byte, []int) {
+	return file_common_proto_trading_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *PublicStockSeller) GetSellerId() uint64 {
+	if x != nil {
+		return x.SellerId
+	}
+	return 0
+}
+
+func (x *PublicStockSeller) GetAmount() float64 {
+	if x != nil {
+		return x.Amount
+	}
+	return 0
+}
+
+type PublicStockEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ticker        string                 `protobuf:"bytes,1,opt,name=ticker,proto3" json:"ticker,omitempty"`
+	Sellers       []*PublicStockSeller   `protobuf:"bytes,2,rep,name=sellers,proto3" json:"sellers,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublicStockEntry) Reset() {
+	*x = PublicStockEntry{}
+	mi := &file_common_proto_trading_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublicStockEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublicStockEntry) ProtoMessage() {}
+
+func (x *PublicStockEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_trading_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublicStockEntry.ProtoReflect.Descriptor instead.
+func (*PublicStockEntry) Descriptor() ([]byte, []int) {
+	return file_common_proto_trading_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *PublicStockEntry) GetTicker() string {
+	if x != nil {
+		return x.Ticker
+	}
+	return ""
+}
+
+func (x *PublicStockEntry) GetSellers() []*PublicStockSeller {
+	if x != nil {
+		return x.Sellers
+	}
+	return nil
+}
+
+type ListPublicStocksResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Stocks        []*PublicStockEntry    `protobuf:"bytes,1,rep,name=stocks,proto3" json:"stocks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPublicStocksResponse) Reset() {
+	*x = ListPublicStocksResponse{}
+	mi := &file_common_proto_trading_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPublicStocksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPublicStocksResponse) ProtoMessage() {}
+
+func (x *ListPublicStocksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_trading_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPublicStocksResponse.ProtoReflect.Descriptor instead.
+func (*ListPublicStocksResponse) Descriptor() ([]byte, []int) {
+	return file_common_proto_trading_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ListPublicStocksResponse) GetStocks() []*PublicStockEntry {
+	if x != nil {
+		return x.Stocks
+	}
+	return nil
+}
+
 var File_common_proto_trading_proto protoreflect.FileDescriptor
 
 const file_common_proto_trading_proto_rawDesc = "" +
@@ -127,9 +314,19 @@ const file_common_proto_trading_proto_rawDesc = "" +
 	"\x0ffrom_manager_id\x18\x01 \x01(\x04R\rfromManagerId\x12\"\n" +
 	"\rto_manager_id\x18\x02 \x01(\x04R\vtoManagerId\"D\n" +
 	"\x15TransferFundsResponse\x12+\n" +
-	"\x11funds_transferred\x18\x01 \x01(\x04R\x10fundsTransferred2f\n" +
+	"\x11funds_transferred\x18\x01 \x01(\x04R\x10fundsTransferred\"\x19\n" +
+	"\x17ListPublicStocksRequest\"H\n" +
+	"\x11PublicStockSeller\x12\x1b\n" +
+	"\tseller_id\x18\x01 \x01(\x04R\bsellerId\x12\x16\n" +
+	"\x06amount\x18\x02 \x01(\x01R\x06amount\"c\n" +
+	"\x10PublicStockEntry\x12\x16\n" +
+	"\x06ticker\x18\x01 \x01(\tR\x06ticker\x127\n" +
+	"\asellers\x18\x02 \x03(\v2\x1d.trading.v1.PublicStockSellerR\asellers\"P\n" +
+	"\x18ListPublicStocksResponse\x124\n" +
+	"\x06stocks\x18\x01 \x03(\v2\x1c.trading.v1.PublicStockEntryR\x06stocks2\xc5\x01\n" +
 	"\x0eTradingService\x12T\n" +
-	"\rTransferFunds\x12 .trading.v1.TransferFundsRequest\x1a!.trading.v1.TransferFundsResponseB\x12Z\x10common/pkg/pb;pbb\x06proto3"
+	"\rTransferFunds\x12 .trading.v1.TransferFundsRequest\x1a!.trading.v1.TransferFundsResponse\x12]\n" +
+	"\x10ListPublicStocks\x12#.trading.v1.ListPublicStocksRequest\x1a$.trading.v1.ListPublicStocksResponseB\x12Z\x10common/pkg/pb;pbb\x06proto3"
 
 var (
 	file_common_proto_trading_proto_rawDescOnce sync.Once
@@ -143,19 +340,27 @@ func file_common_proto_trading_proto_rawDescGZIP() []byte {
 	return file_common_proto_trading_proto_rawDescData
 }
 
-var file_common_proto_trading_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_common_proto_trading_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_common_proto_trading_proto_goTypes = []any{
-	(*TransferFundsRequest)(nil),  // 0: trading.v1.TransferFundsRequest
-	(*TransferFundsResponse)(nil), // 1: trading.v1.TransferFundsResponse
+	(*TransferFundsRequest)(nil),     // 0: trading.v1.TransferFundsRequest
+	(*TransferFundsResponse)(nil),    // 1: trading.v1.TransferFundsResponse
+	(*ListPublicStocksRequest)(nil),  // 2: trading.v1.ListPublicStocksRequest
+	(*PublicStockSeller)(nil),        // 3: trading.v1.PublicStockSeller
+	(*PublicStockEntry)(nil),         // 4: trading.v1.PublicStockEntry
+	(*ListPublicStocksResponse)(nil), // 5: trading.v1.ListPublicStocksResponse
 }
 var file_common_proto_trading_proto_depIdxs = []int32{
-	0, // 0: trading.v1.TradingService.TransferFunds:input_type -> trading.v1.TransferFundsRequest
-	1, // 1: trading.v1.TradingService.TransferFunds:output_type -> trading.v1.TransferFundsResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	3, // 0: trading.v1.PublicStockEntry.sellers:type_name -> trading.v1.PublicStockSeller
+	4, // 1: trading.v1.ListPublicStocksResponse.stocks:type_name -> trading.v1.PublicStockEntry
+	0, // 2: trading.v1.TradingService.TransferFunds:input_type -> trading.v1.TransferFundsRequest
+	2, // 3: trading.v1.TradingService.ListPublicStocks:input_type -> trading.v1.ListPublicStocksRequest
+	1, // 4: trading.v1.TradingService.TransferFunds:output_type -> trading.v1.TransferFundsResponse
+	5, // 5: trading.v1.TradingService.ListPublicStocks:output_type -> trading.v1.ListPublicStocksResponse
+	4, // [4:6] is the sub-list for method output_type
+	2, // [2:4] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_common_proto_trading_proto_init() }
@@ -169,7 +374,7 @@ func file_common_proto_trading_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_common_proto_trading_proto_rawDesc), len(file_common_proto_trading_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

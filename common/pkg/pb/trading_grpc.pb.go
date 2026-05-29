@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	TradingService_TransferFunds_FullMethodName = "/trading.v1.TradingService/TransferFunds"
+	TradingService_TransferFunds_FullMethodName    = "/trading.v1.TradingService/TransferFunds"
+	TradingService_ListPublicStocks_FullMethodName = "/trading.v1.TradingService/ListPublicStocks"
 )
 
 // TradingServiceClient is the client API for TradingService service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TradingServiceClient interface {
 	TransferFunds(ctx context.Context, in *TransferFundsRequest, opts ...grpc.CallOption) (*TransferFundsResponse, error)
+	ListPublicStocks(ctx context.Context, in *ListPublicStocksRequest, opts ...grpc.CallOption) (*ListPublicStocksResponse, error)
 }
 
 type tradingServiceClient struct {
@@ -47,11 +49,22 @@ func (c *tradingServiceClient) TransferFunds(ctx context.Context, in *TransferFu
 	return out, nil
 }
 
+func (c *tradingServiceClient) ListPublicStocks(ctx context.Context, in *ListPublicStocksRequest, opts ...grpc.CallOption) (*ListPublicStocksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPublicStocksResponse)
+	err := c.cc.Invoke(ctx, TradingService_ListPublicStocks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TradingServiceServer is the server API for TradingService service.
 // All implementations must embed UnimplementedTradingServiceServer
 // for forward compatibility.
 type TradingServiceServer interface {
 	TransferFunds(context.Context, *TransferFundsRequest) (*TransferFundsResponse, error)
+	ListPublicStocks(context.Context, *ListPublicStocksRequest) (*ListPublicStocksResponse, error)
 	mustEmbedUnimplementedTradingServiceServer()
 }
 
@@ -64,6 +77,9 @@ type UnimplementedTradingServiceServer struct{}
 
 func (UnimplementedTradingServiceServer) TransferFunds(context.Context, *TransferFundsRequest) (*TransferFundsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TransferFunds not implemented")
+}
+func (UnimplementedTradingServiceServer) ListPublicStocks(context.Context, *ListPublicStocksRequest) (*ListPublicStocksResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPublicStocks not implemented")
 }
 func (UnimplementedTradingServiceServer) mustEmbedUnimplementedTradingServiceServer() {}
 func (UnimplementedTradingServiceServer) testEmbeddedByValue()                        {}
@@ -104,6 +120,24 @@ func _TradingService_TransferFunds_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TradingService_ListPublicStocks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPublicStocksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TradingServiceServer).ListPublicStocks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TradingService_ListPublicStocks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TradingServiceServer).ListPublicStocks(ctx, req.(*ListPublicStocksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TradingService_ServiceDesc is the grpc.ServiceDesc for TradingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -114,6 +148,10 @@ var TradingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TransferFunds",
 			Handler:    _TradingService_TransferFunds_Handler,
+		},
+		{
+			MethodName: "ListPublicStocks",
+			Handler:    _TradingService_ListPublicStocks_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
