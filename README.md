@@ -29,10 +29,16 @@ make swagger-docs
 
 ## Protobuf
 
-Generate Go and gRPC code from protobuf definitions.
+Generate Go and gRPC code from protobuf definitions. This uses a pinned Docker image so all developers and CI use the same `protoc`, `protoc-gen-go`, and `protoc-gen-go-grpc` versions.
 
 ```bash
 make proto
+```
+
+Check that generated protobuf files are up to date:
+
+```bash
+make proto-check
 ```
 
 ## Testing

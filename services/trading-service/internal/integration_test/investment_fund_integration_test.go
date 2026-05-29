@@ -524,7 +524,7 @@ func TestGetFundDetail_InvalidID(t *testing.T) {
 
 	auth := authHeaderForClient(t, 10, 100)
 	rec := performRequest(t, router, http.MethodGet, "/api/investment-funds/abc", nil, auth)
-	require.NotEqual(t, http.StatusOK, rec.Code)
+	requireStatus(t, rec, http.StatusBadRequest)
 }
 
 func TestInvestInFund_InvalidFundID(t *testing.T) {

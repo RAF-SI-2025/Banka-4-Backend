@@ -1,3 +1,12 @@
+PROTOC_VERSION ?= 34.0
+PROTOC_GEN_GO_VERSION ?= v1.36.11
+PROTOC_GEN_GO_GRPC_VERSION ?= v1.6.1
+PROTO_IMAGE ?= banka-4-backend-proto:protoc-$(PROTOC_VERSION)-go-$(PROTOC_GEN_GO_VERSION)-grpc-$(PROTOC_GEN_GO_GRPC_VERSION)
+PROTO_FILES := $(wildcard common/proto/*.proto)
+PROTO_GENERATED_FILES := common/pkg/pb
+
+.PHONY: docker-up-build docker-up docker-down docker-down-rm-vol format swagger-docs proto proto-docker proto-image internal-proto proto-check test test-integration coverage-profile coverage coverage-report coverage-html
+
 docker-up-build:
 	docker compose -f docker-compose-dev.yml up --build
 
@@ -19,8 +28,30 @@ swagger-docs:
 	cd services/trading-service && swag init -g cmd/main.go -d ./,../../common
 	cd services/email-service && swag init -g cmd/main.go -d ./,../../common
 
-proto:
+proto: proto-docker
+
+proto-docker: proto-image
+	docker run --rm \
+		--user "$$(id -u):$$(id -g)" \
+		-v "$(CURDIR):/workspace" \
+		-w /workspace \
+		$(PROTO_IMAGE) \
+		make internal-proto
+
+proto-image:
+	docker build \
+		-f docker/Dockerfile-proto \
+		--build-arg PROTOC_VERSION=$(PROTOC_VERSION) \
+		--build-arg PROTOC_GEN_GO_VERSION=$(PROTOC_GEN_GO_VERSION) \
+		--build-arg PROTOC_GEN_GO_GRPC_VERSION=$(PROTOC_GEN_GO_GRPC_VERSION) \
+		-t $(PROTO_IMAGE) \
+		.
+
+internal-proto:
 	protoc --proto_path=. --go_out=. --go-grpc_out=. common/proto/*.proto
+
+proto-check: proto-docker
+	git diff --exit-code -- $(PROTO_FILES) $(PROTO_GENERATED_FILES)
 
 test:
 	go test ./common/... ./services/user-service/... ./services/banking-service/... ./services/trading-service/... ./services/email-service/...

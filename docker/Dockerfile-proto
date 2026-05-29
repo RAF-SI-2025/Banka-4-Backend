@@ -1,0 +1,32 @@
+FROM golang:1.26-bookworm
+
+ARG PROTOC_VERSION=34.0
+ARG PROTOC_GEN_GO_VERSION=v1.36.11
+ARG PROTOC_GEN_GO_GRPC_VERSION=v1.6.1
+ARG TARGETARCH
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+    arch="${TARGETARCH:-$(uname -m)}"; \
+    case "$arch" in \
+        amd64|x86_64) protoc_arch="x86_64" ;; \
+        arm64|aarch64) protoc_arch="aarch_64" ;; \
+        *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL -o /tmp/protoc.zip \
+        "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${protoc_arch}.zip"; \
+    unzip -q /tmp/protoc.zip -d /usr/local; \
+    rm /tmp/protoc.zip
+
+ENV GOBIN=/usr/local/bin
+
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VERSION} \
+    && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${PROTOC_GEN_GO_GRPC_VERSION} \
+    && protoc --version \
+    && protoc-gen-go --version \
+    && protoc-gen-go-grpc --version
+
+WORKDIR /workspace
