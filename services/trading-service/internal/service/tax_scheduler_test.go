@@ -89,7 +89,7 @@ func TestNewTaxScheduler_WithRealTaxService(t *testing.T) {
 	banking := &fakeBankingClient{}
 	taxSvc := NewTaxService(repo, banking, &config.Configuration{
 		TaxAccountNumber: "444000000000000000",
-	})
+	}, fakeAuditService(nil))
 	scheduler := NewTaxScheduler(taxSvc)
 	require.NotNil(t, scheduler)
 	require.NotNil(t, scheduler.taxService)

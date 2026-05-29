@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/audit"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	commonjwt "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
@@ -76,6 +77,7 @@ func TestMain(m *testing.M) {
 		&model.RefreshToken{},
 		&model.EmployeePermission{},
 		&model.ClientPermission{},
+		&audit.AuditLog{},
 	); err != nil {
 		log.Fatalf("auto migrate test schema: %v", err)
 	}
@@ -140,6 +142,11 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 		txManager,
 	)
 
+	auditSvc := audit.NewService(audit.NewRepository(db))
+
+	auditLogSvc := service.NewAuditLogService(auditSvc)
+	auditLogHandler := handler.NewAuditLogHandler(auditLogSvc)
+
 	empSvc := service.NewEmployeeService(
 		empRepo,
 		identityRepo,
@@ -148,11 +155,13 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 		mailer,
 		cfg,
 		txManager,
+		auditSvc,
 	)
 	actuarySvc := service.NewActuaryService(
 		actuaryRepo,
 		empRepo,
 		nil,
+		auditSvc,
 	)
 
 	clientSvc := service.NewClientService(
@@ -179,6 +188,7 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 		empHandler,
 		actuaryHandler,
 		clientHandler,
+		auditLogHandler,
 		empRepo,
 		auth.TokenVerifier(commonjwt.NewJWTVerifier(cfg.JWTSecret)),
 		dbpermission.NewDBPermissionProvider(db),

@@ -28,6 +28,13 @@ definitions:
       profit_rsd:
         type: number
     type: object
+  dto.AddWatchlistItemRequest:
+    properties:
+      listing_id:
+        type: integer
+    required:
+    - listing_id
+    type: object
   dto.AssetType:
     enum:
     - STOCK
@@ -189,6 +196,15 @@ definitions:
     - premium_rsd
     - price_per_stock_rsd
     - settlement_date
+    type: object
+  dto.CreateWatchlistRequest:
+    properties:
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+    required:
+    - name
     type: object
   dto.DailyPriceResponse:
     properties:
@@ -1053,6 +1069,59 @@ definitions:
         type: number
       userType:
         type: string
+    type: object
+  dto.WatchlistDetailResponse:
+    properties:
+      created_at:
+        type: string
+      listings:
+        items:
+          $ref: '#/definitions/dto.WatchlistListingResponse'
+        type: array
+      name:
+        type: string
+      watchlist_id:
+        type: integer
+    type: object
+  dto.WatchlistListingResponse:
+    properties:
+      added_at:
+        type: string
+      ask:
+        type: number
+      asset_type:
+        type: string
+      bid:
+        type: number
+      change:
+        type: number
+      exchange:
+        type: string
+      initial_margin_cost:
+        type: number
+      listing_id:
+        type: integer
+      maintenance_margin:
+        type: number
+      name:
+        type: string
+      price:
+        type: number
+      ticker:
+        type: string
+      volume:
+        type: integer
+    type: object
+  dto.WatchlistResponse:
+    properties:
+      created_at:
+        type: string
+      item_count:
+        type: integer
+      name:
+        type: string
+      watchlist_id:
+        type: integer
     type: object
   dto.WithdrawFromFundRequest:
     properties:
@@ -2395,45 +2464,36 @@ paths:
       - listings
   /api/orders:
     get:
-      description: Returns a paginated list of orders belonging to the authenticated
-        client or actuary
+      description: Returns a paginated and filtered list of orders. Clients see only
+        their own orders, employees see all.
       parameters:
-      - description: 'Page number (default: 1)'
+      - description: Page number
         in: query
         name: page
         type: integer
-      - description: 'Page size (default: 20, max: 100)'
+      - description: Page size
         in: query
         name: page_size
         type: integer
-      - description: Filter by order status
+      - description: Filter by status (PENDING, APPROVED, DECLINED)
         in: query
         name: status
         type: string
-      - description: Filter by order type
+      - description: Filter by direction (BUY, SELL)
         in: query
-        name: order_type
+        name: direction
         type: string
-      - description: Filter by asset type
+      - description: Filter by completion status
         in: query
-        name: asset_type
-        type: string
-      - description: Filter orders created after this date (RFC3339)
-        in: query
-        name: from_date
-        type: string
-      - description: Filter orders created before this date (RFC3339)
-        in: query
-        name: to_date
-        type: string
+        name: is_done
+        type: boolean
       produces:
       - application/json
       responses:
         "200":
-          description: data, total, page, page_size
+          description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/dto.ListOrdersResponse'
         "400":
           description: Bad Request
           schema:
@@ -2442,11 +2502,7 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/errors.AppError'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/errors.AppError'
-      summary: Get orders for the authenticated user
+      summary: Get all orders
       tags:
       - orders
     post:
@@ -2598,6 +2654,62 @@ paths:
       security:
       - BearerAuth: []
       summary: Create an order on behalf of an investment fund
+      tags:
+      - orders
+  /api/orders/my:
+    get:
+      description: Returns a paginated list of orders belonging to the authenticated
+        client or actuary
+      parameters:
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Page size (default: 10, max: 100)'
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by order status
+        in: query
+        name: status
+        type: string
+      - description: Filter by order type
+        in: query
+        name: order_type
+        type: string
+      - description: Filter by asset type
+        in: query
+        name: asset_type
+        type: string
+      - description: Filter orders created after this date (RFC3339)
+        in: query
+        name: from_date
+        type: string
+      - description: Filter orders created before this date (RFC3339)
+        in: query
+        name: to_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: data, total, page, page_size
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Get orders for the authenticated user
       tags:
       - orders
   /api/otc/contracts:
@@ -3025,6 +3137,210 @@ paths:
       summary: Trigger tax collection
       tags:
       - tax
+  /api/watchlists:
+    get:
+      description: Lists every watchlist owned by the authenticated user (client or
+        actuary), with item counts.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.WatchlistResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List watchlists
+      tags:
+      - watchlists
+    post:
+      consumes:
+      - application/json
+      description: Creates a new, empty watchlist for the authenticated user. Names
+        are unique per user.
+      parameters:
+      - description: Watchlist name
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateWatchlistRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.WatchlistResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Create a watchlist
+      tags:
+      - watchlists
+  /api/watchlists/{watchlistId}:
+    delete:
+      description: Deletes one of the authenticated user's watchlists and all of its
+        items.
+      parameters:
+      - description: Watchlist ID
+        in: path
+        name: watchlistId
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Delete a watchlist
+      tags:
+      - watchlists
+    get:
+      description: Returns a single watchlist with all of its tracked listings, each
+        enriched with current price, daily change and volume. Optionally filtered
+        by asset type.
+      parameters:
+      - description: Watchlist ID
+        in: path
+        name: watchlistId
+        required: true
+        type: integer
+      - description: 'Filter by asset type: stock|option|future|forexPair'
+        in: query
+        name: asset_type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.WatchlistDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get watchlist details
+      tags:
+      - watchlists
+  /api/watchlists/{watchlistId}/items:
+    post:
+      consumes:
+      - application/json
+      description: Adds a listing (stock, option, future or forex pair) to one of
+        the authenticated user's watchlists.
+      parameters:
+      - description: Watchlist ID
+        in: path
+        name: watchlistId
+        required: true
+        type: integer
+      - description: Listing to add
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AddWatchlistItemRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Add a listing to a watchlist
+      tags:
+      - watchlists
+  /api/watchlists/{watchlistId}/items/{listingId}:
+    delete:
+      description: Removes a listing from one of the authenticated user's watchlists.
+      parameters:
+      - description: Watchlist ID
+        in: path
+        name: watchlistId
+        required: true
+        type: integer
+      - description: Listing ID
+        in: path
+        name: listingId
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Remove a listing from a watchlist
+      tags:
+      - watchlists
 securityDefinitions:
   BearerAuth:
     description: JWT Authorization header using the Bearer scheme.

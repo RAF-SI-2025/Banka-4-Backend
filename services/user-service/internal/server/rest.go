@@ -33,6 +33,7 @@ func NewServer(
 	empHandler *handler.EmployeeHandler,
 	actuaryHandler *handler.ActuaryHandler,
 	clientHandler *handler.ClientHandler,
+	auditLogHandler *handler.AuditLogHandler,
 	employeeRepo repository.EmployeeRepository,
 	verifier commonauth.TokenVerifier,
 	permissions commonauth.PermissionProvider,
@@ -40,7 +41,7 @@ func NewServer(
 	r := gin.New()
 
 	InitRouter(r, cfg)
-	SetupRoutes(r, healthHandler, authHandler, empHandler, actuaryHandler, clientHandler, employeeRepo, verifier, permissions)
+	SetupRoutes(r, healthHandler, authHandler, empHandler, actuaryHandler, clientHandler, auditLogHandler, employeeRepo, verifier, permissions)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -75,6 +76,7 @@ func SetupRoutes(
 	empHandler *handler.EmployeeHandler,
 	actuaryHandler *handler.ActuaryHandler,
 	clientHandler *handler.ClientHandler,
+	auditLogHandler *handler.AuditLogHandler,
 	employeeRepo repository.EmployeeRepository,
 	verifier commonauth.TokenVerifier,
 	permissions commonauth.PermissionProvider,
@@ -131,6 +133,12 @@ func SetupRoutes(
 		mobileSecret.Use(commonauth.Middleware(verifier, permissions), commonauth.RequireIdentityType(commonauth.IdentityClient))
 		{
 			mobileSecret.GET("/secret-mobile", clientHandler.GetMobileSecret)
+		}
+
+		auditLog := api.Group("/audit-log")
+		auditLog.Use(commonauth.Middleware(verifier, permissions))
+		{
+			auditLog.GET("", userauth.RequireSupervisor(employeeRepo), auditLogHandler.ListAuditLogs)
 		}
 	}
 }

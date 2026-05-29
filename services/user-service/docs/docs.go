@@ -255,6 +255,90 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/audit-log": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns a paginated list of audit log entries with optional filtering. Accessible only to admins and supervisors.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audit-log"
+                ],
+                "summary": "List audit log entries",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by action type",
+                        "name": "action_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by performer employee ID",
+                        "name": "performed_by_employee_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter entries from this date (YYYY-MM-DD)",
+                        "name": "date_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter entries up to this date (YYYY-MM-DD)",
+                        "name": "date_to",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ListAuditLogsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/auth/activate": {
             "post": {
                 "description": "Activates an account by setting the initial password using an activation token",
@@ -1203,6 +1287,26 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.AuditLogResponse": {
+            "type": "object",
+            "properties": {
+                "action_type": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "details": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "performed_by_employee_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "dto.AuthUser": {
             "type": "object",
             "properties": {
@@ -1445,6 +1549,29 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/dto.ActuaryResponse"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.ListAuditLogsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.AuditLogResponse"
                     }
                 },
                 "page": {

@@ -187,7 +187,7 @@ func TestUpdateActuarySettings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewActuaryService(tt.actuaryRepo, tt.empRepo, tt.tradingClient)
+			service := NewActuaryService(tt.actuaryRepo, tt.empRepo, tt.tradingClient, fakeAuditService(nil))
 
 			response, err := service.UpdateActuarySettings(context.Background(), tt.employeeID, tt.callerID, tt.req)
 
@@ -322,7 +322,7 @@ func TestIncrementUsedLimit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewActuaryService(tt.actuaryRepo, tt.empRepo, &fakeTradingClient{})
+			service := NewActuaryService(tt.actuaryRepo, tt.empRepo, &fakeTradingClient{}, fakeAuditService(nil))
 
 			used, err := service.IncrementUsedLimit(context.Background(), tt.employeeID, tt.amount)
 
@@ -397,7 +397,7 @@ func TestResetUsedLimit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewActuaryService(tt.actuaryRepo, tt.empRepo, &fakeTradingClient{})
+			service := NewActuaryService(tt.actuaryRepo, tt.empRepo, &fakeTradingClient{}, fakeAuditService(nil))
 
 			response, err := service.ResetUsedLimit(context.Background(), tt.employeeID)
 
@@ -460,7 +460,7 @@ func TestGetAllActuaries(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewActuaryService(tt.repo, &fakeEmployeeRepo{}, &fakeTradingClient{})
+			service := NewActuaryService(tt.repo, &fakeEmployeeRepo{}, &fakeTradingClient{}, fakeAuditService(nil))
 
 			response, err := service.GetAllActuaries(context.Background(), tt.query)
 
@@ -502,7 +502,7 @@ func TestResetAllUsedLimits(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewActuaryService(tt.repo, &fakeEmployeeRepo{}, &fakeTradingClient{})
+			service := NewActuaryService(tt.repo, &fakeEmployeeRepo{}, &fakeTradingClient{}, fakeAuditService(nil))
 
 			err := service.ResetAllUsedLimits(context.Background())
 

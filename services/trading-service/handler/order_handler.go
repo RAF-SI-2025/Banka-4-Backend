@@ -213,7 +213,7 @@ func parseOrderID(c *gin.Context) (uint, error) {
 // @Tags orders
 // @Produce json
 // @Param page query int false "Page number (default: 1)"
-// @Param page_size query int false "Page size (default: 20, max: 100)"
+// @Param page_size query int false "Page size (default: 10, max: 100)"
 // @Param status query string false "Filter by order status"
 // @Param order_type query string false "Filter by order type"
 // @Param asset_type query string false "Filter by asset type"
@@ -223,7 +223,7 @@ func parseOrderID(c *gin.Context) (uint, error) {
 // @Failure 400 {object} errors.AppError
 // @Failure 401 {object} errors.AppError
 // @Failure 403 {object} errors.AppError
-// @Router /api/orders [get]
+// @Router /api/orders/my [get]
 func (h *OrderHandler) GetMyOrders(c *gin.Context) {
 	authCtx := auth.GetAuthFromContext(c.Request.Context())
 	if authCtx == nil {
@@ -241,7 +241,7 @@ func (h *OrderHandler) GetMyOrders(c *gin.Context) {
 		query.Page = 1
 	}
 	if query.PageSize < 1 || query.PageSize > 100 {
-		query.PageSize = 20
+		query.PageSize = 10
 	}
 
 	var userID uint

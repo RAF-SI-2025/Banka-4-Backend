@@ -22,6 +22,7 @@ import (
 	"go.uber.org/fx"
 	"gorm.io/gorm"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/audit"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
@@ -64,6 +65,8 @@ func main() {
 			func(c pb.PermissionServiceClient) auth.PermissionProvider {
 				return permission.NewGrpcPermissionProvider(c)
 			},
+			audit.NewRepository,
+			audit.NewService,
 			handler.NewHealthHandler,
 			repository.NewAssetRepository,
 			repository.NewAssetOwnershipRepository,
@@ -117,6 +120,9 @@ func main() {
 			repository.NewClientFundRedemptionRepository,
 			service.NewInvestmentFundService,
 			handler.NewInvestmentFundHandler,
+			repository.NewWatchlistRepository,
+			service.NewWatchlistService,
+			handler.NewWatchlistHandler,
 			tradinggrpc.NewTradingServiceServer,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
@@ -133,6 +139,7 @@ func main() {
 		}),
 		fx.Invoke(func(db *gorm.DB) error {
 			return db.AutoMigrate(
+				&audit.AuditLog{},
 				&model.Asset{},
 				&model.Listing{},
 				&model.Stock{},
@@ -154,6 +161,8 @@ func main() {
 				&model.ClientFundInvestment{},
 				&model.ClientFundRedemption{},
 				&model.FundPerformance{},
+				&model.Watchlist{},
+				&model.WatchlistItem{},
 			)
 		}),
 		fx.Invoke(func(lc fx.Lifecycle, svc *service.StockService) {

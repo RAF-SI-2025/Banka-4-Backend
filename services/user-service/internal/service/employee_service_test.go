@@ -28,6 +28,7 @@ func newEmployeeService(
 		mailer,
 		testConfig(),
 		&fakeTxManager{},
+		fakeAuditService(nil),
 	)
 }
 
