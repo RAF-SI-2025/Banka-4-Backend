@@ -336,6 +336,16 @@ func (r *processingOwnershipRepo) FindByUserId(_ context.Context, userID uint, o
 	return out, nil
 }
 
+func (r *processingOwnershipRepo) FindByOwnerType(_ context.Context, ownerType model.OwnerType) ([]model.AssetOwnership, error) {
+	out := make([]model.AssetOwnership, 0)
+	for _, ownership := range r.ownerships {
+		if ownership.OwnerType == ownerType {
+			out = append(out, *ownership)
+		}
+	}
+	return out, nil
+}
+
 func (r *processingOwnershipRepo) FindByID(_ context.Context, id uint) (*model.AssetOwnership, error) {
 	for _, ownership := range r.ownerships {
 		if ownership.AssetOwnershipID == id || ownership.AssetID == id {

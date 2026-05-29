@@ -801,7 +801,7 @@ func (s *OtcDealProcessingService) expireContract(ctx context.Context, contractI
 // validateContractForExecution verifies that the contract is still active and
 // eligible for exercise, expiring it on the spot if its settlement time has
 // already passed.
-func (s *OtcDealProcessingService) validateContractForExecution(ctx context.Context, contract *model.OtcOptionContract) error {
+func (s *OtcDealProcessingService) validateContractForExecution(_ context.Context, contract *model.OtcOptionContract) error {
 	if contract.Status == model.OtcOptionContractStatusExercised {
 		return appErrors.ConflictErr("OTC contract has already been exercised")
 	}

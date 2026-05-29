@@ -71,7 +71,7 @@ func (h *PortfolioHandler) GetActuaryPortfolio(c *gin.Context) {
 		return
 	}
 
-	assets, err := h.service.GetActuaryPortfolio(c.Request.Context(), uint(actID))
+	assets, err := h.service.GetWholeBankPortfolio(c.Request.Context(), uint(actID))
 	if err != nil {
 		_ = c.Error(err)
 		return

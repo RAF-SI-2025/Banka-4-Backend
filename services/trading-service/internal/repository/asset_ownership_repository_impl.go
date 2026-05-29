@@ -30,6 +30,17 @@ func (r *assetOwnershipRepository) FindByUserId(ctx context.Context, userId uint
 	return ownerships, nil
 }
 
+func (r *assetOwnershipRepository) FindByOwnerType(ctx context.Context, ownerType model.OwnerType) ([]model.AssetOwnership, error) {
+	var ownerships []model.AssetOwnership
+	if err := commondb.DBFromContext(ctx, r.db).
+		Where("owner_type = ?", ownerType).
+		Preload("Asset").
+		Find(&ownerships).Error; err != nil {
+		return nil, err
+	}
+	return ownerships, nil
+}
+
 func (r *assetOwnershipRepository) FindByID(ctx context.Context, id uint) (*model.AssetOwnership, error) {
 	var o model.AssetOwnership
 	result := commondb.DBFromContext(ctx, r.db).Preload("Asset").First(&o, id)
