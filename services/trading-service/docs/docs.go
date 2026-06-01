@@ -3614,18 +3614,22 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "cadence": {
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/model.RecurringOrderCadence"
-                        }
-                    ],
                     "enum": [
                         "DAILY",
                         "WEEKLY",
                         "MONTHLY"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.RecurringOrderCadence"
+                        }
                     ]
                 },
                 "direction": {
+                    "enum": [
+                        "BUY",
+                        "SELL"
+                    ],
                     "allOf": [
                         {
                             "$ref": "#/definitions/model.OrderDirection"
