@@ -1378,3 +1378,56 @@ func (s *OrderService) GetMyOrders(ctx context.Context, query dto.UserOrdersQuer
 	}
 	return responses, total, nil
 }
+
+type SystemOrderParams struct {
+	AccountNumber string
+	ListingID     uint
+	Direction     model.OrderDirection
+	Quantity      uint
+	OwnerUserID   uint
+	OwnerType     model.OwnerType
+}
+
+func (s *OrderService) CreateSystemOrder(ctx context.Context, p SystemOrderParams) (*model.Order, error) {
+	account, err := s.bankingClient.GetAccountByNumber(ctx, p.AccountNumber)
+	if err != nil {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.NotFound {
+			return nil, errors.NotFoundErr("account not found")
+		}
+		return nil, errors.ServiceUnavailableErr(err)
+	}
+
+	ownerID := p.OwnerUserID
+	var sysCtx context.Context
+	if p.OwnerType == model.OwnerTypeClient {
+		sysCtx = auth.SetAuthOnContext(ctx, &auth.AuthContext{
+			IdentityID:   ownerID,
+			IdentityType: auth.IdentityClient,
+			ClientID:     &ownerID,
+		})
+	} else {
+		sysCtx = auth.SetAuthOnContext(ctx, &auth.AuthContext{
+			IdentityID:   ownerID,
+			IdentityType: auth.IdentityEmployee,
+			EmployeeID:   &ownerID,
+		})
+	}
+	authCtx := auth.GetAuthFromContext(sysCtx)
+
+	return s.placeOrder(sysCtx, authCtx, placeOrderParams{
+		AccountNumber:    p.AccountNumber,
+		ListingID:        p.ListingID,
+		OrderType:        model.OrderTypeMarket,
+		Direction:        p.Direction,
+		Quantity:         p.Quantity,
+		AllOrNone:        false,
+		Margin:           false,
+		OrderOwnerUserID: p.OwnerUserID,
+		OrderOwnerType:   p.OwnerType,
+		AssetOwnerUserID: p.OwnerUserID,
+		AssetOwnerType:   p.OwnerType,
+		CommissionExempt: p.OwnerType == model.OwnerTypeActuary,
+		account:          account,
+	})
+}

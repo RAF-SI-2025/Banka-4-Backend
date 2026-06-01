@@ -40,6 +40,7 @@ type Configuration struct {
 	ExchangeRateAPIKey string
 	FinnhubAPIKey      string
 	TaxAccountNumber   string
+	EmailServiceAddr   string
 }
 
 func GetAsIntOrDefault(env string, defaultValue int) int {
@@ -99,5 +100,6 @@ func Load() *Configuration {
 		},
 		ExchangeRateAPIKey: GetOrThrow("EXCHANGE_RATE_API_KEY"),
 		TaxAccountNumber:   GetOrDefault("TAX_ACCOUNT_NUMBER", "444000000000000008"),
+		EmailServiceAddr:   GetOrDefault("EMAIL_SERVICE_ADDR", "localhost:50054"),
 	}
 }

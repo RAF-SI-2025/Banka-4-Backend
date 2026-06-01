@@ -25,12 +25,12 @@ import (
 	_ "github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/docs"
 )
 
-func NewServer(lc fx.Lifecycle, cfg *config.Configuration, healthHandler *handler.HealthHandler, taxHandler *handler.TaxHandler, exchangeHandler *handler.ExchangeHandler, orderHandler *handler.OrderHandler, portfolioHandler *handler.PortfolioHandler, listingHandler *handler.ListingHandler, otcHandler *handler.OTCHandler, otcOfferHandler *handler.OtcOfferHandler, fundHandler *handler.InvestmentFundHandler, watchlistHandler *handler.WatchlistHandler, verifier auth.TokenVerifier, permProvider auth.PermissionProvider, userClient client.UserServiceClient) {
+func NewServer(lc fx.Lifecycle, cfg *config.Configuration, healthHandler *handler.HealthHandler, taxHandler *handler.TaxHandler, exchangeHandler *handler.ExchangeHandler, orderHandler *handler.OrderHandler, portfolioHandler *handler.PortfolioHandler, listingHandler *handler.ListingHandler, otcHandler *handler.OTCHandler, otcOfferHandler *handler.OtcOfferHandler, fundHandler *handler.InvestmentFundHandler, watchlistHandler *handler.WatchlistHandler, recurringOrderHandler *handler.RecurringOrderHandler, verifier auth.TokenVerifier, permProvider auth.PermissionProvider, userClient client.UserServiceClient) {
 	r := gin.New()
 
 	InitRouter(r, cfg)
 
-	SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, verifier, permProvider, userClient)
+	SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, recurringOrderHandler, verifier, permProvider, userClient)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -58,7 +58,7 @@ func InitRouter(r *gin.Engine, cfg *config.Configuration) {
 	validator.RegisterValidators()
 }
 
-func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler *handler.TaxHandler, exchangeHandler *handler.ExchangeHandler, orderHandler *handler.OrderHandler, portfolioHandler *handler.PortfolioHandler, listingHandler *handler.ListingHandler, otcHandler *handler.OTCHandler, otcOfferHandler *handler.OtcOfferHandler, fundHandler *handler.InvestmentFundHandler, watchlistHandler *handler.WatchlistHandler, verifier auth.TokenVerifier, permProvider auth.PermissionProvider, userClient client.UserServiceClient) {
+func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler *handler.TaxHandler, exchangeHandler *handler.ExchangeHandler, orderHandler *handler.OrderHandler, portfolioHandler *handler.PortfolioHandler, listingHandler *handler.ListingHandler, otcHandler *handler.OTCHandler, otcOfferHandler *handler.OtcOfferHandler, fundHandler *handler.InvestmentFundHandler, watchlistHandler *handler.WatchlistHandler, recurringOrderHandler *handler.RecurringOrderHandler, verifier auth.TokenVerifier, permProvider auth.PermissionProvider, userClient client.UserServiceClient) {
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -229,6 +229,15 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 		{
 			tax.GET("", middleware.RequireSupervisor(userClient), taxHandler.ListTaxUsers)
 			tax.POST("/collect", middleware.RequireSupervisor(userClient), taxHandler.CollectTaxes)
+		}
+
+		recurringOrders := api.Group("/recurring-orders")
+		recurringOrders.Use(authMw, auth.RequirePermission(permission.Trading))
+		{
+			recurringOrders.GET("", recurringOrderHandler.GetMyRecurringOrders)
+			recurringOrders.POST("", recurringOrderHandler.CreateRecurringOrder)
+			recurringOrders.DELETE("/:id", recurringOrderHandler.DeleteRecurringOrder)
+			recurringOrders.PATCH("/:id/pause", recurringOrderHandler.PauseRecurringOrder)
 		}
 
 		profit := api.Group("/profit")

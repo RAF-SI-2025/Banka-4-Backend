@@ -197,6 +197,41 @@ definitions:
     - price_per_stock_rsd
     - settlement_date
     type: object
+  dto.CreateRecurringOrderRequest:
+    properties:
+      account_number:
+        type: string
+      cadence:
+        allOf:
+        - $ref: '#/definitions/model.RecurringOrderCadence'
+        enum:
+        - DAILY
+        - WEEKLY
+        - MONTHLY
+      direction:
+        allOf:
+        - $ref: '#/definitions/model.OrderDirection'
+        enum:
+        - BUY
+        - SELL
+      listing_id:
+        type: integer
+      mode:
+        allOf:
+        - $ref: '#/definitions/model.RecurringOrderMode'
+        enum:
+        - BY_QUANTITY
+        - BY_AMOUNT
+      value:
+        type: number
+    required:
+    - account_number
+    - cadence
+    - direction
+    - listing_id
+    - mode
+    - value
+    type: object
   dto.CreateWatchlistRequest:
     properties:
       name:
@@ -960,6 +995,39 @@ definitions:
     required:
     - amount
     type: object
+  dto.RecurringOrderResponse:
+    properties:
+      account_number:
+        type: string
+      active:
+        type: boolean
+      cadence:
+        $ref: '#/definitions/model.RecurringOrderCadence'
+      created_at:
+        type: string
+      direction:
+        $ref: '#/definitions/model.OrderDirection'
+      listing_id:
+        type: integer
+      listing_name:
+        type: string
+      mode:
+        $ref: '#/definitions/model.RecurringOrderMode'
+      next_run:
+        type: string
+      owner_type:
+        $ref: '#/definitions/model.OwnerType'
+      recurring_order_id:
+        type: integer
+      ticker:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+      value:
+        type: number
+    type: object
   dto.RejectOfferRequest:
     properties:
       comment:
@@ -1277,6 +1345,24 @@ definitions:
     - OwnerTypeClient
     - OwnerTypeActuary
     - OwnerTypeFund
+  model.RecurringOrderCadence:
+    enum:
+    - DAILY
+    - WEEKLY
+    - MONTHLY
+    type: string
+    x-enum-varnames:
+    - RecurringOrderCadenceDaily
+    - RecurringOrderCadenceWeekly
+    - RecurringOrderCadenceMonthly
+  model.RecurringOrderMode:
+    enum:
+    - BY_QUANTITY
+    - BY_AMOUNT
+    type: string
+    x-enum-varnames:
+    - RecurringOrderModeByQuantity
+    - RecurringOrderModeByAmount
 info:
   contact: {}
   description: API for managing portfolios, executing trades, and handling financial
@@ -3061,6 +3147,126 @@ paths:
       summary: Get investment fund positions
       tags:
       - profit
+  /api/recurring-orders:
+    get:
+      description: Returns all recurring orders belonging to the authenticated client
+        or actuary
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.RecurringOrderResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get recurring orders for the authenticated user
+      tags:
+      - recurring-orders
+    post:
+      consumes:
+      - application/json
+      description: Creates a recurring market order that executes automatically at
+        the given cadence
+      parameters:
+      - description: Recurring order details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateRecurringOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.RecurringOrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Create a recurring order
+      tags:
+      - recurring-orders
+  /api/recurring-orders/{id}:
+    delete:
+      description: Cancels and deletes a recurring order owned by the authenticated
+        user
+      parameters:
+      - description: Recurring Order ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Delete a recurring order
+      tags:
+      - recurring-orders
+  /api/recurring-orders/{id}/pause:
+    patch:
+      description: Toggles the active state of a recurring order owned by the authenticated
+        user
+      parameters:
+      - description: Recurring Order ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.RecurringOrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Pause or resume a recurring order
+      tags:
+      - recurring-orders
   /api/tax:
     get:
       description: Returns a paginated list of clients and/or actuaries with their
