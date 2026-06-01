@@ -88,6 +88,18 @@ func (r *assetOwnershipRepository) UpdateOTCFields(ctx context.Context, ownershi
 		}).Error
 }
 
+func (r *assetOwnershipRepository) FindAllByAssetIDs(ctx context.Context, assetIDs []uint) ([]model.AssetOwnership, error) {
+	var ownerships []model.AssetOwnership
+	if len(assetIDs) == 0 {
+		return ownerships, nil
+	}
+	err := commondb.DBFromContext(ctx, r.db).
+		Where("asset_id IN ?", assetIDs).
+		Preload("Asset").
+		Find(&ownerships).Error
+	return ownerships, err
+}
+
 func (r *assetOwnershipRepository) findByUserAndAsset(ctx context.Context, userId uint, ownerType model.OwnerType, assetID uint, forUpdate bool) (*model.AssetOwnership, error) {
 	query := commondb.DBFromContext(ctx, r.db).
 		Where("user_id = ? AND owner_type = ? AND asset_id = ?", userId, ownerType, assetID).

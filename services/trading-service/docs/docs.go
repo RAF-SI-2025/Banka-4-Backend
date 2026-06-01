@@ -709,6 +709,77 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/dividends": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all dividend payout records. Restricted to supervisors.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dividends"
+                ],
+                "summary": "List all dividend payouts",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ListDividendPayoutsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/dividends/trigger": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Forces immediate dividend processing. For internal use only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dividends"
+                ],
+                "summary": "Manually trigger dividend payout",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/exchanges": {
             "get": {
                 "description": "Returns a paginated list of all stock exchanges",
@@ -2583,6 +2654,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/portfolio/assets/{assetOwnershipId}/dividends": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns dividend payout history for a specific asset ownership (position).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dividends"
+                ],
+                "summary": "List dividend payouts for a portfolio position",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Asset Ownership ID",
+                        "name": "assetOwnershipId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ListDividendPayoutsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/profit/actuaries": {
             "get": {
                 "security": [
@@ -3451,6 +3568,41 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.DividendPayoutResponse": {
+            "type": "object",
+            "properties": {
+                "accountNumber": {
+                    "type": "string"
+                },
+                "assetOwnershipId": {
+                    "type": "integer"
+                },
+                "currencyCode": {
+                    "type": "string"
+                },
+                "dividendPayoutId": {
+                    "type": "integer"
+                },
+                "grossAmount": {
+                    "type": "number"
+                },
+                "netAmount": {
+                    "type": "number"
+                },
+                "paymentDate": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "number"
+                },
+                "stock": {
+                    "type": "string"
+                },
+                "taxAmount": {
+                    "type": "number"
+                }
+            }
+        },
         "dto.ExchangeResponse": {
             "type": "object",
             "properties": {
@@ -3946,6 +4098,17 @@ const docTemplate = `{
                 },
                 "total_invested_rsd": {
                     "type": "number"
+                }
+            }
+        },
+        "dto.ListDividendPayoutsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.DividendPayoutResponse"
+                    }
                 }
             }
         },

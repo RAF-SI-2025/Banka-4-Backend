@@ -158,6 +158,10 @@ type fakeOtcAssetOwnershipRepo struct {
 	reservedDeltas map[uint]float64 // assetID -> cumulative delta
 }
 
+func (r *fakeOtcAssetOwnershipRepo) FindAllByAssetIDs(_ context.Context, _ []uint) ([]model.AssetOwnership, error) {
+	return nil, nil
+}
+
 func newFakeOtcAssetOwnershipRepo() *fakeOtcAssetOwnershipRepo {
 	return &fakeOtcAssetOwnershipRepo{
 		ownerships:     make(map[string]*model.AssetOwnership),

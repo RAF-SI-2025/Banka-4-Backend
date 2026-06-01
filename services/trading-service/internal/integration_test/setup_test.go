@@ -377,12 +377,15 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 	otcHandler := handler.NewOTCHandler(otcSvc)
 	otcOfferHandler := handler.NewOtcOfferHandler(otcOfferSvc)
 	watchlistHandler := handler.NewWatchlistHandler(service.NewWatchlistService(repository.NewWatchlistRepository(db), listingRepo))
+	dividendRepo := repository.NewDividendPayoutRepository(db)
+	dividendSvc := service.NewDividendPayoutService(dividendRepo, assetOwnershipRepo, stockRepo, listingRepo, taxSvc, bankingClient, cfg)
+	dividendHandler := handler.NewDividendHandler(dividendSvc)
 
 	verifier := auth.TokenVerifier(commonjwt.NewJWTVerifier(cfg.JWTSecret))
 
 	r := gin.New()
 	server.InitRouter(r, cfg)
-	server.SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, verifier, permProvider, userClient)
+	server.SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, dividendHandler, verifier, permProvider, userClient)
 
 	return r, userClient
 }
