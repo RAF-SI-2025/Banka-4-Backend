@@ -3630,29 +3630,24 @@ const docTemplate = `{
                         {
                             "$ref": "#/definitions/model.OrderDirection"
                         }
-                    ],
-                    "enum": [
-                        "BUY",
-                        "SELL"
                     ]
                 },
                 "listing_id": {
                     "type": "integer"
                 },
                 "mode": {
+                    "enum": [
+                        "BY_QUANTITY",
+                        "BY_AMOUNT"
+                    ],
                     "allOf": [
                         {
                             "$ref": "#/definitions/model.RecurringOrderMode"
                         }
-                    ],
-                    "enum": [
-                        "BY_QUANTITY",
-                        "BY_AMOUNT"
                     ]
                 },
                 "value": {
-                    "type": "number",
-                    "minimum": 0
+                    "type": "number"
                 }
             }
         },

@@ -223,7 +223,6 @@ definitions:
         - BY_QUANTITY
         - BY_AMOUNT
       value:
-        minimum: 0
         type: number
     required:
     - account_number
