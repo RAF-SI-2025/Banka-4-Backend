@@ -204,7 +204,7 @@ func SetupRoutes(
 			client.GET("/:clientId/accumulated-tax", taxHandler.GetClientAccumulatedTax)
 			client.PATCH("/:clientId/assets/:ownershipId/publish", otcHandler.PublishAssetClient)
 			client.GET("/:clientId/funds", fundHandler.GetClientFundPositions)
-			client.GET("/:clientId/assets/:assetOwnershipId/dividends", dividendHandler.GetDividendPayoutsForAssetOwnership)
+			client.GET("/:clientId/assets/:assetOwnershipId/dividends", dividendHandler.GetClientDividendPayoutsForAssetOwnership)
 		}
 
 		actuary := api.Group("/actuary")
@@ -216,7 +216,7 @@ func SetupRoutes(
 			actuary.GET("/:actId/accumulated-tax", taxHandler.GetActuaryAccumulatedTax)
 			actuary.POST("/:actId/options/:assetId/exercise", portfolioHandler.ExerciseOption)
 			actuary.PATCH("/:actId/assets/:ownershipId/publish", otcHandler.PublishAssetActuary)
-			actuary.GET("/:actId/assets/:assetOwnershipId/dividends", dividendHandler.GetDividendPayoutsForAssetOwnership)
+			actuary.GET("/:actId/assets/:assetOwnershipId/dividends", dividendHandler.GetActuaryDividendPayoutsForAssetOwnership)
 		}
 
 		otc := api.Group("/otc")

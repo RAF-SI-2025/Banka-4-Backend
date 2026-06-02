@@ -357,6 +357,33 @@ var accounts = []struct {
 		DailyLimit:    1e12,
 		MonthlyLimit:  1e13,
 	},
+	{
+		AccountNumber: "444000112345678914",
+		Name:          "Standard Personal Account",
+		ClientID:      4,
+		EmployeeID:    1,
+		Balance:       25000.00,
+		ExpiresAt:     time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
+		CurrencyCode:  "RSD",
+		AccountType:   model.AccountTypePersonal,
+		AccountKind:   model.AccountKindCurrent,
+		Subtype:       model.SubtypeStandard,
+		DailyLimit:    250000.00,
+		MonthlyLimit:  1000000.00,
+	},
+	{
+		AccountNumber: "444000112345678923",
+		Name:          "Personal USD Account",
+		ClientID:      4,
+		EmployeeID:    1,
+		Balance:       5000.00,
+		ExpiresAt:     time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
+		CurrencyCode:  "USD",
+		AccountType:   model.AccountTypePersonal,
+		AccountKind:   model.AccountKindForeign,
+		DailyLimit:    5000.00,
+		MonthlyLimit:  20000.00,
+	},
 }
 
 var seedTransactions = []struct {

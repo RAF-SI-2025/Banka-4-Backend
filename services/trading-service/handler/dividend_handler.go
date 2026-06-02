@@ -75,6 +75,36 @@ func (h *DividendHandler) GetDividendPayoutsForAssetOwnership(c *gin.Context) {
 	})
 }
 
+// GetClientDividendPayoutsForAssetOwnership godoc
+// @Summary List client dividend payouts for a portfolio position
+// @Description Returns dividend payout history for a specific asset ownership (position) belonging to a client.
+// @Tags dividends
+// @Produce json
+// @Param clientId path int true "Client ID"
+// @Param assetOwnershipId path int true "Asset Ownership ID"
+// @Success 200 {object} dto.ListDividendPayoutsResponse
+// @Failure 400 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/client/{clientId}/assets/{assetOwnershipId}/dividends [get]
+func (h *DividendHandler) GetClientDividendPayoutsForAssetOwnership(c *gin.Context) {
+	h.GetDividendPayoutsForAssetOwnership(c)
+}
+
+// GetActuaryDividendPayoutsForAssetOwnership godoc
+// @Summary List actuary dividend payouts for a portfolio position
+// @Description Returns dividend payout history for a specific asset ownership (position) managed by an actuary.
+// @Tags dividends
+// @Produce json
+// @Param actId path int true "Actuary ID"
+// @Param assetOwnershipId path int true "Asset Ownership ID"
+// @Success 200 {object} dto.ListDividendPayoutsResponse
+// @Failure 400 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/actuary/{actId}/assets/{assetOwnershipId}/dividends [get]
+func (h *DividendHandler) GetActuaryDividendPayoutsForAssetOwnership(c *gin.Context) {
+	h.GetDividendPayoutsForAssetOwnership(c)
+}
+
 // TriggerDividends godoc
 // @Summary Manually trigger dividend payout
 // @Description Forces immediate dividend processing. For internal use only.
