@@ -20,11 +20,12 @@ jobs:
       fail-fast: false
       matrix:
         service:
-          - user-service
           - banking-service
-          - trading-service
+          - email-service
           - interbank-service
-
+          - trading-service
+          - user-service
+          
     steps:
       - name: Check out ${{ github.ref }} after a ${{ github.event_name }} event
         uses: actions/checkout@v6
