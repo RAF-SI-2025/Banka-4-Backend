@@ -220,7 +220,7 @@ func TestProcessDividends_StockRepoError(t *testing.T) {
 }
 
 func TestProcessDividends_PaysSingleClientOwner(t *testing.T) {
-	stock := makeDividendStock(0.04, 100.0)
+	stock := makeDividendStock(4, 100.0)
 	ownership := makeDividendOwnership(1, model.OwnerTypeClient, 50)
 
 	stockRepo := &fakeDividendStockRepo{stocks: []model.Stock{stock}}
@@ -248,7 +248,7 @@ func TestProcessDividends_PaysSingleClientOwner(t *testing.T) {
 }
 
 func TestProcessDividends_ActuaryPaysNoTax(t *testing.T) {
-	stock := makeDividendStock(0.04, 100.0)
+	stock := makeDividendStock(4, 100.0)
 	ownership := makeDividendOwnership(2, model.OwnerTypeActuary, 50)
 	stockRepo := &fakeDividendStockRepo{stocks: []model.Stock{stock}}
 	ownershipRepo := &fakeDividendOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
@@ -275,7 +275,7 @@ func TestProcessDividends_ActuaryPaysNoTax(t *testing.T) {
 func TestProcessDividends_DividendFormula(t *testing.T) {
 	// Formula: Quantity × Price × (DividendYield / 4)
 	// 100 × 200 × (0.08 / 4) = 100 × 200 × 0.02 = 400
-	stock := makeDividendStock(0.08, 200.0)
+	stock := makeDividendStock(8, 200.0)
 	ownership := makeDividendOwnership(3, model.OwnerTypeClient, 100)
 	stockRepo := &fakeDividendStockRepo{stocks: []model.Stock{stock}}
 	ownershipRepo := &fakeDividendOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
@@ -297,7 +297,7 @@ func TestProcessDividends_DividendFormula(t *testing.T) {
 }
 
 func TestProcessDividends_SkipsZeroAmountOwnership(t *testing.T) {
-	stock := makeDividendStock(0.04, 100.0)
+	stock := makeDividendStock(4, 100.0)
 	ownership := makeDividendOwnership(4, model.OwnerTypeClient, 0)
 	stockRepo := &fakeDividendStockRepo{stocks: []model.Stock{stock}}
 	ownershipRepo := &fakeDividendOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
@@ -311,7 +311,7 @@ func TestProcessDividends_SkipsZeroAmountOwnership(t *testing.T) {
 }
 
 func TestProcessDividends_NoAccountSkipsPayout(t *testing.T) {
-	stock := makeDividendStock(0.04, 100.0)
+	stock := makeDividendStock(4, 100.0)
 	ownership := makeDividendOwnership(4, model.OwnerTypeClient, 50)
 	stockRepo := &fakeDividendStockRepo{stocks: []model.Stock{stock}}
 	ownershipRepo := &fakeDividendOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
@@ -329,7 +329,7 @@ func TestProcessDividends_NoAccountSkipsPayout(t *testing.T) {
 }
 
 func TestProcessDividends_PaymentFailureDoesNotStopOtherOwners(t *testing.T) {
-	stock := makeDividendStock(0.04, 100.0)
+	stock := makeDividendStock(4, 100.0)
 	ownerships := []model.AssetOwnership{
 		makeDividendOwnership(5, model.OwnerTypeClient, 50),
 		makeDividendOwnership(6, model.OwnerTypeClient, 50),
@@ -352,7 +352,7 @@ func TestProcessDividends_PaymentFailureDoesNotStopOtherOwners(t *testing.T) {
 }
 
 func TestProcessDividends_SaveFailureIsNonFatal(t *testing.T) {
-	stock := makeDividendStock(0.04, 100.0)
+	stock := makeDividendStock(4, 100.0)
 	ownership := makeDividendOwnership(7, model.OwnerTypeClient, 50)
 	stockRepo := &fakeDividendStockRepo{stocks: []model.Stock{stock}}
 	ownershipRepo := &fakeDividendOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}

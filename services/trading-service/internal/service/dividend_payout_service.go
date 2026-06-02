@@ -110,7 +110,7 @@ func (s *DividendPayoutService) payOwner(
 	currencyCode string,
 	paymentDate time.Time,
 ) error {
-	gross := ownership.Amount * price * (stock.DividendYield / 4.0)
+	gross := ownership.Amount * price * (stock.DividendYield / 400.0)
 	if gross <= 0 {
 		return nil
 	}

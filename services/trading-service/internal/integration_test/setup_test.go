@@ -92,6 +92,7 @@ func TestMain(m *testing.M) {
 		&audit.AuditLog{},
 		&model.Watchlist{},
 		&model.WatchlistItem{},
+		&model.DividendPayout{},
 	); err != nil {
 		log.Fatalf("auto migrate test schema: %v", err)
 	}
@@ -286,9 +287,10 @@ func (f *fakePermissionProvider) GetPermissions(_ context.Context, _ *commonjwt.
 
 func testConfig() *config.Configuration {
 	return &config.Configuration{
-		Env:              "test",
-		JWTSecret:        "test-secret",
-		TaxAccountNumber: "444000000000000099",
+		Env:                   "test",
+		JWTSecret:             "test-secret",
+		TaxAccountNumber:      "444000000000000099",
+		DividendAccountNumber: "444000000000000099",
 		URLs: config.URLConfig{
 			FrontendBaseURL: "http://localhost:5173",
 		},
