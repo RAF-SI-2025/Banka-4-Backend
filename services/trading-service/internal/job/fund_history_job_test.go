@@ -93,6 +93,9 @@ func (d *dummyOwnershipRepo) UpdateOTCFields(ctx context.Context, ownershipID ui
 func (d *dummyOwnershipRepo) IncreaseReservedAmount(ctx context.Context, identityID uint, ownerType model.OwnerType, assetID uint, delta float64) error {
 	return nil
 }
+func (d *dummyOwnershipRepo) FindAllByAssetIDs(_ context.Context, _ []uint) ([]model.AssetOwnership, error) {
+	return nil, nil
+}
 
 // ── Tests ─────────────────────────────────────────────────────────────
 

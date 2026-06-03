@@ -30,6 +30,10 @@ type fakeAssetOwnershipRepo struct {
 	findErr        error
 }
 
+func (r *fakeAssetOwnershipRepo) FindAllByAssetIDs(_ context.Context, _ []uint) ([]model.AssetOwnership, error) {
+	return r.ownerships, r.findErr
+}
+
 func (r *fakeAssetOwnershipRepo) FindByUserId(_ context.Context, _ uint, _ model.OwnerType) ([]model.AssetOwnership, error) {
 	return r.ownerships, r.findErr
 }

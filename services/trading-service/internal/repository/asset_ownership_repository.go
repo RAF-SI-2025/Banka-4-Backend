@@ -17,4 +17,7 @@ type AssetOwnershipRepository interface {
 	IncreaseReservedAmount(ctx context.Context, identityID uint, ownerType model.OwnerType, assetID uint, delta float64) error
 	FindAllPublic(ctx context.Context, page, pageSize int) ([]model.AssetOwnership, int64, error)
 	UpdateOTCFields(ctx context.Context, ownershipID uint, publicAmount, reservedAmount float64) error
+	// FindAllByAssetIDs returns all ownerships whose asset_id is in the given list.
+	// Used by the dividend job to find every owner of a set of stocks.
+	FindAllByAssetIDs(ctx context.Context, assetIDs []uint) ([]model.AssetOwnership, error)
 }

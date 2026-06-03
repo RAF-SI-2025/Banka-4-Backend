@@ -22,6 +22,10 @@ type processingOfferRepo struct {
 	findErr                    error
 }
 
+func (r *processingOwnershipRepo) FindAllByAssetIDs(_ context.Context, _ []uint) ([]model.AssetOwnership, error) {
+	return nil, nil
+}
+
 func newProcessingOfferRepo() *processingOfferRepo {
 	return &processingOfferRepo{offers: map[uint]*model.OtcOffer{}, nextID: 1}
 }
