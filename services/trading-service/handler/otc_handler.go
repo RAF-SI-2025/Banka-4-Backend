@@ -104,7 +104,7 @@ func (h *OTCHandler) PublishAssetActuary(c *gin.Context) {
 	}
 	amount := req.Amount
 
-	ownerType := model.OwnerTypeActuary
+	ownerType := model.OwnerTypeBank
 
 	if svcErr := h.service.PublishAsset(c.Request.Context(), uint(ownershipID), uint(actuaryId), ownerType, amount); svcErr != nil {
 		_ = c.Error(svcErr)

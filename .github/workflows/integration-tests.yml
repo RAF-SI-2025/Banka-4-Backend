@@ -17,6 +17,8 @@ jobs:
           - ./services/banking-service
           - ./services/trading-service
           - ./services/user-service
+          - ./services/interbank-service
+          - ./services/email-service
 
     steps:
     - name: Check out ${{ github.ref }} after a ${{ github.event_name }} event

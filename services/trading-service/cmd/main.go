@@ -123,6 +123,19 @@ func main() {
 			repository.NewWatchlistRepository,
 			service.NewWatchlistService,
 			handler.NewWatchlistHandler,
+			repository.NewDividendPayoutRepository,
+			service.NewDividendPayoutService,
+			handler.NewDividendHandler,
+			job.NewDividendPayoutJob,
+			client.NewEmailServiceConnection,
+			func(conn *clientgrpc.EmailClient) service.Mailer {
+				return conn
+			},
+			clientgrpc.NewEmailClient,
+			repository.NewRecurringOrderRepository,
+			service.NewRecurringOrderService,
+			handler.NewRecurringOrderHandler,
+			service.NewRecurringOrderScheduler,
 			tradinggrpc.NewTradingServiceServer,
 			handler.NewOtcNegotiationHistoryHandler,
 			service.NewOtcNegotiationHistoryService,
@@ -167,6 +180,8 @@ func main() {
 				&model.Watchlist{},
 				&model.WatchlistItem{},
 				&model.OtcNegotiationHistory{},
+				&model.DividendPayout{},
+				&model.RecurringOrder{},
 			)
 		}),
 		fx.Invoke(func(lc fx.Lifecycle, svc *service.StockService) {
@@ -276,6 +291,18 @@ func main() {
 				},
 			})
 		}),
+		fx.Invoke(func(lifecycle fx.Lifecycle, scheduler *service.RecurringOrderScheduler) {
+			lifecycle.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					scheduler.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					scheduler.Stop()
+					return nil
+				},
+			})
+		}),
 		fx.Invoke(func(lc fx.Lifecycle, fundRedemptionJob *job.FundRedemptionJob) {
 			c := cron.New(cron.WithLocation(time.UTC))
 			_, err := c.AddFunc("@every 5m", func() {
@@ -286,6 +313,31 @@ func main() {
 			})
 			if err != nil {
 				log.Fatal("Failed to schedule fund redemption job", zap.Error(err))
+			}
+
+			lc.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					c.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					c.Stop()
+					return nil
+				},
+			})
+		}),
+		// Dividend payout job — pokreće se svakog radnog dana u 17:00 UTC.
+		// Sam job interno proverava da li je danas poslednji radni dan kvartala.
+		fx.Invoke(func(lc fx.Lifecycle, dividendJob *job.DividendPayoutJob) {
+			c := cron.New(cron.WithLocation(time.UTC))
+			_, err := c.AddFunc("0 17 * * 1-5", func() {
+				ctx := context.Background()
+				if err := dividendJob.Run(ctx); err != nil {
+					logging.Error("Dividend payout job failed", zap.Error(err))
+				}
+			})
+			if err != nil {
+				log.Fatal("Failed to schedule dividend payout job", zap.Error(err))
 			}
 
 			lc.Append(fx.Hook{

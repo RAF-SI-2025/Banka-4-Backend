@@ -184,7 +184,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 	ownerType := model.OwnerTypeClient
 	userID := authCtx.ClientID
 	if authCtx.IdentityType == auth.IdentityEmployee {
-		ownerType = model.OwnerTypeActuary
+		ownerType = model.OwnerTypeBank
 		userID = authCtx.EmployeeID
 	}
 
@@ -248,7 +248,7 @@ func (s *OrderService) CreateFundOrder(ctx context.Context, req dto.CreateFundOr
 		AllOrNone:        req.AllOrNone,
 		Margin:           req.Margin,
 		OrderOwnerUserID: *authCtx.EmployeeID,
-		OrderOwnerType:   model.OwnerTypeActuary,
+		OrderOwnerType:   model.OwnerTypeBank,
 		AssetOwnerUserID: req.FundID,
 		AssetOwnerType:   model.OwnerTypeFund,
 		CommissionExempt: true,
@@ -287,7 +287,7 @@ func (s *OrderService) CreateFundLiquidationOrder(ctx context.Context, fund *mod
 		AllOrNone:        false,
 		Margin:           false,
 		OrderOwnerUserID: fund.ManagerID,
-		OrderOwnerType:   model.OwnerTypeActuary,
+		OrderOwnerType:   model.OwnerTypeBank,
 		AssetOwnerUserID: fund.FundID,
 		AssetOwnerType:   model.OwnerTypeFund,
 		CommissionExempt: true,
@@ -430,7 +430,7 @@ func (s *OrderService) ApproveOrder(ctx context.Context, orderID uint) (*model.O
 	}
 	ownerType := model.OwnerTypeClient
 	if authCtx.IdentityType == auth.IdentityEmployee {
-		ownerType = model.OwnerTypeActuary
+		ownerType = model.OwnerTypeBank
 	}
 
 	if order.Direction == model.OrderDirectionSell && order.Listing.Asset != nil {
@@ -695,7 +695,7 @@ func (s *OrderService) processOrder(ctx context.Context, order *model.Order) err
 }
 
 func (s *OrderService) updateActuaryUsedLimit(ctx context.Context, order *model.Order, grossAmount float64, tradeCurrency string) error {
-	if order.OwnerType != model.OwnerTypeActuary || order.Direction != model.OrderDirectionBuy || grossAmount <= 0 {
+	if order.OwnerType != model.OwnerTypeBank || order.Direction != model.OrderDirectionBuy || grossAmount <= 0 {
 		return nil
 	}
 
@@ -739,7 +739,13 @@ func (s *OrderService) updateAssetOwnership(ctx context.Context, order *model.Or
 	assetID := order.Listing.AssetID
 	ownerID, ownerType := assetOwner(order)
 
-	existing, err := s.assetOwnershipRepo.FindByUserId(ctx, ownerID, ownerType)
+	var existing []model.AssetOwnership
+	err := error(nil)
+	if ownerType == model.OwnerTypeBank {
+		existing, err = s.assetOwnershipRepo.FindByOwnerType(ctx, ownerType)
+	} else {
+		existing, err = s.assetOwnershipRepo.FindByUserId(ctx, ownerID, ownerType)
+	}
 	if err != nil {
 		return err
 	}
@@ -832,10 +838,17 @@ func (s *OrderService) resolveOrderStatus(ctx context.Context, authCtx *auth.Aut
 }
 
 func (s *OrderService) validateSellOwnership(ctx context.Context, userId uint, ownerType model.OwnerType, assetID uint, quantity float64) error {
-	ownerships, err := s.assetOwnershipRepo.FindByUserId(ctx, userId, ownerType)
+	var ownerships []model.AssetOwnership
+	err := error(nil)
+	if ownerType == model.OwnerTypeBank {
+		ownerships, err = s.assetOwnershipRepo.FindByOwnerType(ctx, ownerType)
+	} else {
+		ownerships, err = s.assetOwnershipRepo.FindByUserId(ctx, userId, ownerType)
+	}
 	if err != nil {
 		return errors.InternalErr(err)
 	}
+
 	for _, o := range ownerships {
 		if o.AssetID == assetID {
 			if o.Amount < quantity {
@@ -1278,7 +1291,7 @@ func (s *OrderService) recordProfitTax(ctx context.Context, order *model.Order, 
 	}
 
 	var employeeID *uint
-	if order.OrderOwnerType == model.OwnerTypeActuary {
+	if order.OrderOwnerType == model.OwnerTypeBank {
 		employeeID = &order.OrderOwnerUserID
 	}
 	return s.taxService.RecordTax(ctx, order.AccountNumber, employeeID, profitInAccountCurrency, accountCurrency)
@@ -1377,4 +1390,57 @@ func (s *OrderService) GetMyOrders(ctx context.Context, query dto.UserOrdersQuer
 		}
 	}
 	return responses, total, nil
+}
+
+type SystemOrderParams struct {
+	AccountNumber string
+	ListingID     uint
+	Direction     model.OrderDirection
+	Quantity      uint
+	OwnerUserID   uint
+	OwnerType     model.OwnerType
+}
+
+func (s *OrderService) CreateSystemOrder(ctx context.Context, p SystemOrderParams) (*model.Order, error) {
+	account, err := s.bankingClient.GetAccountByNumber(ctx, p.AccountNumber)
+	if err != nil {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.NotFound {
+			return nil, errors.NotFoundErr("account not found")
+		}
+		return nil, errors.ServiceUnavailableErr(err)
+	}
+
+	ownerID := p.OwnerUserID
+	var sysCtx context.Context
+	if p.OwnerType == model.OwnerTypeClient {
+		sysCtx = auth.SetAuthOnContext(ctx, &auth.AuthContext{
+			IdentityID:   ownerID,
+			IdentityType: auth.IdentityClient,
+			ClientID:     &ownerID,
+		})
+	} else {
+		sysCtx = auth.SetAuthOnContext(ctx, &auth.AuthContext{
+			IdentityID:   ownerID,
+			IdentityType: auth.IdentityEmployee,
+			EmployeeID:   &ownerID,
+		})
+	}
+	authCtx := auth.GetAuthFromContext(sysCtx)
+
+	return s.placeOrder(sysCtx, authCtx, placeOrderParams{
+		AccountNumber:    p.AccountNumber,
+		ListingID:        p.ListingID,
+		OrderType:        model.OrderTypeMarket,
+		Direction:        p.Direction,
+		Quantity:         p.Quantity,
+		AllOrNone:        false,
+		Margin:           false,
+		OrderOwnerUserID: p.OwnerUserID,
+		OrderOwnerType:   p.OwnerType,
+		AssetOwnerUserID: p.OwnerUserID,
+		AssetOwnerType:   p.OwnerType,
+		CommissionExempt: p.OwnerType == model.OwnerTypeBank,
+		account:          account,
+	})
 }

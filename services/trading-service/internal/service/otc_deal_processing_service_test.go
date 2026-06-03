@@ -22,6 +22,10 @@ type processingOfferRepo struct {
 	findErr                    error
 }
 
+func (r *processingOwnershipRepo) FindAllByAssetIDs(_ context.Context, _ []uint) ([]model.AssetOwnership, error) {
+	return nil, nil
+}
+
 func newProcessingOfferRepo() *processingOfferRepo {
 	return &processingOfferRepo{offers: map[uint]*model.OtcOffer{}, nextID: 1}
 }
@@ -330,6 +334,16 @@ func (r *processingOwnershipRepo) FindByUserId(_ context.Context, userID uint, o
 	out := make([]model.AssetOwnership, 0)
 	for _, ownership := range r.ownerships {
 		if ownership.UserId == userID && ownership.OwnerType == ownerType {
+			out = append(out, *ownership)
+		}
+	}
+	return out, nil
+}
+
+func (r *processingOwnershipRepo) FindByOwnerType(_ context.Context, ownerType model.OwnerType) ([]model.AssetOwnership, error) {
+	out := make([]model.AssetOwnership, 0)
+	for _, ownership := range r.ownerships {
+		if ownership.OwnerType == ownerType {
 			out = append(out, *ownership)
 		}
 	}

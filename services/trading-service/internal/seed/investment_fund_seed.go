@@ -36,7 +36,7 @@ func InvestmentFunds(db *gorm.DB) error {
 		}
 		investment := &model.ClientFundInvestment{
 			ClientID:      funds[i].ManagerID,
-			OwnerType:     model.OwnerTypeActuary,
+			OwnerType:     model.OwnerTypeBank,
 			FundID:        funds[i].FundID,
 			AccountNumber: funds[i].AccountNumber,
 			Amount:        1500000,
@@ -47,7 +47,7 @@ func InvestmentFunds(db *gorm.DB) error {
 			investment,
 			model.ClientFundInvestment{
 				ClientID:  funds[i].ManagerID,
-				OwnerType: model.OwnerTypeActuary,
+				OwnerType: model.OwnerTypeBank,
 				FundID:    funds[i].FundID,
 			},
 		).Error; err != nil {
@@ -56,7 +56,7 @@ func InvestmentFunds(db *gorm.DB) error {
 
 		position := &model.ClientFundPosition{
 			ClientID:            funds[i].ManagerID,
-			OwnerType:           model.OwnerTypeActuary,
+			OwnerType:           model.OwnerTypeBank,
 			FundID:              funds[i].FundID,
 			UnitsOwned:          1500000,
 			TotalInvestedAmount: 1500000,
@@ -67,7 +67,7 @@ func InvestmentFunds(db *gorm.DB) error {
 			position,
 			model.ClientFundPosition{
 				ClientID:  funds[i].ManagerID,
-				OwnerType: model.OwnerTypeActuary,
+				OwnerType: model.OwnerTypeBank,
 				FundID:    funds[i].FundID,
 			},
 		).Error; err != nil {

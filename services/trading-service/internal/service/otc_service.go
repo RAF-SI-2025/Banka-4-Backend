@@ -41,7 +41,14 @@ func (s *OTCService) PublishAsset(ctx context.Context, ownershipID, userId uint,
 		return errors.BadRequestErr("only stocks can be published for OTC trading")
 	}
 
-	if ownership.UserId != userId || ownership.OwnerType != ownerType {
+	if ownership.OwnerType != ownerType {
+		return errors.ForbiddenErr("you do not own this asset")
+	}
+	if ownerType == model.OwnerTypeBank {
+		if _, err := s.userClient.GetIdentityByUserId(ctx, uint64(userId), "ACTUARY"); err != nil {
+			return errors.ForbiddenErr("only actuaries can manage this asset")
+		}
+	} else if ownership.UserId != userId {
 		return errors.ForbiddenErr("you do not own this asset")
 	}
 

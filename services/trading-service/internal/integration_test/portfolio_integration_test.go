@@ -182,7 +182,7 @@ func TestExerciseOption_Success(t *testing.T) {
 
 	optionOwnership := &model.AssetOwnership{
 		UserId:         10,
-		OwnerType:      model.OwnerTypeActuary,
+		OwnerType:      model.OwnerTypeBank,
 		AssetID:        optionListing.AssetID,
 		Amount:         100,
 		AvgBuyPriceRSD: 12,
@@ -219,14 +219,14 @@ func TestExerciseOption_Success(t *testing.T) {
 	require.Equal(t, uint(0), response.RemainingContracts)
 
 	var updatedOptionOwnership model.AssetOwnership
-	if err := db.Where("user_id = ? AND owner_type = ? AND asset_id = ?", 10, model.OwnerTypeActuary, optionListing.AssetID).
+	if err := db.Where("user_id = ? AND owner_type = ? AND asset_id = ?", 10, model.OwnerTypeBank, optionListing.AssetID).
 		First(&updatedOptionOwnership).Error; err != nil {
 		t.Fatalf("load updated option ownership: %v", err)
 	}
 	require.Equal(t, 0.0, updatedOptionOwnership.Amount)
 
 	var stockOwnership model.AssetOwnership
-	if err := db.Where("user_id = ? AND owner_type = ? AND asset_id = ?", 10, model.OwnerTypeActuary, stock.AssetID).
+	if err := db.Where("user_id = ? AND owner_type = ? AND asset_id = ?", 10, model.OwnerTypeBank, stock.AssetID).
 		First(&stockOwnership).Error; err != nil {
 		t.Fatalf("load stock ownership: %v", err)
 	}

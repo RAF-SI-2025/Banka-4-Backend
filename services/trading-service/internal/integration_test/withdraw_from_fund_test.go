@@ -57,7 +57,7 @@ func TestWithdrawFromFund_SupervisorSuccess(t *testing.T) {
 	fund := seedInvestmentFund(t, db, fmt.Sprintf("Fund %d", uniqueCounter.Add(1)), 10)
 	position := &model.ClientFundPosition{
 		ClientID:            10,
-		OwnerType:           model.OwnerTypeActuary,
+		OwnerType:           model.OwnerTypeBank,
 		FundID:              fund.FundID,
 		TotalInvestedAmount: 3000,
 		UpdatedAt:           time.Now(),

@@ -535,9 +535,24 @@ func TestOTCHandler_PublishAsset_ActuarySuccess(t *testing.T) {
 
 	ex := seedExchange(t, db, uniqueMIC(t))
 	listing := seedListing(t, db, uniqueTicker(t), ex.MicCode, model.AssetTypeStock, 50.0)
-	ownership := seedAssetOwnership(t, db, 20, model.OwnerTypeActuary, listing.AssetID, 15)
+	ownership := seedAssetOwnership(t, db, 20, model.OwnerTypeBank, listing.AssetID, 15)
 
 	path := fmt.Sprintf("/api/actuary/20/assets/%d/publish", ownership.AssetOwnershipID)
+	rec := performRequest(t, router, http.MethodPatch, path, map[string]any{"amount": 3}, authHeaderForAgent(t))
+	requireStatus(t, rec, http.StatusNoContent)
+}
+
+func TestOTCHandler_PublishAsset_DifferentActuarySuccess(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	ex := seedExchange(t, db, uniqueMIC(t))
+	listing := seedListing(t, db, uniqueTicker(t), ex.MicCode, model.AssetTypeStock, 50.0)
+	ownership := seedAssetOwnership(t, db, 20, model.OwnerTypeBank, listing.AssetID, 15)
+
+	// Different actuary (id = 22) tries to publish asset owned by bank (owner id = 20)
+	path := fmt.Sprintf("/api/actuary/22/assets/%d/publish", ownership.AssetOwnershipID)
 	rec := performRequest(t, router, http.MethodPatch, path, map[string]any{"amount": 3}, authHeaderForAgent(t))
 	requireStatus(t, rec, http.StatusNoContent)
 }
@@ -605,6 +620,20 @@ func TestOTCHandler_PublishAsset_UpdatesExistingPublicAmount(t *testing.T) {
 	var updated model.AssetOwnership
 	require.NoError(t, db.First(&updated, ownership.AssetOwnershipID).Error)
 	require.Equal(t, float64(11), updated.PublicAmount)
+}
+
+func TestOTCHandler_PublishAsset_ClientPublishingBankAsset(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	ex := seedExchange(t, db, uniqueMIC(t))
+	listing := seedListing(t, db, uniqueTicker(t), ex.MicCode, model.AssetTypeStock, 100.0)
+	ownership := seedAssetOwnership(t, db, 20, model.OwnerTypeBank, listing.AssetID, 15)
+
+	path := fmt.Sprintf("/api/client/99/assets/%d/publish", ownership.AssetOwnershipID)
+	rec := performRequest(t, router, http.MethodPatch, path, map[string]any{"amount": 5}, authHeaderForClient(t, 99, 99))
+	requireStatus(t, rec, http.StatusForbidden)
 }
 
 // --- GetPublicOTCAssets tests (main branch) ---

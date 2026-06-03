@@ -782,7 +782,7 @@ func TestAssetOwner_WithAssetOwnerUserID_ReturnsAssetOwner(t *testing.T) {
 		AssetOwnerUserID: 42,
 		AssetOwnerType:   model.OwnerTypeFund,
 		OrderOwnerUserID: 10,
-		OrderOwnerType:   model.OwnerTypeActuary,
+		OrderOwnerType:   model.OwnerTypeBank,
 	}
 
 	ownerID, ownerType := assetOwner(order)
@@ -795,12 +795,12 @@ func TestAssetOwner_ZeroAssetOwnerUserID_FallsBackToOrderOwner(t *testing.T) {
 		AssetOwnerUserID: 0,
 		AssetOwnerType:   model.OwnerTypeFund,
 		OrderOwnerUserID: 10,
-		OrderOwnerType:   model.OwnerTypeActuary,
+		OrderOwnerType:   model.OwnerTypeBank,
 	}
 
 	ownerID, ownerType := assetOwner(order)
 	require.Equal(t, uint(10), ownerID)
-	require.Equal(t, model.OwnerTypeActuary, ownerType)
+	require.Equal(t, model.OwnerTypeBank, ownerType)
 }
 
 func TestAssetOwner_ClientOwner_ReturnsClientOwner(t *testing.T) {

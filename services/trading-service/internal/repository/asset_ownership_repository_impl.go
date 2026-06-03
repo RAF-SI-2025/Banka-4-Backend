@@ -30,6 +30,17 @@ func (r *assetOwnershipRepository) FindByUserId(ctx context.Context, userId uint
 	return ownerships, nil
 }
 
+func (r *assetOwnershipRepository) FindByOwnerType(ctx context.Context, ownerType model.OwnerType) ([]model.AssetOwnership, error) {
+	var ownerships []model.AssetOwnership
+	if err := commondb.DBFromContext(ctx, r.db).
+		Where("owner_type = ?", ownerType).
+		Preload("Asset").
+		Find(&ownerships).Error; err != nil {
+		return nil, err
+	}
+	return ownerships, nil
+}
+
 func (r *assetOwnershipRepository) FindByID(ctx context.Context, id uint) (*model.AssetOwnership, error) {
 	var o model.AssetOwnership
 	result := commondb.DBFromContext(ctx, r.db).Preload("Asset").First(&o, id)
@@ -86,6 +97,18 @@ func (r *assetOwnershipRepository) UpdateOTCFields(ctx context.Context, ownershi
 			"reserved_amount": reservedAmount,
 			"updated_at":      time.Now(),
 		}).Error
+}
+
+func (r *assetOwnershipRepository) FindAllByAssetIDs(ctx context.Context, assetIDs []uint) ([]model.AssetOwnership, error) {
+	var ownerships []model.AssetOwnership
+	if len(assetIDs) == 0 {
+		return ownerships, nil
+	}
+	err := commondb.DBFromContext(ctx, r.db).
+		Where("asset_id IN ?", assetIDs).
+		Preload("Asset").
+		Find(&ownerships).Error
+	return ownerships, err
 }
 
 func (r *assetOwnershipRepository) findByUserAndAsset(ctx context.Context, userId uint, ownerType model.OwnerType, assetID uint, forUpdate bool) (*model.AssetOwnership, error) {

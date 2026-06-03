@@ -50,11 +50,39 @@ func NewPortfolioService(
 }
 
 func (s *PortfolioService) GetClientPortfolio(ctx context.Context, clientID uint) ([]dto.PortfolioAssetResponse, error) {
-	return s.GetPortfolio(ctx, uint(clientID), model.OwnerTypeClient)
+	ownerships, err := s.ownershipRepo.FindByUserId(ctx, clientID, model.OwnerTypeClient)
+	if err != nil {
+		return nil, pkgerrors.InternalErr(err)
+	}
+
+	return s.GetPortfolio(ctx, ownerships)
 }
 
 func (s *PortfolioService) GetActuaryPortfolio(ctx context.Context, actuaryID uint) ([]dto.PortfolioAssetResponse, error) {
-	return s.GetPortfolio(ctx, uint(actuaryID), model.OwnerTypeActuary)
+	ownerships, err := s.ownershipRepo.FindByUserId(ctx, actuaryID, model.OwnerTypeBank)
+	if err != nil {
+		return nil, pkgerrors.InternalErr(err)
+	}
+
+	return s.GetPortfolio(ctx, ownerships)
+}
+
+func (s *PortfolioService) GetWholeBankPortfolio(ctx context.Context, actuaryID uint) ([]dto.PortfolioAssetResponse, error) {
+	ownerships, err := s.ownershipRepo.FindByOwnerType(ctx, model.OwnerTypeBank)
+	if err != nil {
+		return nil, pkgerrors.InternalErr(err)
+	}
+
+	return s.GetPortfolio(ctx, ownerships)
+}
+
+func (s *PortfolioService) GetFundPortfolio(ctx context.Context, fundId uint) ([]dto.PortfolioAssetResponse, error) {
+	ownerships, err := s.ownershipRepo.FindByUserId(ctx, fundId, model.OwnerTypeFund)
+	if err != nil {
+		return nil, pkgerrors.InternalErr(err)
+	}
+
+	return s.GetPortfolio(ctx, ownerships)
 }
 
 func (s *PortfolioService) GetAllActuaryProfits(ctx context.Context, page, pageSize int32, firstName, lastName string) (*dto.PaginatedActuaryProfitResponse, error) {
@@ -105,16 +133,7 @@ func (s *PortfolioService) GetAllActuaryProfits(ctx context.Context, page, pageS
 	}, nil
 }
 
-func (s *PortfolioService) GetFundPortfolio(ctx context.Context, fundId uint) ([]dto.PortfolioAssetResponse, error) {
-	return s.GetPortfolio(ctx, uint(fundId), model.OwnerTypeFund)
-}
-
-func (s *PortfolioService) GetPortfolio(ctx context.Context, userId uint, ownerType model.OwnerType) ([]dto.PortfolioAssetResponse, error) {
-	ownerships, err := s.ownershipRepo.FindByUserId(ctx, userId, ownerType)
-	if err != nil {
-		return nil, pkgerrors.InternalErr(err)
-	}
-
+func (s *PortfolioService) GetPortfolio(ctx context.Context, ownerships []model.AssetOwnership) ([]dto.PortfolioAssetResponse, error) {
 	// Filter to positive positions and collect asset IDs
 	var active []model.AssetOwnership
 	var assetIDs []uint
@@ -235,7 +254,7 @@ func (s *PortfolioService) toRSD(ctx context.Context, amount float64, currency s
 }
 
 func (s *PortfolioService) ExerciseOption(ctx context.Context, userId uint, ownerType model.OwnerType, optionAssetID uint, accountNumber string) (*dto.ExerciseOptionResponse, error) {
-	if ownerType != model.OwnerTypeActuary {
+	if ownerType != model.OwnerTypeBank {
 		return nil, pkgerrors.ForbiddenErr("only actuaries can exercise options")
 	}
 

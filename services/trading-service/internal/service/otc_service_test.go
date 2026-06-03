@@ -43,7 +43,11 @@ func (f *fakeOTCUserClient) GetAllActuaries(_ context.Context, _, _ int32, _, _ 
 	return &pb.GetAllActuariesResponse{}, nil
 }
 
-func (f *fakeOTCUserClient) GetIdentityByUserId(_ context.Context, id uint64, _ string) (*pb.GetIdentityByUserIdResponse, error) {
+func (f *fakeOTCUserClient) GetIdentityByUserId(_ context.Context, id uint64, role string) (*pb.GetIdentityByUserIdResponse, error) {
+	// All users with ID > 100 are actuaries, others are clients
+	if role == "ACTUARY" && id < 100 {
+		return nil, errors.New("not an actuary")
+	}
 	return nil, nil
 }
 
@@ -98,6 +102,13 @@ func TestOTCService_PublishAsset(t *testing.T) {
 			ownershipID: 1, identityID: 10, ownerType: model.OwnerTypeClient, amount: 10,
 		},
 		{
+			name: "happy path - bank asset managed by other actuaries",
+			ownershipRepo: &fakeAssetOwnershipRepo{
+				byID: makeOwnershipForOTC(1, 100, 5, model.OwnerTypeBank, 20, 0),
+			},
+			ownershipID: 1, identityID: 199, ownerType: model.OwnerTypeBank, amount: 5,
+		},
+		{
 			name:          "ownership not found",
 			ownershipRepo: &fakeAssetOwnershipRepo{byID: nil},
 			ownershipID:   99, identityID: 10, ownerType: model.OwnerTypeClient, amount: 5,
@@ -107,7 +118,7 @@ func TestOTCService_PublishAsset(t *testing.T) {
 			},
 		},
 		{
-			name: "identity mismatch",
+			name: "client identity mismatch",
 			ownershipRepo: &fakeAssetOwnershipRepo{
 				byID: makeOwnershipForOTC(1, 10, 5, model.OwnerTypeClient, 20, 0),
 			},
@@ -122,7 +133,7 @@ func TestOTCService_PublishAsset(t *testing.T) {
 			ownershipRepo: &fakeAssetOwnershipRepo{
 				byID: makeOwnershipForOTC(1, 10, 5, model.OwnerTypeClient, 20, 0),
 			},
-			ownershipID: 1, identityID: 10, ownerType: model.OwnerTypeActuary, amount: 5,
+			ownershipID: 1, identityID: 10, ownerType: model.OwnerTypeBank, amount: 5,
 			wantErr: true,
 			checkErr: func(t *testing.T, err error) {
 				require.Contains(t, err.Error(), "do not own")
@@ -159,6 +170,17 @@ func TestOTCService_PublishAsset(t *testing.T) {
 			},
 			ownershipID: 1, identityID: 10, ownerType: model.OwnerTypeClient, amount: 5,
 			wantErr: true,
+		},
+		{
+			name: "bank asset managed by non-actuary",
+			ownershipRepo: &fakeAssetOwnershipRepo{
+				byID: makeOwnershipForOTC(1, 100, 5, model.OwnerTypeBank, 20, 0),
+			},
+			ownershipID: 1, identityID: 10, ownerType: model.OwnerTypeBank, amount: 5,
+			wantErr: true,
+			checkErr: func(t *testing.T, err error) {
+				require.Contains(t, err.Error(), "only actuaries")
+			},
 		},
 	}
 

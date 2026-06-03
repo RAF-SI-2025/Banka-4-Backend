@@ -197,6 +197,41 @@ definitions:
     - price_per_stock_rsd
     - settlement_date
     type: object
+  dto.CreateRecurringOrderRequest:
+    properties:
+      account_number:
+        type: string
+      cadence:
+        allOf:
+        - $ref: '#/definitions/model.RecurringOrderCadence'
+        enum:
+        - DAILY
+        - WEEKLY
+        - MONTHLY
+      direction:
+        allOf:
+        - $ref: '#/definitions/model.OrderDirection'
+        enum:
+        - BUY
+        - SELL
+      listing_id:
+        type: integer
+      mode:
+        allOf:
+        - $ref: '#/definitions/model.RecurringOrderMode'
+        enum:
+        - BY_QUANTITY
+        - BY_AMOUNT
+      value:
+        type: number
+    required:
+    - account_number
+    - cadence
+    - direction
+    - listing_id
+    - mode
+    - value
+    type: object
   dto.CreateWatchlistRequest:
     properties:
       name:
@@ -220,6 +255,29 @@ definitions:
         type: number
       volume:
         type: integer
+    type: object
+  dto.DividendPayoutResponse:
+    properties:
+      accountNumber:
+        type: string
+      assetOwnershipId:
+        type: integer
+      currencyCode:
+        type: string
+      dividendPayoutId:
+        type: integer
+      grossAmount:
+        type: number
+      netAmount:
+        type: number
+      paymentDate:
+        type: string
+      quantity:
+        type: number
+      stock:
+        type: string
+      taxAmount:
+        type: number
     type: object
   dto.ExchangeResponse:
     properties:
@@ -551,6 +609,13 @@ definitions:
         type: number
       total_invested_rsd:
         type: number
+    type: object
+  dto.ListDividendPayoutsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.DividendPayoutResponse'
+        type: array
     type: object
   dto.ListFundsResponse:
     properties:
@@ -960,6 +1025,39 @@ definitions:
     required:
     - amount
     type: object
+  dto.RecurringOrderResponse:
+    properties:
+      account_number:
+        type: string
+      active:
+        type: boolean
+      cadence:
+        $ref: '#/definitions/model.RecurringOrderCadence'
+      created_at:
+        type: string
+      direction:
+        $ref: '#/definitions/model.OrderDirection'
+      listing_id:
+        type: integer
+      listing_name:
+        type: string
+      mode:
+        $ref: '#/definitions/model.RecurringOrderMode'
+      next_run:
+        type: string
+      owner_type:
+        $ref: '#/definitions/model.OwnerType'
+      recurring_order_id:
+        type: integer
+      ticker:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+      value:
+        type: number
+    type: object
   dto.RejectOfferRequest:
     properties:
       comment:
@@ -1270,13 +1368,31 @@ definitions:
   model.OwnerType:
     enum:
     - CLIENT
-    - ACTUARY
+    - BANK
     - FUND
     type: string
     x-enum-varnames:
     - OwnerTypeClient
-    - OwnerTypeActuary
+    - OwnerTypeBank
     - OwnerTypeFund
+  model.RecurringOrderCadence:
+    enum:
+    - DAILY
+    - WEEKLY
+    - MONTHLY
+    type: string
+    x-enum-varnames:
+    - RecurringOrderCadenceDaily
+    - RecurringOrderCadenceWeekly
+    - RecurringOrderCadenceMonthly
+  model.RecurringOrderMode:
+    enum:
+    - BY_QUANTITY
+    - BY_AMOUNT
+    type: string
+    x-enum-varnames:
+    - RecurringOrderModeByQuantity
+    - RecurringOrderModeByAmount
 info:
   contact: {}
   description: API for managing portfolios, executing trades, and handling financial
@@ -1363,6 +1479,37 @@ paths:
       summary: Get portfolio for an actuary/agent
       tags:
       - portfolio
+  /api/actuary/{actId}/assets/{assetOwnershipId}/dividends:
+    get:
+      description: Returns dividend payout history for a specific asset ownership
+        (position) managed by an actuary.
+      parameters:
+      - description: Actuary ID
+        in: path
+        name: actId
+        required: true
+        type: integer
+      - description: Asset Ownership ID
+        in: path
+        name: assetOwnershipId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListDividendPayoutsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List actuary dividend payouts for a portfolio position
+      tags:
+      - dividends
   /api/actuary/{actId}/assets/{ownershipId}/publish:
     patch:
       consumes:
@@ -1619,6 +1766,37 @@ paths:
       summary: Get portfolio for a client
       tags:
       - portfolio
+  /api/client/{clientId}/assets/{assetOwnershipId}/dividends:
+    get:
+      description: Returns dividend payout history for a specific asset ownership
+        (position) belonging to a client.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: Asset Ownership ID
+        in: path
+        name: assetOwnershipId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListDividendPayoutsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List client dividend payouts for a portfolio position
+      tags:
+      - dividends
   /api/client/{clientId}/assets/{ownershipId}/publish:
     patch:
       consumes:
@@ -1743,6 +1921,50 @@ paths:
       summary: Get client's investment fund positions
       tags:
       - investment-funds
+  /api/dividends:
+    get:
+      description: Returns all dividend payout records. Restricted to supervisors.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListDividendPayoutsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List all dividend payouts
+      tags:
+      - dividends
+  /api/dividends/trigger:
+    post:
+      description: Forces immediate dividend processing. For internal use only.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Manually trigger dividend payout
+      tags:
+      - dividends
   /api/exchanges:
     get:
       description: Returns a paginated list of all stock exchanges
@@ -2990,6 +3212,36 @@ paths:
       summary: List all publicly available OTC assets
       tags:
       - otc
+  /api/portfolio/assets/{assetOwnershipId}/dividends:
+    get:
+      description: Returns dividend payout history for a specific asset ownership
+        (position).
+      parameters:
+      - description: Asset Ownership ID
+        in: path
+        name: assetOwnershipId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListDividendPayoutsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List dividend payouts for a portfolio position
+      tags:
+      - dividends
   /api/profit/actuaries:
     get:
       consumes:
@@ -3061,6 +3313,126 @@ paths:
       summary: Get investment fund positions
       tags:
       - profit
+  /api/recurring-orders:
+    get:
+      description: Returns all recurring orders belonging to the authenticated client
+        or actuary
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.RecurringOrderResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get recurring orders for the authenticated user
+      tags:
+      - recurring-orders
+    post:
+      consumes:
+      - application/json
+      description: Creates a recurring market order that executes automatically at
+        the given cadence
+      parameters:
+      - description: Recurring order details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateRecurringOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.RecurringOrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Create a recurring order
+      tags:
+      - recurring-orders
+  /api/recurring-orders/{id}:
+    delete:
+      description: Cancels and deletes a recurring order owned by the authenticated
+        user
+      parameters:
+      - description: Recurring Order ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Delete a recurring order
+      tags:
+      - recurring-orders
+  /api/recurring-orders/{id}/pause:
+    patch:
+      description: Toggles the active state of a recurring order owned by the authenticated
+        user
+      parameters:
+      - description: Recurring Order ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.RecurringOrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Pause or resume a recurring order
+      tags:
+      - recurring-orders
   /api/tax:
     get:
       description: Returns a paginated list of clients and/or actuaries with their

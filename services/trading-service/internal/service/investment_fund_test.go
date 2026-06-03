@@ -742,7 +742,7 @@ func TestWithdrawFromFund_SupervisorSuccessCommissionExempt(t *testing.T) {
 	fund := &model.InvestmentFund{FundID: 1, Name: "Alpha Growth Fund", AccountNumber: "fund-account"}
 	positionRepo := &fakePositionRepo{findResult: &model.ClientFundPosition{
 		ClientID:            25,
-		OwnerType:           model.OwnerTypeActuary,
+		OwnerType:           model.OwnerTypeBank,
 		FundID:              1,
 		TotalInvestedAmount: 3000,
 	}}

@@ -1803,7 +1803,7 @@ func TestApproveOrder_ActuaryBuy_IncrementsUsedLimit(t *testing.T) {
 		Status:           model.OrderStatusPending,
 		AccountNumber:    "444000100000000110",
 		CommissionExempt: true,
-		OwnerType:        model.OwnerTypeActuary,
+		OwnerType:        model.OwnerTypeBank,
 		PricePerUnit:     &price,
 	}
 	userClient := &fakeUserServiceClient{
@@ -1848,7 +1848,7 @@ func TestApproveOrder_SupervisorBuy_DoesNotIncrementUsedLimit(t *testing.T) {
 		Status:           model.OrderStatusPending,
 		AccountNumber:    "444000100000000110",
 		CommissionExempt: true,
-		OwnerType:        model.OwnerTypeActuary,
+		OwnerType:        model.OwnerTypeBank,
 		PricePerUnit:     &price,
 	}
 	userClient := &fakeUserServiceClient{
@@ -1891,7 +1891,7 @@ func TestApproveOrder_ActuarySell_DoesNotIncrementUsedLimit(t *testing.T) {
 		Status:           model.OrderStatusPending,
 		AccountNumber:    "444000100000000110",
 		CommissionExempt: true,
-		OwnerType:        model.OwnerTypeActuary,
+		OwnerType:        model.OwnerTypeBank,
 		PricePerUnit:     &price,
 	}
 	userClient := &fakeUserServiceClient{
@@ -1908,7 +1908,7 @@ func TestApproveOrder_ActuarySell_DoesNotIncrementUsedLimit(t *testing.T) {
 	)
 	svc.assetOwnershipRepo = &fakeAssetOwnershipRepo{
 		ownerships: []model.AssetOwnership{
-			{AssetID: listing.AssetID, UserId: 5, OwnerType: model.OwnerTypeActuary, Amount: 1, AvgBuyPriceRSD: 200},
+			{AssetID: listing.AssetID, UserId: 5, OwnerType: model.OwnerTypeBank, Amount: 1, AvgBuyPriceRSD: 200},
 		},
 	}
 
@@ -1960,7 +1960,7 @@ func TestProcessOrder_ActuaryBuy_DoesNotIncrementUsedLimit(t *testing.T) {
 		Status:           model.OrderStatusApproved,
 		AccountNumber:    "444000100000000110",
 		CommissionExempt: true,
-		OwnerType:        model.OwnerTypeActuary,
+		OwnerType:        model.OwnerTypeBank,
 	}
 
 	err := svc.processOrder(context.Background(), order)
@@ -2007,7 +2007,7 @@ func TestProcessOrder_SupervisorBuy_DoesNotIncrementUsedLimit(t *testing.T) {
 		Status:           model.OrderStatusApproved,
 		AccountNumber:    "444000100000000110",
 		CommissionExempt: true,
-		OwnerType:        model.OwnerTypeActuary,
+		OwnerType:        model.OwnerTypeBank,
 	}
 
 	err := svc.processOrder(context.Background(), order)
@@ -2038,7 +2038,7 @@ func TestProcessOrder_ActuarySell_DoesNotIncrementUsedLimit(t *testing.T) {
 	)
 	svc.assetOwnershipRepo = &fakeAssetOwnershipRepo{
 		ownerships: []model.AssetOwnership{
-			{AssetID: listing.AssetID, UserId: 5, OwnerType: model.OwnerTypeActuary, Amount: 1, AvgBuyPriceRSD: 200},
+			{AssetID: listing.AssetID, UserId: 5, OwnerType: model.OwnerTypeBank, Amount: 1, AvgBuyPriceRSD: 200},
 		},
 	}
 
@@ -2056,7 +2056,7 @@ func TestProcessOrder_ActuarySell_DoesNotIncrementUsedLimit(t *testing.T) {
 		Status:           model.OrderStatusApproved,
 		AccountNumber:    "444000100000000110",
 		CommissionExempt: true,
-		OwnerType:        model.OwnerTypeActuary,
+		OwnerType:        model.OwnerTypeBank,
 	}
 
 	err := svc.processOrder(context.Background(), order)
@@ -2332,7 +2332,7 @@ func TestRecordProfitTax_ActuarySell_PassesEmployeeID(t *testing.T) {
 		Quantity:         1,
 		FilledQty:        1,
 		ContractSize:     1,
-		OrderOwnerType:   model.OwnerTypeActuary,
+		OrderOwnerType:   model.OwnerTypeBank,
 	}
 
 	err := svc.recordProfitTax(context.Background(), order, 1, 200.0, "RSD")
@@ -2467,7 +2467,7 @@ func TestCreateFundOrder_BuyMarket_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, order)
 	require.Equal(t, managerID, order.OrderOwnerUserID)
-	require.Equal(t, model.OwnerTypeActuary, order.OrderOwnerType)
+	require.Equal(t, model.OwnerTypeBank, order.OrderOwnerType)
 	require.Equal(t, uint(42), order.AssetOwnerUserID)
 	require.Equal(t, model.OwnerTypeFund, order.AssetOwnerType)
 	require.Equal(t, "444000000000000000", order.AccountNumber)
@@ -2627,7 +2627,7 @@ func TestCreateFundLiquidationOrder_UsesFundOrderSemantics(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, order)
 	require.Equal(t, managerID, order.OrderOwnerUserID)
-	require.Equal(t, model.OwnerTypeActuary, order.OrderOwnerType)
+	require.Equal(t, model.OwnerTypeBank, order.OrderOwnerType)
 	require.Equal(t, fund.FundID, order.AssetOwnerUserID)
 	require.Equal(t, model.OwnerTypeFund, order.AssetOwnerType)
 	require.Equal(t, model.OrderDirectionSell, order.Direction)
@@ -2690,7 +2690,7 @@ func TestGetMyOrders_Success_Client(t *testing.T) {
 // TestGetMyOrders_Success_Employee tests that an employee (actuary) can retrieve their own orders.
 func TestGetMyOrders_Success_Employee(t *testing.T) {
 	userID := uint(20)
-	ownerType := model.OwnerTypeActuary
+	ownerType := model.OwnerTypeBank
 	expectedOrders := []model.Order{
 		{OrderID: 3, OrderOwnerUserID: userID, OrderOwnerType: ownerType, Status: model.OrderStatusApproved},
 	}

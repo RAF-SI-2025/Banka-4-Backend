@@ -4,10 +4,11 @@ package integration_test
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 )
@@ -78,8 +79,8 @@ func TestCreateOrder_LimitOrder(t *testing.T) {
 	ex := seedExchange(t, db, "XNAS")
 	listing := seedListing(t, db, "MSFT", ex.MicCode, model.AssetTypeStock, 400.0)
 	seedStock(t, db, listing.ListingID)
-	// supervisor EmployeeID=10, ownerType=ACTUARY
-	seedAssetOwnership(t, db, 10, model.OwnerTypeActuary, listing.AssetID, 20)
+	// supervisor EmployeeID=10, ownerType=BANK
+	seedAssetOwnership(t, db, 10, model.OwnerTypeBank, listing.AssetID, 20)
 
 	auth := authHeaderForSupervisor(t)
 
@@ -267,7 +268,7 @@ func TestCreateFundOrder_BuyMarket_Success(t *testing.T) {
 	require.Equal(t, fund.FundID, order.AssetOwnerUserID)
 	require.Equal(t, model.OwnerTypeFund, order.AssetOwnerType)
 	require.Equal(t, uint(10), order.OrderOwnerUserID)
-	require.Equal(t, model.OwnerTypeActuary, order.OrderOwnerType)
+	require.Equal(t, model.OwnerTypeBank, order.OrderOwnerType)
 	require.Equal(t, fund.AccountNumber, order.AccountNumber)
 }
 
@@ -434,7 +435,7 @@ func TestGetMyOrders_Employee_Success(t *testing.T) {
 	seedStock(t, db, listing.ListingID)
 
 	// Create orders for employee with identityID=20 (EmployeeID=20)
-	seedOrderForUser(t, db, 20, model.OwnerTypeActuary, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusPending)
+	seedOrderForUser(t, db, 20, model.OwnerTypeBank, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusPending)
 
 	auth := authHeaderForAgent(t) // agent has EmployeeID=20
 	rec := performRequest(t, router, http.MethodGet, "/api/orders/my?page=1&page_size=10", nil, auth)

@@ -71,7 +71,7 @@ func (h *PortfolioHandler) GetActuaryPortfolio(c *gin.Context) {
 		return
 	}
 
-	assets, err := h.service.GetActuaryPortfolio(c.Request.Context(), uint(actID))
+	assets, err := h.service.GetWholeBankPortfolio(c.Request.Context(), uint(actID))
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -232,7 +232,7 @@ func (h *PortfolioHandler) ExerciseOption(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.ExerciseOption(c.Request.Context(), uint(actID), model.OwnerTypeActuary, uint(assetID), req.AccountNumber)
+	resp, err := h.service.ExerciseOption(c.Request.Context(), uint(actID), model.OwnerTypeBank, uint(assetID), req.AccountNumber)
 	if err != nil {
 		_ = c.Error(err)
 		return

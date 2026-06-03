@@ -167,6 +167,10 @@ type fakeOtcAssetOwnershipRepo struct {
 	reservedDeltas map[uint]float64 // assetID -> cumulative delta
 }
 
+func (r *fakeOtcAssetOwnershipRepo) FindAllByAssetIDs(_ context.Context, _ []uint) ([]model.AssetOwnership, error) {
+	return nil, nil
+}
+
 func newFakeOtcAssetOwnershipRepo() *fakeOtcAssetOwnershipRepo {
 	return &fakeOtcAssetOwnershipRepo{
 		ownerships:     make(map[string]*model.AssetOwnership),
@@ -186,6 +190,16 @@ func (r *fakeOtcAssetOwnershipRepo) FindByUserId(_ context.Context, id uint, ot 
 	var out []model.AssetOwnership
 	for _, v := range r.ownerships {
 		if v.UserId == id && v.OwnerType == ot {
+			out = append(out, *v)
+		}
+	}
+	return out, nil
+}
+
+func (r *fakeOtcAssetOwnershipRepo) FindByOwnerType(_ context.Context, ot model.OwnerType) ([]model.AssetOwnership, error) {
+	var out []model.AssetOwnership
+	for _, v := range r.ownerships {
+		if v.OwnerType == ot {
 			out = append(out, *v)
 		}
 	}

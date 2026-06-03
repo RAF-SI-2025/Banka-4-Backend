@@ -28,18 +28,20 @@ func (c *DBConfig) DSN() string {
 }
 
 type Configuration struct {
-	Env                string
-	Port               string
-	DB                 DBConfig
-	JWTSecret          string
-	GrpcPort           string // reserved for future banking-service gRPC endpoints
-	UserServiceAddr    string
-	UserServiceBaseURL string
-	BankingServiceAddr string
-	URLs               URLConfig
-	ExchangeRateAPIKey string
-	FinnhubAPIKey      string
-	TaxAccountNumber   string
+	Env                   string
+	Port                  string
+	DB                    DBConfig
+	JWTSecret             string
+	GrpcPort              string // reserved for future banking-service gRPC endpoints
+	UserServiceAddr       string
+	UserServiceBaseURL    string
+	BankingServiceAddr    string
+	URLs                  URLConfig
+	ExchangeRateAPIKey    string
+	FinnhubAPIKey         string
+	TaxAccountNumber      string
+	EmailServiceAddr      string
+	DividendAccountNumber string
 }
 
 func GetAsIntOrDefault(env string, defaultValue int) int {
@@ -97,7 +99,9 @@ func Load() *Configuration {
 			FrontendBaseURL: GetOrDefault("FRONTEND_BASE_URL", "http://localhost:5173"),
 			BackendBaseURL:  GetOrDefault("BACKEND_BASE_URL", "http://localhost:8082"),
 		},
-		ExchangeRateAPIKey: GetOrThrow("EXCHANGE_RATE_API_KEY"),
-		TaxAccountNumber:   GetOrDefault("TAX_ACCOUNT_NUMBER", "444000000000000008"),
+		ExchangeRateAPIKey:    GetOrThrow("EXCHANGE_RATE_API_KEY"),
+		TaxAccountNumber:      GetOrDefault("TAX_ACCOUNT_NUMBER", "444000000000000008"),
+		EmailServiceAddr:      GetOrDefault("EMAIL_SERVICE_ADDR", "localhost:50054"),
+		DividendAccountNumber: GetOrDefault("DIVIDEND_ACCOUNT_NUMBER", "444000000000000009"),
 	}
 }

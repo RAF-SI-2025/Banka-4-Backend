@@ -92,6 +92,8 @@ func TestMain(m *testing.M) {
 		&audit.AuditLog{},
 		&model.Watchlist{},
 		&model.WatchlistItem{},
+		&model.DividendPayout{},
+		&model.RecurringOrder{},
 	); err != nil {
 		log.Fatalf("auto migrate test schema: %v", err)
 	}
@@ -286,9 +288,10 @@ func (f *fakePermissionProvider) GetPermissions(_ context.Context, _ *commonjwt.
 
 func testConfig() *config.Configuration {
 	return &config.Configuration{
-		Env:              "test",
-		JWTSecret:        "test-secret",
-		TaxAccountNumber: "444000000000000099",
+		Env:                   "test",
+		JWTSecret:             "test-secret",
+		TaxAccountNumber:      "444000000000000099",
+		DividendAccountNumber: "444000000000000099",
 		URLs: config.URLConfig{
 			FrontendBaseURL: "http://localhost:5173",
 		},
@@ -377,12 +380,19 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 	otcHandler := handler.NewOTCHandler(otcSvc)
 	otcOfferHandler := handler.NewOtcOfferHandler(otcOfferSvc)
 	watchlistHandler := handler.NewWatchlistHandler(service.NewWatchlistService(repository.NewWatchlistRepository(db), listingRepo))
+	dividendRepo := repository.NewDividendPayoutRepository(db)
+	dividendSvc := service.NewDividendPayoutService(dividendRepo, assetOwnershipRepo, stockRepo, listingRepo, taxSvc, bankingClient, cfg)
+	dividendHandler := handler.NewDividendHandler(dividendSvc)
+
+	recurringOrderRepo := repository.NewRecurringOrderRepository(db)
+	recurringOrderSvc := service.NewRecurringOrderService(recurringOrderRepo, listingRepo)
+	recurringOrderHandler := handler.NewRecurringOrderHandler(recurringOrderSvc)
 
 	verifier := auth.TokenVerifier(commonjwt.NewJWTVerifier(cfg.JWTSecret))
 
 	r := gin.New()
 	server.InitRouter(r, cfg)
-	server.SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, verifier, permProvider, userClient)
+	server.SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, recurringOrderHandler, dividendHandler, verifier, permProvider, userClient)
 
 	return r, userClient
 }

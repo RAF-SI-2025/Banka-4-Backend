@@ -254,7 +254,7 @@ func (s *InvestmentFundService) GetBankFundPositions(ctx context.Context) ([]dto
 			units := unitsFromPosition(pos)
 			totalUnits += units
 
-			if pos.OwnerType == model.OwnerTypeActuary {
+			if pos.OwnerType == model.OwnerTypeBank {
 				bankUnits += units
 				bankInvested += pos.TotalInvestedAmount
 			}
@@ -813,7 +813,7 @@ func (s *InvestmentFundService) processPendingRedemption(ctx context.Context, re
 		return commonErrors.ServiceUnavailableErr(err)
 	}
 
-	_, err = s.completeFundRedemption(ctx, fund, position, redemption, destinationAccount, redemption.OwnerType == model.OwnerTypeActuary)
+	_, err = s.completeFundRedemption(ctx, fund, position, redemption, destinationAccount, redemption.OwnerType == model.OwnerTypeBank)
 	return err
 }
 
@@ -868,7 +868,7 @@ func resolveCallerIdentity(authCtx *auth.AuthContext) (uint, model.OwnerType, er
 		if authCtx.EmployeeID == nil {
 			return 0, "", commonErrors.UnauthorizedErr("not authenticated")
 		}
-		return *authCtx.EmployeeID, model.OwnerTypeActuary, nil
+		return *authCtx.EmployeeID, model.OwnerTypeBank, nil
 	default:
 		return 0, "", commonErrors.UnauthorizedErr("unknown identity type")
 	}

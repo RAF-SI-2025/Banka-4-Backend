@@ -248,6 +248,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/actuary/{actId}/assets/{assetOwnershipId}/dividends": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns dividend payout history for a specific asset ownership (position) managed by an actuary.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dividends"
+                ],
+                "summary": "List actuary dividend payouts for a portfolio position",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Actuary ID",
+                        "name": "actId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Asset Ownership ID",
+                        "name": "assetOwnershipId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ListDividendPayoutsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/actuary/{actId}/assets/{ownershipId}/publish": {
             "patch": {
                 "security": [
@@ -584,6 +631,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/client/{clientId}/assets/{assetOwnershipId}/dividends": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns dividend payout history for a specific asset ownership (position) belonging to a client.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dividends"
+                ],
+                "summary": "List client dividend payouts for a portfolio position",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Client ID",
+                        "name": "clientId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Asset Ownership ID",
+                        "name": "assetOwnershipId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ListDividendPayoutsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/client/{clientId}/assets/{ownershipId}/publish": {
             "patch": {
                 "security": [
@@ -702,6 +796,77 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/dividends": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all dividend payout records. Restricted to supervisors.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dividends"
+                ],
+                "summary": "List all dividend payouts",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ListDividendPayoutsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/dividends/trigger": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Forces immediate dividend processing. For internal use only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dividends"
+                ],
+                "summary": "Manually trigger dividend payout",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/errors.AppError"
                         }
@@ -2583,6 +2748,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/portfolio/assets/{assetOwnershipId}/dividends": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns dividend payout history for a specific asset ownership (position).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dividends"
+                ],
+                "summary": "List dividend payouts for a portfolio position",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Asset Ownership ID",
+                        "name": "assetOwnershipId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ListDividendPayoutsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/profit/actuaries": {
             "get": {
                 "security": [
@@ -2684,6 +2895,190 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/recurring-orders": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all recurring orders belonging to the authenticated client or actuary",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recurring-orders"
+                ],
+                "summary": "Get recurring orders for the authenticated user",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.RecurringOrderResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a recurring market order that executes automatically at the given cadence",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recurring-orders"
+                ],
+                "summary": "Create a recurring order",
+                "parameters": [
+                    {
+                        "description": "Recurring order details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateRecurringOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.RecurringOrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/recurring-orders/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cancels and deletes a recurring order owned by the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recurring-orders"
+                ],
+                "summary": "Delete a recurring order",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Recurring Order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/recurring-orders/{id}/pause": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Toggles the active state of a recurring order owned by the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recurring-orders"
+                ],
+                "summary": "Pause or resume a recurring order",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Recurring Order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.RecurringOrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/errors.AppError"
                         }
@@ -3415,6 +3810,62 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.CreateRecurringOrderRequest": {
+            "type": "object",
+            "required": [
+                "account_number",
+                "cadence",
+                "direction",
+                "listing_id",
+                "mode",
+                "value"
+            ],
+            "properties": {
+                "account_number": {
+                    "type": "string"
+                },
+                "cadence": {
+                    "enum": [
+                        "DAILY",
+                        "WEEKLY",
+                        "MONTHLY"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.RecurringOrderCadence"
+                        }
+                    ]
+                },
+                "direction": {
+                    "enum": [
+                        "BUY",
+                        "SELL"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.OrderDirection"
+                        }
+                    ]
+                },
+                "listing_id": {
+                    "type": "integer"
+                },
+                "mode": {
+                    "enum": [
+                        "BY_QUANTITY",
+                        "BY_AMOUNT"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.RecurringOrderMode"
+                        }
+                    ]
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
         "dto.CreateWatchlistRequest": {
             "type": "object",
             "required": [
@@ -3448,6 +3899,41 @@ const docTemplate = `{
                 },
                 "volume": {
                     "type": "integer"
+                }
+            }
+        },
+        "dto.DividendPayoutResponse": {
+            "type": "object",
+            "properties": {
+                "accountNumber": {
+                    "type": "string"
+                },
+                "assetOwnershipId": {
+                    "type": "integer"
+                },
+                "currencyCode": {
+                    "type": "string"
+                },
+                "dividendPayoutId": {
+                    "type": "integer"
+                },
+                "grossAmount": {
+                    "type": "number"
+                },
+                "netAmount": {
+                    "type": "number"
+                },
+                "paymentDate": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "number"
+                },
+                "stock": {
+                    "type": "string"
+                },
+                "taxAmount": {
+                    "type": "number"
                 }
             }
         },
@@ -3946,6 +4432,17 @@ const docTemplate = `{
                 },
                 "total_invested_rsd": {
                     "type": "number"
+                }
+            }
+        },
+        "dto.ListDividendPayoutsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.DividendPayoutResponse"
+                    }
                 }
             }
         },
@@ -4570,6 +5067,56 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.RecurringOrderResponse": {
+            "type": "object",
+            "properties": {
+                "account_number": {
+                    "type": "string"
+                },
+                "active": {
+                    "type": "boolean"
+                },
+                "cadence": {
+                    "$ref": "#/definitions/model.RecurringOrderCadence"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "direction": {
+                    "$ref": "#/definitions/model.OrderDirection"
+                },
+                "listing_id": {
+                    "type": "integer"
+                },
+                "listing_name": {
+                    "type": "string"
+                },
+                "mode": {
+                    "$ref": "#/definitions/model.RecurringOrderMode"
+                },
+                "next_run": {
+                    "type": "string"
+                },
+                "owner_type": {
+                    "$ref": "#/definitions/model.OwnerType"
+                },
+                "recurring_order_id": {
+                    "type": "integer"
+                },
+                "ticker": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
         "dto.RejectOfferRequest": {
             "type": "object",
             "properties": {
@@ -5017,13 +5564,37 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "CLIENT",
-                "ACTUARY",
+                "BANK",
                 "FUND"
             ],
             "x-enum-varnames": [
                 "OwnerTypeClient",
-                "OwnerTypeActuary",
+                "OwnerTypeBank",
                 "OwnerTypeFund"
+            ]
+        },
+        "model.RecurringOrderCadence": {
+            "type": "string",
+            "enum": [
+                "DAILY",
+                "WEEKLY",
+                "MONTHLY"
+            ],
+            "x-enum-varnames": [
+                "RecurringOrderCadenceDaily",
+                "RecurringOrderCadenceWeekly",
+                "RecurringOrderCadenceMonthly"
+            ]
+        },
+        "model.RecurringOrderMode": {
+            "type": "string",
+            "enum": [
+                "BY_QUANTITY",
+                "BY_AMOUNT"
+            ],
+            "x-enum-varnames": [
+                "RecurringOrderModeByQuantity",
+                "RecurringOrderModeByAmount"
             ]
         }
     },

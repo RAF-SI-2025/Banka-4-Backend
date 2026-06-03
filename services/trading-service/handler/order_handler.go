@@ -262,7 +262,7 @@ func (h *OrderHandler) GetMyOrders(c *gin.Context) {
 			return
 		}
 		userID = *authCtx.EmployeeID
-		ownerType = model.OwnerTypeActuary
+		ownerType = model.OwnerTypeBank
 	default:
 		c.JSON(http.StatusForbidden, errors.ForbiddenErr("invalid identity type"))
 		return

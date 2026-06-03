@@ -30,7 +30,15 @@ type fakeAssetOwnershipRepo struct {
 	findErr        error
 }
 
+func (r *fakeAssetOwnershipRepo) FindAllByAssetIDs(_ context.Context, _ []uint) ([]model.AssetOwnership, error) {
+	return r.ownerships, r.findErr
+}
+
 func (r *fakeAssetOwnershipRepo) FindByUserId(_ context.Context, _ uint, _ model.OwnerType) ([]model.AssetOwnership, error) {
+	return r.ownerships, r.findErr
+}
+
+func (r *fakeAssetOwnershipRepo) FindByOwnerType(_ context.Context, _ model.OwnerType) ([]model.AssetOwnership, error) {
 	return r.ownerships, r.findErr
 }
 
@@ -166,7 +174,7 @@ func TestGetPortfolio_HappyPath_Stock(t *testing.T) {
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 	)
 
-	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
+	result, err := svc.GetClientPortfolio(context.Background(), 1)
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 
@@ -194,7 +202,7 @@ func TestGetPortfolio_HappyPath_Option(t *testing.T) {
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 	)
 
-	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
+	result, err := svc.GetClientPortfolio(context.Background(), 1)
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 
@@ -220,7 +228,7 @@ func TestGetPortfolio_HappyPath_Futures(t *testing.T) {
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 	)
 
-	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
+	result, err := svc.GetClientPortfolio(context.Background(), 1)
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 
@@ -229,6 +237,49 @@ func TestGetPortfolio_HappyPath_Futures(t *testing.T) {
 	require.Equal(t, dto.AssetTypeFutures, a.Type)
 	require.Equal(t, float64(5), a.Amount)
 	require.InDelta(t, (210.0-200.0)*5, a.Profit, 0.001)
+}
+
+func TestGetPortfolio_WholeBank(t *testing.T) {
+	// Should return assets of all actuaries, of any user ID
+	ownership1 := makeOwnership(10, "AAPL", 10, 100.0)
+	ownership1.PublicAmount = 5.0
+	ownership2 := makeOwnership(20, "MSFT", 20, 50.0)
+	ownership2.PublicAmount = 4.0
+	ownership2.UserId = 2
+
+	svc := NewPortfolioService(
+		&fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership1, ownership2}},
+		&fakeStockRepo{stocks: []model.Stock{
+			{StockID: 1, AssetID: 10, OutstandingShares: 1_000_000, Listing: makeListing(10, 150.0)},
+			{StockID: 2, AssetID: 20, OutstandingShares: 500_000, Listing: makeListing(20, 100.0)},
+		}},
+		&fakeOptionRepo{},
+		&fakeFuturesRepo{},
+		&fakeForexRepo{},
+		&fakeOrderBankingClient{},
+		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
+	)
+
+	result, err := svc.GetWholeBankPortfolio(context.Background(), 1)
+	require.NoError(t, err)
+	require.Len(t, result, 2)
+
+	a := result[0]
+	require.Equal(t, uint(10), a.AssetID)
+	require.Equal(t, dto.AssetTypeStock, a.Type)
+	require.Equal(t, "AAPL", a.Ticker)
+	require.Equal(t, float64(10), a.Amount)
+	require.Equal(t, 150.0, a.PricePerUnitRSD)
+	require.InDelta(t, (150.0-100.0)*10, a.Profit, 0.001)
+	require.Equal(t, 5.0, a.PublicAmount)
+	b := result[1]
+	require.Equal(t, uint(20), b.AssetID)
+	require.Equal(t, dto.AssetTypeStock, b.Type)
+	require.Equal(t, "MSFT", b.Ticker)
+	require.Equal(t, float64(20), b.Amount)
+	require.Equal(t, 100.0, b.PricePerUnitRSD)
+	require.InDelta(t, (100.0-50.0)*20, b.Profit, 0.001)
+	require.Equal(t, 4.0, b.PublicAmount)
 }
 
 func TestGetPortfolio_ZeroAmountFiltered(t *testing.T) {
@@ -245,7 +296,7 @@ func TestGetPortfolio_ZeroAmountFiltered(t *testing.T) {
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 	)
 
-	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
+	result, err := svc.GetClientPortfolio(context.Background(), 1)
 	require.NoError(t, err)
 	require.Empty(t, result)
 }
@@ -264,7 +315,7 @@ func TestGetPortfolio_NetAmountAfterSell(t *testing.T) {
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 	)
 
-	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
+	result, err := svc.GetClientPortfolio(context.Background(), 1)
 	require.NoError(t, err)
 	require.Empty(t, result)
 }
@@ -283,7 +334,7 @@ func TestGetPortfolio_PartialSell(t *testing.T) {
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 	)
 
-	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
+	result, err := svc.GetClientPortfolio(context.Background(), 1)
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 	require.Equal(t, float64(6), result[0].Amount)
@@ -300,7 +351,7 @@ func TestGetPortfolio_EmptyOwnerships(t *testing.T) {
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 	)
 
-	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
+	result, err := svc.GetClientPortfolio(context.Background(), 1)
 	require.NoError(t, err)
 	require.Empty(t, result)
 }
@@ -316,7 +367,7 @@ func TestGetPortfolio_RepoError(t *testing.T) {
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 	)
 
-	_, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
+	_, err := svc.GetClientPortfolio(context.Background(), 1)
 	require.Error(t, err)
 }
 
@@ -334,7 +385,7 @@ func TestGetPortfolio_NegativeProfit_NoTax(t *testing.T) {
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 	)
 
-	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
+	result, err := svc.GetClientPortfolio(context.Background(), 1)
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 	require.InDelta(t, (150.0-200.0)*20, result[0].Profit, 0.001)
@@ -364,7 +415,7 @@ func TestGetPortfolio_MultipleAssets_ProfitAccumulation(t *testing.T) {
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 	)
 
-	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
+	result, err := svc.GetClientPortfolio(context.Background(), 1)
 	require.NoError(t, err)
 	require.Len(t, result, 2)
 
@@ -387,7 +438,7 @@ func TestGetPortfolio_EmptyPortfolio_ZeroProfit(t *testing.T) {
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 	)
 
-	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeActuary)
+	result, err := svc.GetActuaryPortfolio(context.Background(), 1)
 	require.NoError(t, err)
 	require.Empty(t, result)
 
@@ -400,7 +451,7 @@ func TestGetPortfolio_EmptyPortfolio_ZeroProfit(t *testing.T) {
 
 func TestExerciseOption_Success(t *testing.T) {
 	optionOwnership := makeOwnership(20, "AAPL:CALL:150.00", 200, 12.0)
-	optionOwnership.OwnerType = model.OwnerTypeActuary
+	optionOwnership.OwnerType = model.OwnerTypeBank
 	optionOwnership.Asset.AssetType = model.AssetTypeOption
 
 	ownershipRepo := &fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{optionOwnership}}
@@ -445,7 +496,7 @@ func TestExerciseOption_Success(t *testing.T) {
 	)
 	svc.now = func() time.Time { return time.Date(2025, 6, 4, 10, 0, 0, 0, time.UTC) }
 
-	resp, err := svc.ExerciseOption(context.Background(), 1, model.OwnerTypeActuary, 20, "444000100000000001")
+	resp, err := svc.ExerciseOption(context.Background(), 1, model.OwnerTypeBank, 20, "444000100000000001")
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Equal(t, uint(20), resp.OptionAssetID)
@@ -478,7 +529,7 @@ func TestExerciseOption_Success(t *testing.T) {
 
 func TestExerciseOption_ExpiredOption(t *testing.T) {
 	optionOwnership := makeOwnership(20, "AAPL:CALL:150.00", 100, 12.0)
-	optionOwnership.OwnerType = model.OwnerTypeActuary
+	optionOwnership.OwnerType = model.OwnerTypeBank
 	optionOwnership.Asset.AssetType = model.AssetTypeOption
 
 	svc := NewPortfolioService(
@@ -504,14 +555,14 @@ func TestExerciseOption_ExpiredOption(t *testing.T) {
 	)
 	svc.now = func() time.Time { return time.Date(2025, 6, 4, 10, 0, 0, 0, time.UTC) }
 
-	_, err := svc.ExerciseOption(context.Background(), 1, model.OwnerTypeActuary, 20, "444000100000000001")
+	_, err := svc.ExerciseOption(context.Background(), 1, model.OwnerTypeBank, 20, "444000100000000001")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "expired option")
 }
 
 func TestExerciseOption_NotInTheMoney(t *testing.T) {
 	optionOwnership := makeOwnership(20, "AAPL:CALL:150.00", 100, 12.0)
-	optionOwnership.OwnerType = model.OwnerTypeActuary
+	optionOwnership.OwnerType = model.OwnerTypeBank
 	optionOwnership.Asset.AssetType = model.AssetTypeOption
 
 	svc := NewPortfolioService(
@@ -536,14 +587,14 @@ func TestExerciseOption_NotInTheMoney(t *testing.T) {
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 	)
 
-	_, err := svc.ExerciseOption(context.Background(), 1, model.OwnerTypeActuary, 20, "444000100000000001")
+	_, err := svc.ExerciseOption(context.Background(), 1, model.OwnerTypeBank, 20, "444000100000000001")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not in the money")
 }
 
 func TestExerciseOption_PutOptionRejected(t *testing.T) {
 	optionOwnership := makeOwnership(20, "AAPL:PUT:150.00", 100, 12.0)
-	optionOwnership.OwnerType = model.OwnerTypeActuary
+	optionOwnership.OwnerType = model.OwnerTypeBank
 	optionOwnership.Asset.AssetType = model.AssetTypeOption
 
 	svc := NewPortfolioService(
@@ -568,7 +619,7 @@ func TestExerciseOption_PutOptionRejected(t *testing.T) {
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 	)
 
-	_, err := svc.ExerciseOption(context.Background(), 1, model.OwnerTypeActuary, 20, "444000100000000001")
+	_, err := svc.ExerciseOption(context.Background(), 1, model.OwnerTypeBank, 20, "444000100000000001")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "only call options can be exercised")
 }
@@ -614,7 +665,7 @@ func TestGetActuaryPortfolio_ResolvesIdentityID(t *testing.T) {
 	const identityID = uint64(55)
 	ownership := makeOwnership(20, "MSFT", 5, 200.0)
 	ownership.UserId = uint(identityID)
-	ownership.OwnerType = model.OwnerTypeActuary
+	ownership.OwnerType = model.OwnerTypeBank
 
 	svc := newPortfolioSvc(
 		&fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}},

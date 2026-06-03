@@ -5,9 +5,9 @@ import "time"
 type OwnerType string
 
 const (
-	OwnerTypeClient  OwnerType = "CLIENT"
-	OwnerTypeActuary OwnerType = "ACTUARY"
-	OwnerTypeFund    OwnerType = "FUND"
+	OwnerTypeClient OwnerType = "CLIENT"
+	OwnerTypeBank   OwnerType = "BANK"
+	OwnerTypeFund   OwnerType = "FUND"
 )
 
 type AssetOwnership struct {

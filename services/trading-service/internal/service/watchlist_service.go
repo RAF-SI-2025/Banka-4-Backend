@@ -51,7 +51,7 @@ func ownerIdentity(ctx context.Context) (uint, model.OwnerType, error) {
 		if authCtx.EmployeeID == nil {
 			return 0, "", commonErrors.UnauthorizedErr("employee identity missing")
 		}
-		return *authCtx.EmployeeID, model.OwnerTypeActuary, nil
+		return *authCtx.EmployeeID, model.OwnerTypeBank, nil
 	default:
 		return 0, "", commonErrors.ForbiddenErr("access denied for this identity type")
 	}
