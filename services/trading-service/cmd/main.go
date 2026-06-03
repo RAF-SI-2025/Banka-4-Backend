@@ -124,6 +124,9 @@ func main() {
 			service.NewWatchlistService,
 			handler.NewWatchlistHandler,
 			tradinggrpc.NewTradingServiceServer,
+			handler.NewOtcNegotiationHistoryHandler,
+			service.NewOtcNegotiationHistoryService,
+			repository.NewOtcNegotiationHistoryRepository,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)
@@ -163,6 +166,7 @@ func main() {
 				&model.FundPerformance{},
 				&model.Watchlist{},
 				&model.WatchlistItem{},
+				&model.OtcNegotiationHistory{},
 			)
 		}),
 		fx.Invoke(func(lc fx.Lifecycle, svc *service.StockService) {
