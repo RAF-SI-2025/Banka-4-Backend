@@ -38,7 +38,7 @@ func NewServer(
 	otcOfferHandler *handler.OtcOfferHandler,
 	fundHandler *handler.InvestmentFundHandler,
 	watchlistHandler *handler.WatchlistHandler,
-  recurringOrderHandler *handler.RecurringOrderHandler,
+	recurringOrderHandler *handler.RecurringOrderHandler,
 	dividendHandler *handler.DividendHandler,
 	verifier auth.TokenVerifier,
 	permProvider auth.PermissionProvider,
@@ -88,7 +88,7 @@ func SetupRoutes(
 	otcOfferHandler *handler.OtcOfferHandler,
 	fundHandler *handler.InvestmentFundHandler,
 	watchlistHandler *handler.WatchlistHandler,
-  recurringOrderHandler *handler.RecurringOrderHandler,
+	recurringOrderHandler *handler.RecurringOrderHandler,
 	dividendHandler *handler.DividendHandler,
 	verifier auth.TokenVerifier,
 	permProvider auth.PermissionProvider,
@@ -273,8 +273,8 @@ func SetupRoutes(
 			dividends.GET("", middleware.RequireSupervisor(userClient), dividendHandler.GetAllDividendPayouts)
 			// DEV ONLY - manual trigger
 			dividends.POST("/process", middleware.RequireSupervisor(userClient), dividendHandler.TriggerDividends)
-    }
-    
+		}
+
 		recurringOrders := api.Group("/recurring-orders")
 		recurringOrders.Use(authMw, auth.RequirePermission(permission.Trading))
 		{
