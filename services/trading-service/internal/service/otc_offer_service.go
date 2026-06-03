@@ -36,14 +36,15 @@ import (
 //  6. Seller capacity is validated per spec 3+7+2: PublicAmount must cover the
 //     sum of all active negotiations and valid option contracts for the same stock.
 type OtcOfferService struct {
-	offerRepo          repository.OtcOfferRepository
-	optionContractRepo repository.OtcOptionContractRepository
-	assetOwnershipRepo repository.AssetOwnershipRepository
-	stockRepo          repository.StockRepository
-	bankingClient      client.BankingClient
-	userClient         client.UserServiceClient
-	processingService  *OtcDealProcessingService
-	now                func() time.Time
+	offerRepo                   repository.OtcOfferRepository
+	optionContractRepo          repository.OtcOptionContractRepository
+	assetOwnershipRepo          repository.AssetOwnershipRepository
+	stockRepo                   repository.StockRepository
+	bankingClient               client.BankingClient
+	userClient                  client.UserServiceClient
+	processingService           *OtcDealProcessingService
+	otcNegotiationHistoryService OtcNegotiationHistoryService
+	now                         func() time.Time
 }
 
 func NewOtcOfferService(
@@ -54,16 +55,18 @@ func NewOtcOfferService(
 	bankingClient client.BankingClient,
 	userClient client.UserServiceClient,
 	processingService *OtcDealProcessingService,
+	otcNegotiationHistoryService OtcNegotiationHistoryService,
 ) *OtcOfferService {
 	return &OtcOfferService{
-		offerRepo:          offerRepo,
-		optionContractRepo: optionContractRepo,
-		assetOwnershipRepo: assetOwnershipRepo,
-		stockRepo:          stockRepo,
-		bankingClient:      bankingClient,
-		userClient:         userClient,
-		processingService:  processingService,
-		now:                time.Now,
+		offerRepo:                   offerRepo,
+		optionContractRepo:          optionContractRepo,
+		assetOwnershipRepo:          assetOwnershipRepo,
+		stockRepo:                   stockRepo,
+		bankingClient:               bankingClient,
+		userClient:                  userClient,
+		processingService:           processingService,
+		otcNegotiationHistoryService: otcNegotiationHistoryService,
+		now:                         time.Now,
 	}
 }
 
@@ -189,6 +192,8 @@ func (s *OtcOfferService) SendCounterOffer(ctx context.Context, offerID uint, re
 		offer.SellerAccountNumber = req.AccountNumber
 	}
 
+	oldOffer := *offer
+	
 	offer.Amount = req.Amount
 	offer.PricePerStockRSD = req.PricePerStockRSD
 	offer.PremiumRSD = req.PremiumRSD
@@ -198,6 +203,10 @@ func (s *OtcOfferService) SendCounterOffer(ctx context.Context, offerID uint, re
 
 	if err := s.offerRepo.Save(ctx, offer); err != nil {
 		return nil, errors.InternalErr(err)
+	}
+	
+	if err := s.otcNegotiationHistoryService.CreateNegotiationHistory(ctx, offerID, &oldOffer, offer, callerID); err != nil {
+		// Log the error, but don't fail the transaction
 	}
 
 	updated, err := s.offerRepo.FindByID(ctx, offer.OtcOfferID)
