@@ -213,8 +213,8 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	payeeSvc := service.NewPayeeService(payeeRepo)
 	exchangeSvc := service.NewExchangeService(exchangeRateRepo, nil)
 	transactionProcessor := service.NewTransactionProcessor(accountRepo, transactionRepo, txManager)
-	paymentSvc := service.NewPaymentService(paymentRepo, transactionRepo, accountRepo, mobileSecretCl, converter, txManager, transactionProcessor)
-	transferSvc := service.NewTransferService(transferRepo, transactionRepo, accountRepo, converter, txManager, transactionProcessor)
+	paymentSvc := service.NewPaymentService(paymentRepo, transactionRepo, accountRepo, mobileSecretCl, converter, txManager, transactionProcessor, userCl, mailer)
+	transferSvc := service.NewTransferService(transferRepo, transactionRepo, accountRepo, converter, txManager, transactionProcessor, userCl, mailer)
 	loanSvc := service.NewLoanService(accountRepo, loanTypeRepo, loanRequestRepo, loanRepo, transactionProcessor, txManager, userCl, mailer)
 
 	healthHandler := handler.NewHealthHandler()
