@@ -78,12 +78,74 @@ func (c *PeerOtcClient) Close(ctx context.Context, negotiationID dto.ForeignBank
 // authoritative bank. The peer is expected to drive the resulting §2
 // NEW_TX flow before returning a success status; consumers should treat
 // the timeout accordingly.
-func (c *PeerOtcClient) Accept(ctx context.Context, negotiationID dto.ForeignBankId) error {
+func (c *PeerOtcClient) Accept(ctx context.Context, negotiationID dto.ForeignBankId) (*dto.PeerContract, error) {
 	path := fmt.Sprintf("/interbank/negotiations/%d/%s/accept", negotiationID.RoutingNumber, negotiationID.ID)
-	return c.do(ctx, negotiationID.RoutingNumber, http.MethodGet, path, nil, nil)
+
+	var result dto.PeerContract
+	if err := c.do(ctx, negotiationID.RoutingNumber, http.MethodGet, path, nil, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }
 
 // PublicStock calls §3.1 GET /interbank/public-stock on the given peer.
+func (c *PeerOtcClient) ReserveShares(ctx context.Context, contractID dto.ForeignBankId) error {
+	path := fmt.Sprintf("/interbank/contracts/%d/%s/reserve-shares", contractID.RoutingNumber, contractID.ID)
+	return c.do(ctx, contractID.RoutingNumber, http.MethodPost, path, nil, nil)
+}
+
+func (c *PeerOtcClient) ConsumeShares(ctx context.Context, contractID dto.ForeignBankId) error {
+	path := fmt.Sprintf("/interbank/contracts/%d/%s/consume-shares", contractID.RoutingNumber, contractID.ID)
+	return c.do(ctx, contractID.RoutingNumber, http.MethodPost, path, nil, nil)
+}
+
+func (c *PeerOtcClient) ReleaseShares(ctx context.Context, contractID dto.ForeignBankId) error {
+	path := fmt.Sprintf("/interbank/contracts/%d/%s/release-shares", contractID.RoutingNumber, contractID.ID)
+	return c.do(ctx, contractID.RoutingNumber, http.MethodPost, path, nil, nil)
+}
+
+func (c *PeerOtcClient) SendNewTx(ctx context.Context, peerRouting int, key string, tx dto.Transaction) (*dto.TransactionVote, error) {
+	msg := dto.NewTxMessage{
+		IdempotenceKey: dto.IdempotenceKey{
+			RoutingNumber:       c.peers.OurRoutingNumber(),
+			LocallyGeneratedKey: key,
+		},
+		MessageType: dto.MessageTypeNewTx,
+		Message:     tx,
+	}
+
+	var vote dto.TransactionVote
+	if err := c.do(ctx, peerRouting, http.MethodPost, "/interbank", msg, &vote); err != nil {
+		return nil, err
+	}
+	return &vote, nil
+}
+
+func (c *PeerOtcClient) SendCommitTx(ctx context.Context, peerRouting int, key string, txID dto.ForeignBankId) error {
+	msg := dto.CommitTxMessage{
+		IdempotenceKey: dto.IdempotenceKey{
+			RoutingNumber:       c.peers.OurRoutingNumber(),
+			LocallyGeneratedKey: key,
+		},
+		MessageType: dto.MessageTypeCommitTx,
+		Message:     dto.CommitTransaction{TransactionID: txID},
+	}
+	return c.do(ctx, peerRouting, http.MethodPost, "/interbank", msg, nil)
+}
+
+func (c *PeerOtcClient) SendRollbackTx(ctx context.Context, peerRouting int, key string, txID dto.ForeignBankId) error {
+	msg := dto.RollbackTxMessage{
+		IdempotenceKey: dto.IdempotenceKey{
+			RoutingNumber:       c.peers.OurRoutingNumber(),
+			LocallyGeneratedKey: key,
+		},
+		MessageType: dto.MessageTypeRollbackTx,
+		Message:     dto.RollbackTransaction{TransactionID: txID},
+	}
+	return c.do(ctx, peerRouting, http.MethodPost, "/interbank", msg, nil)
+}
+
 func (c *PeerOtcClient) PublicStock(ctx context.Context, peerRouting int) ([]dto.PublicStock, error) {
 	var result []dto.PublicStock
 	if err := c.do(ctx, peerRouting, http.MethodGet, "/interbank/public-stock", nil, &result); err != nil {

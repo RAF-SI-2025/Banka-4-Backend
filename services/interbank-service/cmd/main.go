@@ -43,8 +43,10 @@ func main() {
 
 			client.NewUserServiceConnection,
 			client.NewTradingServiceConnection,
+			client.NewBankingServiceConnection,
 			clientgrpc.NewUserClient,
 			clientgrpc.NewTradingClient,
+			clientgrpc.NewBankingClient,
 
 			// PermissionService is exposed by user-service, so it shares
 			// the user-service gRPC connection.
@@ -60,7 +62,10 @@ func main() {
 			repository.NewGormTransactionManager,
 			repository.NewInboundMessageRepository,
 			repository.NewOutboundMessageRepository,
+			repository.NewPreparedTransactionRepository,
 			repository.NewPeerNegotiationRepository,
+			repository.NewPeerContractRepository,
+			repository.NewPeerContractExerciseRepository,
 
 			service.NewMessageProcessor,
 			service.NewPeerOtcService,
@@ -79,7 +84,10 @@ func main() {
 			return db.AutoMigrate(
 				&model.InboundMessage{},
 				&model.OutboundMessage{},
+				&model.PreparedTransaction{},
 				&model.PeerNegotiation{},
+				&model.PeerContract{},
+				&model.PeerContractExercise{},
 			)
 		}),
 		fx.Invoke(server.NewServer),

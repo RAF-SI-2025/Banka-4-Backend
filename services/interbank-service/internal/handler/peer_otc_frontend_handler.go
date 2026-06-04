@@ -48,6 +48,11 @@ type CounterPeerNegotiationRequest struct {
 	Premium         float64 `json:"premium"         binding:"required"`
 	PremiumCurrency string  `json:"premiumCurrency" binding:"required,max=8"`
 	SettlementDate  string  `json:"settlementDate"  binding:"required"`
+	AccountNumber   string  `json:"accountNumber,omitempty"`
+}
+
+type AcceptPeerNegotiationRequest struct {
+	AccountNumber string `json:"accountNumber,omitempty"`
 }
 
 // ListPublicStocks godoc
@@ -92,6 +97,58 @@ func (h *PeerOtcFrontendHandler) ListMyNegotiations(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, negotiations)
+}
+
+// ListMyContracts godoc
+// @Summary List my cross-bank OTC contracts
+// @Tags peer-otc
+// @Produce json
+// @Success 200 {array} dto.PeerContract
+// @Security BearerAuth
+// @Router /api/peer-otc/contracts [get]
+func (h *PeerOtcFrontendHandler) ListMyContracts(c *gin.Context) {
+	userID, err := auth.GetSubjectFromContext(c.Request.Context())
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	contracts, err := h.service.ListMyContracts(c.Request.Context(), userID)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, contracts)
+}
+
+// ExerciseContract godoc
+// @Summary Exercise a cross-bank OTC contract
+// @Tags peer-otc
+// @Produce json
+// @Param rn path int true "Authoritative bank routing number"
+// @Param id path string true "Contract id"
+// @Success 200 {object} dto.PeerContractExercise
+// @Security BearerAuth
+// @Router /api/peer-otc/contracts/{rn}/{id}/exercise [post]
+func (h *PeerOtcFrontendHandler) ExerciseContract(c *gin.Context) {
+	userID, err := auth.GetSubjectFromContext(c.Request.Context())
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	contractID, ok := parseNegotiationID(c)
+	if !ok {
+		return
+	}
+
+	exercise, err := h.service.ExerciseAsLocal(c.Request.Context(), userID, contractID)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, exercise)
 }
 
 // CreateNegotiation godoc
@@ -181,12 +238,50 @@ func (h *PeerOtcFrontendHandler) SendCounterOffer(c *gin.Context) {
 		Premium:         req.Premium,
 		PremiumCurrency: req.PremiumCurrency,
 		SettlementDate:  req.SettlementDate,
+		AccountNumber:   req.AccountNumber,
 	}); err != nil {
 		_ = c.Error(err)
 		return
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+// AcceptNegotiation godoc
+// @Summary Accept a cross-bank OTC negotiation
+// @Tags peer-otc
+// @Accept json
+// @Produce json
+// @Param rn path int true "Authoritative bank routing number"
+// @Param id path string true "Negotiation id"
+// @Param request body AcceptPeerNegotiationRequest false "Local account number"
+// @Success 200 {object} dto.PeerContract
+// @Security BearerAuth
+// @Router /api/peer-otc/negotiations/{rn}/{id}/accept [post]
+func (h *PeerOtcFrontendHandler) AcceptNegotiation(c *gin.Context) {
+	userID, err := auth.GetSubjectFromContext(c.Request.Context())
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	negotiationID, ok := parseNegotiationID(c)
+	if !ok {
+		return
+	}
+
+	var req AcceptPeerNegotiationRequest
+	_ = c.ShouldBindJSON(&req)
+
+	contract, err := h.service.AcceptAsLocal(c.Request.Context(), userID, negotiationID, service.LocalAcceptRequest{
+		AccountNumber: req.AccountNumber,
+	})
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, contract)
 }
 
 // Withdraw godoc

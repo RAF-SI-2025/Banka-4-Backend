@@ -28,6 +28,7 @@ type BankingService struct {
 	transactionProcessor *service.TransactionProcessor
 	exchangeService      *service.ExchangeService
 	otcFundsService      *service.OtcFundsService
+	interbankCashService *service.InterbankCashService
 }
 
 func NewBankingService(
@@ -39,6 +40,7 @@ func NewBankingService(
 	transactionProcessor *service.TransactionProcessor,
 	exchangeService *service.ExchangeService,
 	otcFundsService *service.OtcFundsService,
+	interbankCashService *service.InterbankCashService,
 ) *BankingService {
 	return &BankingService{
 		accountRepo:          accountRepo,
@@ -49,6 +51,7 @@ func NewBankingService(
 		transactionProcessor: transactionProcessor,
 		exchangeService:      exchangeService,
 		otcFundsService:      otcFundsService,
+		interbankCashService: interbankCashService,
 	}
 }
 
@@ -250,6 +253,50 @@ func (s *BankingService) ReserveOtcFunds(ctx context.Context, req *pb.ReserveOtc
 	}
 
 	return otcFundsReservationResponse(reservation), nil
+}
+
+func (s *BankingService) PrepareInterbankCashPosting(ctx context.Context, req *pb.PrepareInterbankCashPostingRequest) (*pb.InterbankCashPostingResponse, error) {
+	posting, err := s.interbankCashService.Prepare(
+		ctx,
+		req.GetPostingId(),
+		req.GetAccountNumber(),
+		uint(req.GetClientId()),
+		model.CurrencyCode(req.GetCurrencyCode()),
+		req.GetAmount(),
+	)
+	if err != nil {
+		return nil, errors.MapGrpcToHttpError(err)
+	}
+	return interbankCashPostingResponse(posting), nil
+}
+
+func (s *BankingService) CommitInterbankCashPosting(ctx context.Context, req *pb.InterbankCashPostingRequest) (*pb.InterbankCashPostingResponse, error) {
+	posting, err := s.interbankCashService.Commit(ctx, req.GetPostingId())
+	if err != nil {
+		return nil, errors.MapGrpcToHttpError(err)
+	}
+	return interbankCashPostingResponse(posting), nil
+}
+
+func (s *BankingService) RollbackInterbankCashPosting(ctx context.Context, req *pb.InterbankCashPostingRequest) (*pb.InterbankCashPostingResponse, error) {
+	posting, err := s.interbankCashService.Rollback(ctx, req.GetPostingId())
+	if err != nil {
+		return nil, errors.MapGrpcToHttpError(err)
+	}
+	return interbankCashPostingResponse(posting), nil
+}
+
+func interbankCashPostingResponse(posting *model.InterbankCashPosting) *pb.InterbankCashPostingResponse {
+	if posting == nil {
+		return nil
+	}
+	return &pb.InterbankCashPostingResponse{
+		PostingId:     posting.PostingID,
+		AccountNumber: posting.AccountNumber,
+		CurrencyCode:  string(posting.CurrencyCode),
+		Amount:        posting.Amount,
+		Status:        string(posting.Status),
+	}
 }
 
 func (s *BankingService) ReleaseOtcFunds(ctx context.Context, req *pb.OtcFundsRequest) (*pb.OtcFundsReservationResponse, error) {

@@ -28,6 +28,35 @@ type OtcNegotiation struct {
 
 // PublicStockSeller is one entry in PublicStock.Sellers — a user at this
 // bank who has flagged some quantity of the stock as public.
+type PeerContract struct {
+	ID             ForeignBankId `json:"id"`
+	NegotiationID  ForeignBankId `json:"negotiationId"`
+	BuyerID        ForeignBankId `json:"buyerId"`
+	SellerID       ForeignBankId `json:"sellerId"`
+	Ticker         string        `json:"ticker"`
+	Amount         int           `json:"amount"`
+	StrikePrice    MonetaryValue `json:"strikePrice"`
+	Premium        MonetaryValue `json:"premium"`
+	SettlementDate string        `json:"settlementDate"`
+	Status         string        `json:"status"`
+	ExercisedAt    *string       `json:"exercisedAt,omitempty"`
+	CreatedAt      string        `json:"createdAt"`
+	UpdatedAt      string        `json:"updatedAt"`
+}
+
+type PeerContractExercise struct {
+	ID           uint          `json:"id"`
+	ContractID   ForeignBankId `json:"contractId"`
+	ExecutionKey string        `json:"executionKey"`
+	CurrentStep  string        `json:"currentStep"`
+	Status       string        `json:"status"`
+	RetryCount   int           `json:"retryCount"`
+	LastError    string        `json:"lastError,omitempty"`
+	CompletedAt  *string       `json:"completedAt,omitempty"`
+	CreatedAt    string        `json:"createdAt"`
+	UpdatedAt    string        `json:"updatedAt"`
+}
+
 type PublicStockSeller struct {
 	Seller ForeignBankId `json:"seller"`
 	Amount int           `json:"amount"`

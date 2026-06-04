@@ -7,6 +7,10 @@ option go_package = "common/pkg/pb;pb";
 service TradingService {
   rpc TransferFunds(TransferFundsRequest) returns (TransferFundsResponse);
   rpc ListPublicStocks(ListPublicStocksRequest) returns (ListPublicStocksResponse);
+  rpc ReservePeerOtcShares(ReservePeerOtcSharesRequest) returns (PeerOtcSharesResponse);
+  rpc ReleasePeerOtcShares(ReleasePeerOtcSharesRequest) returns (PeerOtcSharesResponse);
+  rpc ConsumePeerOtcShares(ConsumePeerOtcSharesRequest) returns (PeerOtcSharesResponse);
+  rpc CreditPeerOtcShares(CreditPeerOtcSharesRequest) returns (PeerOtcSharesResponse);
 }
 
 message TransferFundsRequest {
@@ -35,4 +39,32 @@ message PublicStockEntry {
 
 message ListPublicStocksResponse {
   repeated PublicStockEntry stocks = 1;
+}
+
+message ReservePeerOtcSharesRequest {
+  string contract_id = 1;
+  uint64 seller_id = 2;
+  string ticker = 3;
+  double amount = 4;
+}
+
+message ReleasePeerOtcSharesRequest {
+  string contract_id = 1;
+}
+
+message ConsumePeerOtcSharesRequest {
+  string contract_id = 1;
+}
+
+message CreditPeerOtcSharesRequest {
+  string contract_id = 1;
+  uint64 buyer_id = 2;
+  string ticker = 3;
+  double amount = 4;
+  double price_per_unit_rsd = 5;
+}
+
+message PeerOtcSharesResponse {
+  string contract_id = 1;
+  string status = 2;
 }

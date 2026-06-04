@@ -16,15 +16,18 @@ type TradingServiceServer struct {
 	pb.UnimplementedTradingServiceServer
 	investmentFundService *service.InvestmentFundService
 	assetOwnershipRepo    repository.AssetOwnershipRepository
+	peerOtcShareService   *service.PeerOtcShareService
 }
 
 func NewTradingServiceServer(
 	investmentFundService *service.InvestmentFundService,
 	assetOwnershipRepo repository.AssetOwnershipRepository,
+	peerOtcShareService *service.PeerOtcShareService,
 ) *TradingServiceServer {
 	return &TradingServiceServer{
 		investmentFundService: investmentFundService,
 		assetOwnershipRepo:    assetOwnershipRepo,
+		peerOtcShareService:   peerOtcShareService,
 	}
 }
 
@@ -77,4 +80,36 @@ func (s *TradingServiceServer) ListPublicStocks(ctx context.Context, _ *pb.ListP
 	}
 
 	return &pb.ListPublicStocksResponse{Stocks: stocks}, nil
+}
+
+func (s *TradingServiceServer) ReservePeerOtcShares(ctx context.Context, req *pb.ReservePeerOtcSharesRequest) (*pb.PeerOtcSharesResponse, error) {
+	statusValue, err := s.peerOtcShareService.Reserve(ctx, req.GetContractId(), uint(req.GetSellerId()), req.GetTicker(), req.GetAmount())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.PeerOtcSharesResponse{ContractId: req.GetContractId(), Status: statusValue}, nil
+}
+
+func (s *TradingServiceServer) ReleasePeerOtcShares(ctx context.Context, req *pb.ReleasePeerOtcSharesRequest) (*pb.PeerOtcSharesResponse, error) {
+	statusValue, err := s.peerOtcShareService.Release(ctx, req.GetContractId())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.PeerOtcSharesResponse{ContractId: req.GetContractId(), Status: statusValue}, nil
+}
+
+func (s *TradingServiceServer) ConsumePeerOtcShares(ctx context.Context, req *pb.ConsumePeerOtcSharesRequest) (*pb.PeerOtcSharesResponse, error) {
+	statusValue, err := s.peerOtcShareService.Consume(ctx, req.GetContractId())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.PeerOtcSharesResponse{ContractId: req.GetContractId(), Status: statusValue}, nil
+}
+
+func (s *TradingServiceServer) CreditPeerOtcShares(ctx context.Context, req *pb.CreditPeerOtcSharesRequest) (*pb.PeerOtcSharesResponse, error) {
+	statusValue, err := s.peerOtcShareService.Credit(ctx, req.GetContractId(), uint(req.GetBuyerId()), req.GetTicker(), req.GetAmount(), req.GetPricePerUnitRsd())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.PeerOtcSharesResponse{ContractId: req.GetContractId(), Status: statusValue}, nil
 }
