@@ -181,6 +181,17 @@ func (r *processingContractRepo) FindExpiredActive(_ context.Context, before tim
 	}
 	return out, nil
 }
+func (r *processingContractRepo) FindExpiringContracts(ctx context.Context, before time.Time) ([]model.OtcOptionContract, error) {
+	var out []model.OtcOptionContract
+
+	for _, c := range r.contracts {
+		if c.Status == model.OtcOptionContractStatusActive && c.SettlementDate.Before(before) {
+			out = append(out, *c)
+		}
+	}
+
+	return out, nil
+}
 
 type processingShareReservationRepo struct {
 	byContract map[uint]*model.OtcShareReservation

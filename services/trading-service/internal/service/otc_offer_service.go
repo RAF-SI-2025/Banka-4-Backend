@@ -42,6 +42,7 @@ type OtcOfferService struct {
 	stockRepo          repository.StockRepository
 	bankingClient      client.BankingClient
 	userClient         client.UserServiceClient
+	mailer             Mailer
 	processingService  *OtcDealProcessingService
 	now                func() time.Time
 }
@@ -53,6 +54,7 @@ func NewOtcOfferService(
 	stockRepo repository.StockRepository,
 	bankingClient client.BankingClient,
 	userClient client.UserServiceClient,
+	mailer Mailer,
 	processingService *OtcDealProcessingService,
 ) *OtcOfferService {
 	return &OtcOfferService{
@@ -62,6 +64,7 @@ func NewOtcOfferService(
 		stockRepo:          stockRepo,
 		bankingClient:      bankingClient,
 		userClient:         userClient,
+		mailer:             mailer,
 		processingService:  processingService,
 		now:                time.Now,
 	}
@@ -133,6 +136,16 @@ func (s *OtcOfferService) CreateOffer(ctx context.Context, req dto.CreateOtcOffe
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
+	s.sendEmailToUser(
+		ctx,
+		offer.SellerID,
+		"New OTC Offer",
+		fmt.Sprintf(
+			"You have received a new OTC offer #%d.",
+			offer.OtcOfferID,
+		),
+	)
+
 	return created, nil
 }
 
@@ -204,6 +217,23 @@ func (s *OtcOfferService) SendCounterOffer(ctx context.Context, offerID uint, re
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
+	var recipientID uint
+
+	if callerID == offer.BuyerID {
+		recipientID = offer.SellerID
+	} else {
+		recipientID = offer.BuyerID
+	}
+
+	s.sendEmailToUser(
+		ctx,
+		recipientID,
+		"OTC Counter Offer",
+		fmt.Sprintf(
+			"A new counter-offer has been submitted for OTC offer #%d.",
+			offer.OtcOfferID,
+		),
+	)
 	return updated, nil
 }
 
@@ -260,7 +290,32 @@ func (s *OtcOfferService) AcceptOffer(ctx context.Context, offerID uint, req dto
 		return nil, err
 	}
 
-	return s.processingService.FinalizeAgreement(ctx, offer.OtcOfferID, callerID)
+	contract, err := s.processingService.FinalizeAgreement(
+		ctx,
+		offer.OtcOfferID,
+		callerID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	var recipientID uint
+
+	if callerID == offer.BuyerID {
+		recipientID = offer.SellerID
+	} else {
+		recipientID = offer.BuyerID
+	}
+
+	s.sendEmailToUser(
+		ctx,
+		recipientID,
+		"OTC Offer Accepted",
+		fmt.Sprintf(
+			"OTC offer #%d has been accepted.",
+			offer.OtcOfferID,
+		),
+	)
+	return contract, nil
 }
 
 // RejectOffer allows either party to withdraw from the negotiation at any time.
@@ -295,6 +350,23 @@ func (s *OtcOfferService) RejectOffer(ctx context.Context, offerID uint, req dto
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
+	var recipientID uint
+
+	if callerID == offer.BuyerID {
+		recipientID = offer.SellerID
+	} else {
+		recipientID = offer.BuyerID
+	}
+
+	s.sendEmailToUser(
+		ctx,
+		recipientID,
+		"OTC Offer Rejected",
+		fmt.Sprintf(
+			"OTC offer #%d has been rejected.",
+			offer.OtcOfferID,
+		),
+	)
 	return updated, nil
 }
 
@@ -571,4 +643,27 @@ func (s *OtcOfferService) validateSellerCapacity(
 		))
 	}
 	return nil
+}
+
+func (s *OtcOfferService) sendEmailToUser(
+	ctx context.Context,
+	userID uint,
+	subject string,
+	body string,
+) {
+	if s.mailer == nil || s.userClient == nil {
+		return
+	}
+
+	resp, err := s.userClient.GetClientsByIds(ctx, []uint64{uint64(userID)})
+	if err != nil || resp == nil || len(resp.Clients) == 0 {
+		return
+	}
+
+	client := resp.Clients[0]
+	if client == nil || client.Email == "" {
+		return
+	}
+
+	_ = s.mailer.Send(client.Email, subject, body)
 }

@@ -32,4 +32,10 @@ type OtcOptionContractRepository interface {
 	// passed. The maintenance worker uses this to expire stale contracts and
 	// release their share reservations.
 	FindExpiredActive(ctx context.Context, before time.Time, limit int) ([]model.OtcOptionContract, error)
+
+	// FindExpiringContracts — returns active OTC option contracts whose settlement
+	// date falls before the specified time threshold.
+	// Used for expiration reminder notifications (e.g. 3-day warning emails).
+	// Only contracts with status ACTIVE are included.
+	FindExpiringContracts(ctx context.Context, before time.Time) ([]model.OtcOptionContract, error)
 }

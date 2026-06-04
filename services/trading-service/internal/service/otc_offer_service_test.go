@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
@@ -152,6 +154,15 @@ func (r *fakeOtcContractRepo) FindExpiredActive(_ context.Context, before time.T
 	}
 	return out, nil
 }
+func (r *fakeOtcContractRepo) FindExpiringContracts(ctx context.Context, before time.Time) ([]model.OtcOptionContract, error) {
+	var out []model.OtcOptionContract
+	for _, c := range r.contracts {
+		if c.Status == model.OtcOptionContractStatusActive && c.SettlementDate.Before(before) {
+			out = append(out, *c)
+		}
+	}
+	return out, nil
+}
 
 type fakeOtcAssetOwnershipRepo struct {
 	ownerships     map[string]*model.AssetOwnership
@@ -260,6 +271,91 @@ func (r *fakeOtcStockRepo) FindByAssetIDs(_ context.Context, ids []uint) ([]mode
 	return out, nil
 }
 
+type mockMailer struct {
+	sent []struct {
+		to      string
+		subject string
+		body    string
+	}
+	err error
+}
+
+func (m *mockMailer) Send(to, subject, body string) error {
+	if m.err != nil {
+		return m.err
+	}
+	m.sent = append(m.sent, struct {
+		to      string
+		subject string
+		body    string
+	}{to, subject, body})
+	return nil
+}
+
+type fakeOtcUserClient struct{}
+
+func (f *fakeOtcUserClient) GetEmployeeByIdentityId(ctx context.Context, identityId uint64) (*pb.GetEmployeeByIdResponse, error) {
+	return &pb.GetEmployeeByIdResponse{
+		Id:    identityId,
+		Email: fmt.Sprintf("employee-%d@example.com", identityId),
+	}, nil
+}
+
+func (f *fakeOtcUserClient) GetAllClients(ctx context.Context, page, pageSize int32, firstName, lastName string) (*pb.GetAllClientsResponse, error) {
+	return &pb.GetAllClientsResponse{}, nil
+}
+
+func (f *fakeOtcUserClient) GetAllActuaries(ctx context.Context, page, pageSize int32, firstName, lastName string) (*pb.GetAllActuariesResponse, error) {
+	return &pb.GetAllActuariesResponse{}, nil
+}
+
+func (f *fakeOtcUserClient) GetIdentityByUserId(ctx context.Context, userID uint64, userType string) (*pb.GetIdentityByUserIdResponse, error) {
+	return &pb.GetIdentityByUserIdResponse{}, nil
+}
+
+func (f *fakeOtcUserClient) IncrementUsedLimit(ctx context.Context, employeeID uint64, amount float64) (*pb.IncrementUsedLimitResponse, error) {
+	return &pb.IncrementUsedLimitResponse{}, nil
+}
+
+func (f *fakeOtcUserClient) GetClientsByIds(ctx context.Context, ids []uint64) (*pb.GetClientsByIdsResponse, error) {
+	clients := make([]*pb.GetClientByIdResponse, 0, len(ids))
+
+	for _, id := range ids {
+		clients = append(clients, &pb.GetClientByIdResponse{
+			Id:       id,
+			Email:    fmt.Sprintf("user-%d@example.com", id),
+			FullName: fmt.Sprintf("User %d", id),
+		})
+	}
+
+	return &pb.GetClientsByIdsResponse{
+		Clients: clients,
+	}, nil
+}
+
+func (f *fakeOtcUserClient) GetClientById(ctx context.Context, id uint64) (*pb.GetClientByIdResponse, error) {
+	return &pb.GetClientByIdResponse{
+		Id:       id,
+		Email:    fmt.Sprintf("user-%d@example.com", id),
+		FullName: fmt.Sprintf("User %d", id),
+	}, nil
+}
+
+func (f *fakeOtcUserClient) GetClientByIdentityId(ctx context.Context, identityId uint64) (*pb.GetClientByIdResponse, error) {
+	return &pb.GetClientByIdResponse{
+		Id:       identityId,
+		Email:    fmt.Sprintf("user-%d@example.com", identityId),
+		FullName: fmt.Sprintf("User %d", identityId),
+	}, nil
+}
+
+func (f *fakeOtcUserClient) GetEmployeeById(ctx context.Context, id uint64) (*pb.GetEmployeeByIdResponse, error) {
+	return &pb.GetEmployeeByIdResponse{
+		Id:    id,
+		Email: fmt.Sprintf("employee-%d@example.com", id),
+	}, nil
+}
+
 // --- test constants ---
 
 const (
@@ -284,7 +380,7 @@ func ctxForOtcUser(id uint) context.Context {
 
 // --- test setup ---
 
-func newOtcTestService(t *testing.T) (*OtcOfferService, *fakeOtcOfferRepo, *fakeOtcContractRepo, *fakeOtcAssetOwnershipRepo, *fakeBankingClient) {
+func newOtcTestService(t *testing.T) (*OtcOfferService, *fakeOtcOfferRepo, *fakeOtcContractRepo, *fakeOtcAssetOwnershipRepo, *fakeBankingClient, *mockMailer) {
 	t.Helper()
 
 	offerRepo := newFakeOtcOfferRepo()
@@ -321,9 +417,9 @@ func newOtcTestService(t *testing.T) (*OtcOfferService, *fakeOtcOfferRepo, *fake
 		&processingTxManager{},
 		banking,
 	)
-
-	svc := NewOtcOfferService(offerRepo, contractRepo, ownershipRepo, stockRepo, banking, &fakeUserClient{}, processingSvc)
-	return svc, offerRepo, contractRepo, ownershipRepo, banking
+	mailer := &mockMailer{}
+	svc := NewOtcOfferService(offerRepo, contractRepo, ownershipRepo, stockRepo, banking, &fakeOtcUserClient{}, mailer, processingSvc)
+	return svc, offerRepo, contractRepo, ownershipRepo, banking, mailer
 }
 
 func otcCreateOffer(t *testing.T, svc *OtcOfferService, amount int) *model.OtcOffer {
@@ -344,7 +440,7 @@ func otcCreateOffer(t *testing.T, svc *OtcOfferService, amount int) *model.OtcOf
 // --- tests ---
 
 func TestOtcCreateOffer_Success(t *testing.T) {
-	svc, offerRepo, _, _, _ := newOtcTestService(t)
+	svc, offerRepo, _, _, _, _ := newOtcTestService(t)
 
 	offer := otcCreateOffer(t, svc, 10)
 
@@ -357,7 +453,7 @@ func TestOtcCreateOffer_Success(t *testing.T) {
 }
 
 func TestOtcCreateOffer_SelfOffer_ReturnsError(t *testing.T) {
-	svc, _, _, _, _ := newOtcTestService(t)
+	svc, _, _, _, _, _ := newOtcTestService(t)
 	ctx := ctxForOtcUser(otcSellerID)
 
 	_, err := svc.CreateOffer(ctx, dto.CreateOtcOfferRequest{
@@ -374,7 +470,7 @@ func TestOtcCreateOffer_SelfOffer_ReturnsError(t *testing.T) {
 }
 
 func TestOtcCreateOffer_PastSettlementDate_ReturnsError(t *testing.T) {
-	svc, _, _, _, _ := newOtcTestService(t)
+	svc, _, _, _, _, _ := newOtcTestService(t)
 	ctx := ctxForOtcUser(otcBuyerID)
 
 	_, err := svc.CreateOffer(ctx, dto.CreateOtcOfferRequest{
@@ -391,7 +487,7 @@ func TestOtcCreateOffer_PastSettlementDate_ReturnsError(t *testing.T) {
 }
 
 func TestOtcCreateOffer_ExceedsSellerCapacity_ReturnsError(t *testing.T) {
-	svc, _, _, _, _ := newOtcTestService(t)
+	svc, _, _, _, _, _ := newOtcTestService(t)
 	ctx := ctxForOtcUser(otcBuyerID)
 
 	_, err := svc.CreateOffer(ctx, dto.CreateOtcOfferRequest{
@@ -408,7 +504,7 @@ func TestOtcCreateOffer_ExceedsSellerCapacity_ReturnsError(t *testing.T) {
 }
 
 func TestOtcSendCounterOffer_Success(t *testing.T) {
-	svc, offerRepo, _, _, _ := newOtcTestService(t)
+	svc, offerRepo, _, _, _, _ := newOtcTestService(t)
 	offer := otcCreateOffer(t, svc, 10)
 
 	sellerAcc := "seller-acc"
@@ -428,7 +524,7 @@ func TestOtcSendCounterOffer_Success(t *testing.T) {
 }
 
 func TestOtcSendCounterOffer_SameUserTwice_ReturnsError(t *testing.T) {
-	svc, _, _, _, _ := newOtcTestService(t)
+	svc, _, _, _, _, _ := newOtcTestService(t)
 	offer := otcCreateOffer(t, svc, 10)
 
 	// buyer just created the offer (ModifiedBy=buyer) — buyer tries again
@@ -445,7 +541,7 @@ func TestOtcSendCounterOffer_SameUserTwice_ReturnsError(t *testing.T) {
 }
 
 func TestOtcSendCounterOffer_NonParticipant_ReturnsError(t *testing.T) {
-	svc, _, _, _, _ := newOtcTestService(t)
+	svc, _, _, _, _, _ := newOtcTestService(t)
 	offer := otcCreateOffer(t, svc, 10)
 
 	ctx := ctxForOtcUser(99)
@@ -461,7 +557,7 @@ func TestOtcSendCounterOffer_NonParticipant_ReturnsError(t *testing.T) {
 }
 
 func TestOtcSendCounterOffer_OfferNotFound_ReturnsError(t *testing.T) {
-	svc, _, _, _, _ := newOtcTestService(t)
+	svc, _, _, _, _, _ := newOtcTestService(t)
 	ctx := ctxForOtcUser(otcSellerID)
 
 	_, err := svc.SendCounterOffer(ctx, 9999, dto.CounterOfferRequest{
@@ -476,7 +572,7 @@ func TestOtcSendCounterOffer_OfferNotFound_ReturnsError(t *testing.T) {
 }
 
 func TestOtcAcceptOffer_Success_CreatesContractAndIncreasesReservedAmount(t *testing.T) {
-	svc, _, contractRepo, ownershipRepo, _ := newOtcTestService(t)
+	svc, _, contractRepo, ownershipRepo, _, _ := newOtcTestService(t)
 	offer := otcCreateOffer(t, svc, 10)
 
 	sellerAcc := "seller-acc"
@@ -496,7 +592,7 @@ func TestOtcAcceptOffer_Success_CreatesContractAndIncreasesReservedAmount(t *tes
 }
 
 func TestOtcAcceptOffer_CallerIsModifiedBy_ReturnsError(t *testing.T) {
-	svc, _, _, _, _ := newOtcTestService(t)
+	svc, _, _, _, _, _ := newOtcTestService(t)
 	offer := otcCreateOffer(t, svc, 10)
 
 	// buyer created the offer (ModifiedBy=buyer) — buyer cannot accept their own
@@ -508,7 +604,7 @@ func TestOtcAcceptOffer_CallerIsModifiedBy_ReturnsError(t *testing.T) {
 }
 
 func TestOtcAcceptOffer_MissingSellerAccount_ReturnsError(t *testing.T) {
-	svc, _, _, _, _ := newOtcTestService(t)
+	svc, _, _, _, _, _ := newOtcTestService(t)
 	offer := otcCreateOffer(t, svc, 10)
 
 	ctx := ctxForOtcUser(otcSellerID)
@@ -519,7 +615,7 @@ func TestOtcAcceptOffer_MissingSellerAccount_ReturnsError(t *testing.T) {
 }
 
 func TestOtcRejectOffer_Success(t *testing.T) {
-	svc, offerRepo, _, _, _ := newOtcTestService(t)
+	svc, offerRepo, _, _, _, _ := newOtcTestService(t)
 	offer := otcCreateOffer(t, svc, 10)
 
 	ctx := ctxForOtcUser(otcSellerID)
@@ -531,7 +627,7 @@ func TestOtcRejectOffer_Success(t *testing.T) {
 }
 
 func TestOtcRejectOffer_InactiveOffer_ReturnsError(t *testing.T) {
-	svc, _, _, _, _ := newOtcTestService(t)
+	svc, _, _, _, _, _ := newOtcTestService(t)
 	offer := otcCreateOffer(t, svc, 10)
 
 	// first rejection
@@ -546,7 +642,7 @@ func TestOtcRejectOffer_InactiveOffer_ReturnsError(t *testing.T) {
 }
 
 func TestOtcExerciseContract_Success(t *testing.T) {
-	svc, _, _, _, _ := newOtcTestService(t)
+	svc, _, _, _, _, _ := newOtcTestService(t)
 	offer := otcCreateOffer(t, svc, 10)
 
 	sellerAcc := "seller-acc"
@@ -563,7 +659,7 @@ func TestOtcExerciseContract_Success(t *testing.T) {
 }
 
 func TestOtcExerciseContract_OnlyBuyerMayExercise(t *testing.T) {
-	svc, _, _, _, _ := newOtcTestService(t)
+	svc, _, _, _, _, _ := newOtcTestService(t)
 	offer := otcCreateOffer(t, svc, 10)
 
 	sellerAcc := "seller-acc"
@@ -579,7 +675,7 @@ func TestOtcExerciseContract_OnlyBuyerMayExercise(t *testing.T) {
 }
 
 func TestOtcGetActiveOffersForUser_ReturnsOnlyActiveOffers(t *testing.T) {
-	svc, _, _, _, _ := newOtcTestService(t)
+	svc, _, _, _, _, _ := newOtcTestService(t)
 	otcCreateOffer(t, svc, 10)
 	otcCreateOffer(t, svc, 5)
 
@@ -589,7 +685,7 @@ func TestOtcGetActiveOffersForUser_ReturnsOnlyActiveOffers(t *testing.T) {
 }
 
 func TestOtcValidateSellerCapacity_MultipleConcurrentOffers(t *testing.T) {
-	svc, _, _, _, _ := newOtcTestService(t)
+	svc, _, _, _, _, _ := newOtcTestService(t)
 
 	// seller has 100 public shares; create two offers summing to 90
 	otcCreateOffer(t, svc, 50)
@@ -608,4 +704,88 @@ func TestOtcValidateSellerCapacity_MultipleConcurrentOffers(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "enough")
+}
+func TestOtcSendCounterOffer_SendsEmailToOtherParty(t *testing.T) {
+	svc, _, _, _, _, mailer := newOtcTestService(t)
+
+	offer := otcCreateOffer(t, svc, 10)
+
+	sellerAcc := "seller-acc"
+	ctx := ctxForOtcUser(otcSellerID)
+
+	_, err := svc.SendCounterOffer(ctx, offer.OtcOfferID, dto.CounterOfferRequest{
+		Amount:           8,
+		PricePerStockRSD: 55,
+		PremiumRSD:       6,
+		SettlementDate:   otcFutureDate,
+		AccountNumber:    &sellerAcc,
+	})
+
+	require.NoError(t, err)
+
+	// mora postojati counter email
+	var found bool
+	for _, m := range mailer.sent {
+		if strings.Contains(strings.ToLower(m.subject), "counter") {
+			found = true
+			assert.Contains(t, m.to, "user") // buyer email pattern
+		}
+	}
+
+	assert.True(t, found, "counter offer email should be sent")
+}
+func TestOtcAcceptOffer_SendsEmailToBuyerAndSeller(t *testing.T) {
+	svc, _, _, _, _, mailer := newOtcTestService(t)
+
+	offer := otcCreateOffer(t, svc, 10)
+
+	sellerAcc := "seller-acc"
+	ctx := ctxForOtcUser(otcSellerID)
+
+	_, err := svc.AcceptOffer(ctx, offer.OtcOfferID, dto.AcceptOfferRequest{
+		AccountNumber: &sellerAcc,
+	})
+
+	require.NoError(t, err)
+
+	buyerEmailSent := false
+	sellerEmailSent := false
+
+	for _, m := range mailer.sent {
+		to := strings.ToLower(m.to)
+		sub := strings.ToLower(m.subject)
+
+		// buyer email
+		if strings.Contains(to, "user-10") && strings.Contains(sub, "accepted") {
+			buyerEmailSent = true
+		}
+
+		// seller email (NE vezuj za accepted keyword)
+		if strings.Contains(to, "user-20") {
+			sellerEmailSent = true
+		}
+	}
+
+	assert.True(t, buyerEmailSent, "buyer should receive acceptance email")
+	assert.True(t, sellerEmailSent, "seller should receive notification email")
+}
+func TestOtcRejectOffer_SendsEmail(t *testing.T) {
+	svc, _, _, _, _, mailer := newOtcTestService(t)
+
+	offer := otcCreateOffer(t, svc, 10)
+
+	ctx := ctxForOtcUser(otcSellerID)
+
+	_, err := svc.RejectOffer(ctx, offer.OtcOfferID, dto.RejectOfferRequest{})
+	require.NoError(t, err)
+
+	var found bool
+	for _, m := range mailer.sent {
+		if strings.Contains(strings.ToLower(m.subject), "rejected") {
+			found = true
+			assert.Contains(t, m.to, "user")
+		}
+	}
+
+	assert.True(t, found, "rejection email should be sent")
 }

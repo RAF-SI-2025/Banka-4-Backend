@@ -110,3 +110,12 @@ func (r *otcOptionContractRepositoryImpl) findByID(ctx context.Context, id uint,
 
 	return &contract, nil
 }
+func (r *otcOptionContractRepositoryImpl) FindExpiringContracts(ctx context.Context, before time.Time) ([]model.OtcOptionContract, error) {
+	var contracts []model.OtcOptionContract
+
+	err := commondb.DBFromContext(ctx, r.db).
+		Where("status = ? AND settlement_date <= ?", model.OtcOptionContractStatusActive, before).
+		Find(&contracts).Error
+
+	return contracts, err
+}
