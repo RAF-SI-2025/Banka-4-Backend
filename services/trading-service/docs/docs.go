@@ -3687,6 +3687,11 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "dividend_reinvestment_percent": {
+                    "type": "number",
+                    "maximum": 100,
+                    "minimum": 0
+                },
                 "minimum_contribution": {
                     "type": "number"
                 },
@@ -3706,6 +3711,9 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
+                },
+                "dividend_reinvestment_percent": {
+                    "type": "number"
                 },
                 "fund_id": {
                     "type": "integer"
@@ -4148,6 +4156,9 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "dividend_reinvestment_percent": {
+                    "type": "number"
+                },
                 "fund_value": {
                     "type": "number"
                 },
@@ -4263,6 +4274,9 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
+                },
+                "dividend_reinvestment_percent": {
+                    "type": "number"
                 },
                 "fund_id": {
                     "type": "integer"

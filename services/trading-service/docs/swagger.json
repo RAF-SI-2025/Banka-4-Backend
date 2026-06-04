@@ -3679,6 +3679,11 @@
                 "description": {
                     "type": "string"
                 },
+                "dividend_reinvestment_percent": {
+                    "type": "number",
+                    "maximum": 100,
+                    "minimum": 0
+                },
                 "minimum_contribution": {
                     "type": "number"
                 },
@@ -3698,6 +3703,9 @@
                 },
                 "description": {
                     "type": "string"
+                },
+                "dividend_reinvestment_percent": {
+                    "type": "number"
                 },
                 "fund_id": {
                     "type": "integer"
@@ -4140,6 +4148,9 @@
                 "description": {
                     "type": "string"
                 },
+                "dividend_reinvestment_percent": {
+                    "type": "number"
+                },
                 "fund_value": {
                     "type": "number"
                 },
@@ -4255,6 +4266,9 @@
                 },
                 "description": {
                     "type": "string"
+                },
+                "dividend_reinvestment_percent": {
+                    "type": "number"
                 },
                 "fund_id": {
                     "type": "integer"

@@ -112,6 +112,10 @@ definitions:
     properties:
       description:
         type: string
+      dividend_reinvestment_percent:
+        maximum: 100
+        minimum: 0
+        type: number
       minimum_contribution:
         type: number
       name:
@@ -128,6 +132,8 @@ definitions:
         type: string
       description:
         type: string
+      dividend_reinvestment_percent:
+        type: number
       fund_id:
         type: integer
       manager_id:
@@ -418,6 +424,8 @@ definitions:
         type: array
       description:
         type: string
+      dividend_reinvestment_percent:
+        type: number
       fund_value:
         type: number
       holdings:
@@ -494,6 +502,8 @@ definitions:
         type: string
       description:
         type: string
+      dividend_reinvestment_percent:
+        type: number
       fund_id:
         type: integer
       fund_value:

@@ -3,14 +3,14 @@ package model
 import "time"
 
 type InvestmentFund struct {
-	FundID                     uint      `gorm:"primaryKey;autoIncrement"`
-	Name                       string    `gorm:"not null;size:255;uniqueIndex"`
-	Description                string    `gorm:"not null;size:1000"`
-	MinimumContribution        float64   `gorm:"not null;default:0"`
-	ManagerID                  uint      `gorm:"not null"`
-	AccountNumber              string    `gorm:"not null;size:50;uniqueIndex"`
+	FundID                      uint      `gorm:"primaryKey;autoIncrement"`
+	Name                        string    `gorm:"not null;size:255;uniqueIndex"`
+	Description                 string    `gorm:"not null;size:1000"`
+	MinimumContribution         float64   `gorm:"not null;default:0"`
+	ManagerID                   uint      `gorm:"not null"`
+	AccountNumber               string    `gorm:"not null;size:50;uniqueIndex"`
 	DividendReinvestmentPercent *float64  `gorm:"default:50"`
-	CreatedAt                  time.Time `gorm:"not null"`
+	CreatedAt                   time.Time `gorm:"not null"`
 
 	Positions []ClientFundPosition `gorm:"foreignKey:FundID"`
 }
