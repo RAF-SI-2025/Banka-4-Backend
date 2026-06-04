@@ -234,6 +234,8 @@ func newTestPaymentService(
 		mobileSecretClient:   &fakeMobileSecretClient{},
 		txManager:            &fakeBankingTxManager{},
 		transactionProcessor: &fakeVerifyTransactionProcessor{},
+		userClient:           &fakeUserClient{},
+		mailer:               &fakeAccountServiceMailer{},
 		now:                  time.Now,
 	}
 }
@@ -519,6 +521,8 @@ func TestVerifyPayment_InvalidCode(t *testing.T) {
 		mobileSecretClient:   &fakeMobileSecretClient{secret: "JBSWY3DPEHPK3PXP"},
 		transactionProcessor: processor,
 		now:                  func() time.Time { return time.Unix(59, 0) },
+		userClient:           &fakeUserClient{},
+		mailer:               &fakeAccountServiceMailer{},
 	}
 
 	payment, err := svc.VerifyPayment(authCtx, 1, "000000", "Bearer token")
@@ -551,6 +555,8 @@ func TestVerifyPayment_CancelAfter3FailedAttempts(t *testing.T) {
 		mobileSecretClient:   &fakeMobileSecretClient{secret: "JBSWY3DPEHPK3PXP"},
 		transactionProcessor: processor,
 		now:                  func() time.Time { return time.Unix(59, 0) },
+		userClient:           &fakeUserClient{},
+		mailer:               &fakeAccountServiceMailer{},
 	}
 
 	payment, err := svc.VerifyPayment(authCtx, 1, "000000", "Bearer token")
@@ -584,6 +590,8 @@ func TestVerifyPayment_FailedAttemptsBelow3DoNotCancel(t *testing.T) {
 		mobileSecretClient:   &fakeMobileSecretClient{secret: "JBSWY3DPEHPK3PXP"},
 		transactionProcessor: processor,
 		now:                  func() time.Time { return time.Unix(59, 0) },
+		userClient:           &fakeUserClient{},
+		mailer:               &fakeAccountServiceMailer{},
 	}
 
 	payment, err := svc.VerifyPayment(authCtx, 1, "000000", "Bearer token")
@@ -615,6 +623,8 @@ func TestVerifyPayment_Success(t *testing.T) {
 		mobileSecretClient:   &fakeMobileSecretClient{secret: "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"},
 		transactionProcessor: processor,
 		now:                  func() time.Time { return time.Unix(59, 0) },
+		userClient:           &fakeUserClient{},
+		mailer:               &fakeAccountServiceMailer{},
 	}
 
 	payment, err := svc.VerifyPayment(authCtx, 1, "287082", "Bearer token")

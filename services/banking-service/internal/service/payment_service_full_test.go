@@ -323,6 +323,8 @@ func TestVerifyPayment_MobileSecretError(t *testing.T) {
 		mobileSecretClient:   &fakeMobileSecretClient{err: errors.New("secret service down")},
 		txManager:            &fakeBankingTxManager{},
 		transactionProcessor: &fakeVerifyTransactionProcessor{},
+		userClient:           &fakeUserClient{},
+		mailer:               &fakeAccountServiceMailer{},
 	}
 
 	_, err := svc.VerifyPayment(ctx, 1, "123456", "Bearer token")
@@ -354,6 +356,8 @@ func TestVerifyPayment_MagicCode123456Success(t *testing.T) {
 		mobileSecretClient:   &fakeMobileSecretClient{secret: "JBSWY3DPEHPK3PXP"},
 		transactionProcessor: processor,
 		txManager:            &fakeBankingTxManager{},
+		userClient:           &fakeUserClient{},
+		mailer:               &fakeAccountServiceMailer{},
 	}
 
 	payment, err := svc.VerifyPayment(ctx, 1, "123456", "Bearer token")

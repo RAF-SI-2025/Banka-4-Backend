@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
@@ -34,6 +36,8 @@ type TransferService struct {
 	exchangeService      CurrencyConverter
 	txManager            repository.TransactionManager
 	transactionProcessor *TransactionProcessor
+	userClient           client.UserClient
+	mailer               Mailer
 }
 
 func NewTransferService(
@@ -43,6 +47,8 @@ func NewTransferService(
 	exchangeService CurrencyConverter,
 	txManager repository.TransactionManager,
 	transactionProcessor *TransactionProcessor,
+	userClient client.UserClient,
+	mailer Mailer,
 ) *TransferService {
 	return &TransferService{
 		transferRepo:         transferRepo,
@@ -51,6 +57,8 @@ func NewTransferService(
 		exchangeService:      exchangeService,
 		txManager:            txManager,
 		transactionProcessor: transactionProcessor,
+		userClient:           userClient,
+		mailer:               mailer,
 	}
 }
 
@@ -105,8 +113,37 @@ func (s *TransferService) ExecuteTransfer(ctx context.Context, req dto.TransferR
 		return nil, err
 	}
 
+	if err := s.sendTransferExecutedEmail(ctx, clientID, createdTransfer); err != nil {
+		return nil, err
+	}
+
 	response := dto.ToTransferResponse(createdTransfer)
 	return &response, nil
+}
+
+func (s *TransferService) sendTransferExecutedEmail(ctx context.Context, clientID uint, transfer *model.Transfer) error {
+	clientInfo, err := s.userClient.GetClientByID(ctx, clientID)
+	if err != nil {
+		return err
+	}
+	if clientInfo == nil {
+		return errors.InternalErr(fmt.Errorf("client not found in user service"))
+	}
+
+	body := fmt.Sprintf(
+		"Hello %s,\n\nYour transfer has been successfully executed.\n\nFrom: %s\nTo: %s\nAmount: %.2f %s",
+		defaultContactName(clientInfo.FullName),
+		transfer.Transaction.PayerAccountNumber,
+		transfer.Transaction.RecipientAccountNumber,
+		transfer.Transaction.StartAmount,
+		transfer.Transaction.StartCurrencyCode,
+	)
+
+	if err := s.mailer.Send(clientInfo.Email, "Transfer executed", body); err != nil {
+		return errors.ServiceUnavailableErr(err)
+	}
+
+	return nil
 }
 
 func (s *TransferService) GetTransferHistory(ctx context.Context, clientID uint, page, pageSize int) (*dto.ListTransfersResponse, error) {

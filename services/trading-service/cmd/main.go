@@ -140,6 +140,7 @@ func main() {
 			handler.NewOtcNegotiationHistoryHandler,
 			service.NewOtcNegotiationHistoryService,
 			repository.NewOtcNegotiationHistoryRepository,
+			job.NewOtcOptionExpirationJob,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)
@@ -338,6 +339,33 @@ func main() {
 			})
 			if err != nil {
 				log.Fatal("Failed to schedule dividend payout job", zap.Error(err))
+			}
+
+			lc.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					c.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					c.Stop()
+					return nil
+				},
+			})
+		}),
+		fx.Invoke(func(lc fx.Lifecycle, otcJob *job.OtcOptionExpirationJob) {
+			c := cron.New(cron.WithLocation(time.UTC))
+
+			// svakog dana u 00:00 (ili kako želiš)
+			_, err := c.AddFunc("0 0 * * *", func() {
+				ctx := context.Background()
+
+				if err := otcJob.Run(ctx); err != nil {
+					logging.Error("OTC expiration job failed", zap.Error(err))
+				}
+			})
+
+			if err != nil {
+				log.Fatal("Failed to schedule OTC expiration job", zap.Error(err))
 			}
 
 			lc.Append(fx.Hook{

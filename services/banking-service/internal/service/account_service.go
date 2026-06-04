@@ -294,7 +294,7 @@ func (s *AccountService) ConfirmLimitsChange(ctx context.Context, accountNumber 
 		return errors.BadRequestErr("invalid verification code")
 	}
 
-	return s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+	if err := s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
 		if err := s.repo.UpdateLimits(txCtx, accountNumber, token.NewDailyLimit, token.NewMonthlyLimit); err != nil {
 			return errors.InternalErr(err)
 		}
@@ -302,7 +302,35 @@ func (s *AccountService) ConfirmLimitsChange(ctx context.Context, accountNumber 
 			return errors.InternalErr(err)
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+
+	return s.sendLimitsChangedEmail(ctx, accountNumber, clientID, token.NewDailyLimit, token.NewMonthlyLimit)
+}
+
+func (s *AccountService) sendLimitsChangedEmail(ctx context.Context, accountNumber string, clientID uint, daily, monthly float64) error {
+	clientInfo, err := s.userClient.GetClientByID(ctx, clientID)
+	if err != nil {
+		return err
+	}
+	if clientInfo == nil {
+		return errors.InternalErr(fmt.Errorf("client not found in user service"))
+	}
+
+	body := fmt.Sprintf(
+		"Hello %s,\n\nThe limits for your account %s have been updated.\n\nNew daily limit: %.2f\nNew monthly limit: %.2f",
+		defaultContactName(clientInfo.FullName),
+		accountNumber,
+		daily,
+		monthly,
+	)
+
+	if err := s.mailer.Send(clientInfo.Email, "Account limits changed", body); err != nil {
+		return errors.ServiceUnavailableErr(err)
+	}
+
+	return nil
 }
 
 // ...existing code...

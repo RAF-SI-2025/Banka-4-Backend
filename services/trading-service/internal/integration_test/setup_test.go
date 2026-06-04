@@ -192,6 +192,16 @@ func (c *fakeUserClient) IncrementUsedLimit(_ context.Context, _ uint64, _ float
 	return nil, nil
 }
 
+type fakeMailer struct{}
+
+func (f *fakeMailer) Send(
+	to string,
+	subject string,
+	body string,
+) error {
+	return nil
+}
+
 type fakeTaxRecorder struct{}
 
 func (f *fakeTaxRecorder) RecordTax(_ context.Context, _ string, _ *uint, _ float64, _ string) error {
@@ -327,6 +337,7 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 		supervisorIDs: map[uint64]bool{10: true},
 		agentIDs:      map[uint64]bool{20: true},
 	}
+	var mailer service.Mailer = &fakeMailer{}
 	var bankingClient client.BankingClient = &fakeBankingClient{
 		accountByNumber: map[string]uint64{
 			"seller-acc": 20,
@@ -373,7 +384,7 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 	otcHistoryService := service.NewOtcNegotiationHistoryService(otcOfferRepo, otcHistoryRepo)
 	otcHistoryHandler := handler.NewOtcNegotiationHistoryHandler(otcHistoryService)
 	otcOfferSvc := service.NewOtcOfferService(otcOfferRepo, otcContractRepo, assetOwnershipRepo, stockRepo, bankingClient,
-		userClient, otcProcessingSvc, otcHistoryService)
+		userClient, mailer, otcProcessingSvc, otcHistoryService)
 
 	healthHandler := handler.NewHealthHandler()
 	exchangeHandler := handler.NewExchangeHandler(exchangeSvc)

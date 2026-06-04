@@ -28,6 +28,8 @@ type PaymentService struct {
 	exchangeService      CurrencyConverter
 	txManager            repository.TransactionManager
 	transactionProcessor paymentTransactionProcessor
+	userClient           client.UserClient
+	mailer               Mailer
 	now                  func() time.Time
 }
 
@@ -39,6 +41,8 @@ func NewPaymentService(
 	exchangeService CurrencyConverter,
 	txManager repository.TransactionManager,
 	transactionProcessor *TransactionProcessor,
+	userClient client.UserClient,
+	mailer Mailer,
 ) *PaymentService {
 	return &PaymentService{
 		paymentRepo:          paymentRepo,
@@ -48,6 +52,8 @@ func NewPaymentService(
 		exchangeService:      exchangeService,
 		txManager:            txManager,
 		transactionProcessor: transactionProcessor,
+		userClient:           userClient,
+		mailer:               mailer,
 		now:                  time.Now,
 	}
 }
@@ -303,5 +309,36 @@ func (s *PaymentService) VerifyPayment(ctx context.Context, id uint, code, autho
 		return nil, err
 	}
 
+	if err := s.sendPaymentExecutedEmail(ctx, payerAccount.ClientID, payment); err != nil {
+		return nil, err
+	}
+
 	return payment, nil
+}
+
+func (s *PaymentService) sendPaymentExecutedEmail(ctx context.Context, clientID uint, payment *model.Payment) error {
+	clientInfo, err := s.userClient.GetClientByID(ctx, clientID)
+	if err != nil {
+		return err
+	}
+	if clientInfo == nil {
+		return errors.InternalErr(fmt.Errorf("client not found in user service"))
+	}
+
+	body := fmt.Sprintf(
+		"Hello %s,\n\nYour payment has been successfully executed.\n\nFrom: %s\nTo: %s (%s)\nAmount: %.2f %s\nPurpose: %s",
+		defaultContactName(clientInfo.FullName),
+		payment.Transaction.PayerAccountNumber,
+		payment.RecipientName,
+		payment.Transaction.RecipientAccountNumber,
+		payment.Transaction.StartAmount,
+		payment.Transaction.StartCurrencyCode,
+		payment.Purpose,
+	)
+
+	if err := s.mailer.Send(clientInfo.Email, "Payment executed", body); err != nil {
+		return errors.ServiceUnavailableErr(err)
+	}
+
+	return nil
 }
