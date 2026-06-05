@@ -27,6 +27,8 @@ type OutboxWorker struct {
 	outboundPaymentRepo repository.OutboundPaymentRepository
 	txManager           repository.TransactionManager
 	bankingClient       service.BankingServiceClient
+	messageProcessor    *service.MessageProcessor
+	peerClient          *service.PeerOtcClient
 	resolver            *service.PeerResolver
 	httpClient          *http.Client
 	pollEvery           time.Duration
@@ -40,6 +42,8 @@ func NewOutboxWorker(
 	outboundPaymentRepo repository.OutboundPaymentRepository,
 	txManager repository.TransactionManager,
 	bankingClient service.BankingServiceClient,
+	messageProcessor *service.MessageProcessor,
+	peerClient *service.PeerOtcClient,
 	resolver *service.PeerResolver,
 	cfg *config.Configuration,
 ) *OutboxWorker {
@@ -48,6 +52,8 @@ func NewOutboxWorker(
 		outboundPaymentRepo: outboundPaymentRepo,
 		txManager:           txManager,
 		bankingClient:       bankingClient,
+		messageProcessor:    messageProcessor,
+		peerClient:          peerClient,
 		resolver:            resolver,
 		httpClient:          &http.Client{Timeout: cfg.OutboundHTTPTO},
 		pollEvery:           cfg.OutboxPollEvery,
@@ -135,13 +141,17 @@ func (w *OutboxWorker) handleNewTxResponse(ctx context.Context, msg *model.Outbo
 		return
 	}
 
-	// Mark NEW_TX SENT with the vote before calling banking gRPC.
 	if err := w.outboundMessageRepo.MarkSent(ctx, msg.ID, respStatus, respBody); err != nil {
 		zap.L().Error("outbox: MarkSent failed", zap.Uint("id", msg.ID), zap.Error(err))
 		return
 	}
 
-	// Decode transactionId from payload to look up OutboundPayment.
+	if msg.FlowType == "OTC" {
+		w.handleOtcNewTxVote(ctx, msg, vote)
+		return
+	}
+
+	// PAYMENT flow: use BankingServiceClient + enqueueFollowUp.
 	var wireMsg dto.NewTxMessage
 	if err := json.Unmarshal(msg.Payload, &wireMsg); err != nil {
 		zap.L().Error("outbox: failed to decode NEW_TX payload", zap.Uint("id", msg.ID), zap.Error(err))
@@ -159,6 +169,43 @@ func (w *OutboxWorker) handleNewTxResponse(ctx context.Context, msg *model.Outbo
 		w.commitAndEnqueue(ctx, payment, txIDKey, msg.PeerRoutingNumber, &wireMsg.Message)
 	} else {
 		w.rollbackAndEnqueue(ctx, payment, txIDKey, msg.PeerRoutingNumber, &wireMsg.Message)
+	}
+}
+
+// handleOtcNewTxVote handles the post-vote action for OTC 2PC transactions.
+// Instead of calling BankingServiceClient, it calls MessageProcessor directly.
+func (w *OutboxWorker) handleOtcNewTxVote(ctx context.Context, msg *model.OutboundMessage, vote dto.TransactionVote) {
+	var wireMsg dto.NewTxMessage
+	if err := json.Unmarshal(msg.Payload, &wireMsg); err != nil {
+		zap.L().Error("outbox: failed to decode OTC NEW_TX payload", zap.Uint("id", msg.ID), zap.Error(err))
+		return
+	}
+	txID := wireMsg.Message.TransactionID
+
+	if vote.Vote == dto.VoteYes {
+		commitKey := uuid.New().String()
+		_, commitMsg, err := w.messageProcessor.CommitAndEnqueueFollowUp(ctx, txID, msg.PeerRoutingNumber, commitKey)
+		if err != nil {
+			zap.L().Error("outbox: OTC CommitAndEnqueueFollowUp failed", zap.String("txID", txID.ID), zap.Error(err))
+			return
+		}
+		if commitMsg != nil {
+			if err := w.peerClient.SendCommitTx(ctx, msg.PeerRoutingNumber, commitKey, txID); err == nil {
+				_ = w.outboundMessageRepo.MarkSent(ctx, commitMsg.ID, http.StatusNoContent, nil)
+			}
+		}
+	} else {
+		rollbackKey := uuid.New().String()
+		_, rollbackMsg, err := w.messageProcessor.RollbackAndEnqueueFollowUp(ctx, txID, msg.PeerRoutingNumber, rollbackKey)
+		if err != nil {
+			zap.L().Error("outbox: OTC RollbackAndEnqueueFollowUp failed", zap.String("txID", txID.ID), zap.Error(err))
+			return
+		}
+		if rollbackMsg != nil {
+			if err := w.peerClient.SendRollbackTx(ctx, msg.PeerRoutingNumber, rollbackKey, txID); err == nil {
+				_ = w.outboundMessageRepo.MarkSent(ctx, rollbackMsg.ID, http.StatusNoContent, nil)
+			}
+		}
 	}
 }
 
@@ -216,13 +263,17 @@ func (w *OutboxWorker) enqueueFollowUp(ctx context.Context, peerRouting int, txI
 func (w *OutboxWorker) rescheduleOrFail(ctx context.Context, msg *model.OutboundMessage, attempts int, errMsg string, lastStatus int, lastBody []byte) {
 	if attempts >= w.maxAttempts {
 		zap.L().Warn("outbox: max attempts reached, failing message", zap.Uint("id", msg.ID), zap.String("error", errMsg))
-		// For NEW_TX that exceeded max attempts, treat as NO vote and rollback.
 		if msg.MessageType == string(dto.MessageTypeNewTx) {
 			var wireMsg dto.NewTxMessage
 			if err := json.Unmarshal(msg.Payload, &wireMsg); err == nil {
-				txIDKey := wireMsg.Message.TransactionID.ID
-				if payment, err := w.outboundPaymentRepo.FindByTransactionIDKey(ctx, txIDKey); err == nil && payment != nil {
-					w.rollbackAndEnqueue(ctx, payment, txIDKey, msg.PeerRoutingNumber, &wireMsg.Message)
+				if msg.FlowType == "OTC" {
+					rollbackKey := uuid.New().String()
+					_, _, _ = w.messageProcessor.RollbackAndEnqueueFollowUp(ctx, wireMsg.Message.TransactionID, msg.PeerRoutingNumber, rollbackKey)
+				} else {
+					txIDKey := wireMsg.Message.TransactionID.ID
+					if payment, err := w.outboundPaymentRepo.FindByTransactionIDKey(ctx, txIDKey); err == nil && payment != nil {
+						w.rollbackAndEnqueue(ctx, payment, txIDKey, msg.PeerRoutingNumber, &wireMsg.Message)
+					}
 				}
 			}
 		}

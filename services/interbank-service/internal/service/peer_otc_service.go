@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -271,15 +272,12 @@ func (s *PeerOtcService) validateOffer(o dto.OtcOffer) error {
 // on §3.4 responses.
 func toNegotiationDTO(n *model.PeerNegotiation, ourRouting int) *dto.OtcNegotiation {
 	idRouting := ourRouting
-	idValue := n.ID
-	if !n.IsAuthoritative && n.RemoteNegotiationID != nil {
-		// Mirror rows expose the authoritative bank's id.
-		idValue = *n.RemoteNegotiationID
+	if !n.IsAuthoritative {
 		idRouting = n.SellerRoutingNumber
 	}
 
 	return &dto.OtcNegotiation{
-		ID:        dto.ForeignBankId{RoutingNumber: idRouting, ID: idValue},
+		ID:        dto.ForeignBankId{RoutingNumber: idRouting, ID: n.ID},
 		Status:    strings.ToLower(string(n.Status)),
 		UpdatedAt: n.UpdatedAt.Format(time.RFC3339),
 		Offer: dto.OtcOffer{
@@ -429,9 +427,8 @@ func (s *PeerOtcService) CreateForLocalBuyer(ctx context.Context, localUserID ui
 		return nil, err
 	}
 
-	remoteIDValue := remoteID.ID
 	mirror := &model.PeerNegotiation{
-		ID:                    uuid.NewString(),
+		ID:                    remoteID.ID,
 		BuyerRoutingNumber:    buyer.RoutingNumber,
 		BuyerID:               buyer.ID,
 		SellerRoutingNumber:   req.SellerID.RoutingNumber,
@@ -448,7 +445,6 @@ func (s *PeerOtcService) CreateForLocalBuyer(ctx context.Context, localUserID ui
 		LastModifiedByID:      buyer.ID,
 		Status:                model.PeerNegotiationOngoing,
 		IsAuthoritative:       false,
-		RemoteNegotiationID:   &remoteIDValue,
 	}
 	if err := s.negotiations.Create(ctx, mirror); err != nil {
 		return nil, errors.InternalErr(err)
@@ -525,9 +521,6 @@ func (s *PeerOtcService) AcceptFromPeer(ctx context.Context, senderRouting, rout
 	if n == nil {
 		return nil, errors.NotFoundErr("negotiation not found")
 	}
-	if !n.IsAuthoritative {
-		return nil, errors.BadRequestErr("accept must be sent to the authoritative seller bank")
-	}
 	if senderRouting != n.BuyerRoutingNumber && senderRouting != n.SellerRoutingNumber {
 		return nil, errors.ForbiddenErr("sender is not a party to this negotiation")
 	}
@@ -572,11 +565,9 @@ func (s *PeerOtcService) AcceptAsLocal(ctx context.Context, localUserID uint, ne
 		if n == nil {
 			return nil, errors.NotFoundErr("negotiation not found")
 		}
-		if n.BuyerRoutingNumber != ourRouting && n.SellerRoutingNumber != ourRouting {
-			return nil, errors.ForbiddenErr("local user is not a party to this negotiation")
-		}
-		if (n.BuyerRoutingNumber == ourRouting && n.BuyerID != userIDStr) &&
-			(n.SellerRoutingNumber == ourRouting && n.SellerID != userIDStr) {
+		isOurBuyer := n.BuyerRoutingNumber == ourRouting && n.BuyerID == userIDStr
+		isOurSeller := n.SellerRoutingNumber == ourRouting && n.SellerID == userIDStr
+		if !isOurBuyer && !isOurSeller {
 			return nil, errors.ForbiddenErr("local user is not a party to this negotiation")
 		}
 		if n.Status != model.PeerNegotiationOngoing && n.Status != model.PeerNegotiationAccepted {
@@ -586,18 +577,16 @@ func (s *PeerOtcService) AcceptAsLocal(ctx context.Context, localUserID uint, ne
 			return nil, errors.ConflictErr("you cannot accept your own latest offer")
 		}
 
-		existing, err := s.contracts.FindByID(ctx, n.SellerRoutingNumber, n.ID)
-		if err != nil {
-			return nil, errors.InternalErr(err)
+		// Relay to the other party's bank — they coordinate the 2PC.
+		peerRN := n.BuyerRoutingNumber
+		if peerRN == ourRouting {
+			peerRN = n.SellerRoutingNumber
 		}
-		if existing != nil {
-			return toPeerContractDTO(existing), nil
-		}
-
-		if err := s.coordinateAcceptTransaction(ctx, n); err != nil {
+		if _, err := s.client.Accept(ctx, dto.ForeignBankId{RoutingNumber: peerRN, ID: n.ID}); err != nil {
 			return nil, err
 		}
 
+		// We participated in the 2PC as a party; the contract now exists locally.
 		contract, err := s.contracts.FindByID(ctx, n.SellerRoutingNumber, n.ID)
 		if err != nil {
 			return nil, errors.InternalErr(err)
@@ -614,6 +603,18 @@ func (s *PeerOtcService) AcceptAsLocal(ctx context.Context, localUserID uint, ne
 	}
 	if mirror.Status != model.PeerNegotiationOngoing && mirror.Status != model.PeerNegotiationAccepted {
 		return nil, errors.ConflictErr("negotiation is not ongoing")
+	}
+	if mirror.Status == model.PeerNegotiationOngoing &&
+		mirror.LastModifiedByRouting == ourRouting && mirror.LastModifiedByID == userIDStr {
+		return nil, errors.ConflictErr("you cannot accept your own latest offer")
+	}
+
+	existing, err := s.contracts.FindByID(ctx, negotiationID.RoutingNumber, negotiationID.ID)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	if existing != nil {
+		return toPeerContractDTO(existing), nil
 	}
 
 	if _, err := s.client.Accept(ctx, negotiationID); err != nil {
@@ -773,28 +774,18 @@ func (s *PeerOtcService) findLocalMirrorByRemote(
 	localUserID uint,
 ) (*model.PeerNegotiation, error) {
 	userIDStr := strconv.FormatUint(uint64(localUserID), 10)
-	ourRouting := s.peers.OurRoutingNumber()
 
-	rows, err := s.negotiations.ListByParty(ctx, ourRouting, userIDStr)
+	row, err := s.negotiations.FindByID(ctx, negotiationID.ID)
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
-
-	for i := range rows {
-		row := &rows[i]
-		if row.IsAuthoritative {
-			continue
-		}
-		if row.RemoteNegotiationID == nil || *row.RemoteNegotiationID != negotiationID.ID {
-			continue
-		}
-		if row.SellerRoutingNumber != negotiationID.RoutingNumber {
-			continue
-		}
-		return row, nil
+	if row == nil || row.IsAuthoritative || row.SellerRoutingNumber != negotiationID.RoutingNumber {
+		return nil, errors.NotFoundErr("negotiation not found for caller")
 	}
-
-	return nil, errors.NotFoundErr("negotiation not found for caller")
+	if row.BuyerID != userIDStr && row.SellerID != userIDStr {
+		return nil, errors.NotFoundErr("negotiation not found for caller")
+	}
+	return row, nil
 }
 
 func (s *PeerOtcService) coordinateAcceptTransaction(ctx context.Context, n *model.PeerNegotiation) error {
@@ -912,7 +903,10 @@ func (s *PeerOtcService) exerciseTransaction(contract *model.PeerContract, buyer
 }
 
 func (s *PeerOtcService) coordinateTwoBankTransaction(ctx context.Context, peerRouting int, tx dto.Transaction, keyPrefix string) error {
-	_, localVote, err := s.processor.PrepareLocalTransaction(ctx, &tx)
+	newTxKey := keyPrefix + "-new"
+
+	// Step 1: prepare locally + enqueue NEW_TX outbox row atomically.
+	_, localVote, newTxMsg, err := s.processor.PrepareAndEnqueueNewTx(ctx, &tx, peerRouting, newTxKey)
 	if err != nil {
 		return errors.InternalErr(err)
 	}
@@ -920,32 +914,47 @@ func (s *PeerOtcService) coordinateTwoBankTransaction(ctx context.Context, peerR
 		return errors.ConflictErr(fmt.Sprintf("local bank voted NO: %s", voteReasons(localVote)))
 	}
 
-	remotePrepared := false
-	if peerRouting != s.peers.OurRoutingNumber() {
-		remoteVote, err := s.client.SendNewTx(ctx, peerRouting, keyPrefix+"-new", tx)
+	if peerRouting == s.peers.OurRoutingNumber() {
+		// Same-bank: commit locally, no remote messaging or outbox row needed.
+		_, _, err = s.processor.CommitAndEnqueueFollowUp(ctx, tx.TransactionID, peerRouting, keyPrefix+"-commit")
 		if err != nil {
-			_, _ = s.processor.RollbackLocalTransaction(ctx, tx.TransactionID)
-			return err
+			return errors.InternalErr(err)
 		}
-		if remoteVote == nil || remoteVote.Vote != dto.VoteYes {
-			_, _ = s.processor.RollbackLocalTransaction(ctx, tx.TransactionID)
-			return errors.ConflictErr(fmt.Sprintf("peer bank voted NO: %s", voteReasonsValue(remoteVote)))
-		}
-		remotePrepared = true
+		return nil
 	}
 
-	if _, err := s.processor.CommitLocalTransaction(ctx, tx.TransactionID); err != nil {
-		if remotePrepared {
-			_ = s.client.SendRollbackTx(ctx, peerRouting, keyPrefix+"-rollback", tx.TransactionID)
+	// Step 2: try to send NEW_TX to peer synchronously (optimistic path).
+	remoteVote, sendErr := s.client.SendNewTx(ctx, peerRouting, newTxKey, tx)
+	if sendErr != nil {
+		// Network failure — outbox worker will retry NEW_TX; caller gets 503.
+		return errors.ServiceUnavailableErr(sendErr)
+	}
+	_ = s.outboundRepo.MarkSent(ctx, newTxMsg.ID, http.StatusOK, nil)
+
+	if remoteVote == nil || remoteVote.Vote != dto.VoteYes {
+		// Step 3a: peer voted NO — rollback + enqueue ROLLBACK_TX atomically; try sync send.
+		rollbackKey := keyPrefix + "-rollback"
+		_, rollbackMsg, _ := s.processor.RollbackAndEnqueueFollowUp(ctx, tx.TransactionID, peerRouting, rollbackKey)
+		if rollbackMsg != nil {
+			if err := s.client.SendRollbackTx(ctx, peerRouting, rollbackKey, tx.TransactionID); err == nil {
+				_ = s.outboundRepo.MarkSent(ctx, rollbackMsg.ID, http.StatusNoContent, nil)
+			}
 		}
+		return errors.ConflictErr(fmt.Sprintf("peer bank voted NO: %s", voteReasonsValue(remoteVote)))
+	}
+
+	// Step 3b: peer voted YES — commit + enqueue COMMIT_TX atomically; try sync send.
+	commitKey := keyPrefix + "-commit"
+	_, commitMsg, err := s.processor.CommitAndEnqueueFollowUp(ctx, tx.TransactionID, peerRouting, commitKey)
+	if err != nil {
 		return errors.InternalErr(err)
 	}
-	if remotePrepared {
-		if err := s.client.SendCommitTx(ctx, peerRouting, keyPrefix+"-commit", tx.TransactionID); err != nil {
-			return errors.ServiceUnavailableErr(&remoteCommitPendingError{err: err})
+	if commitMsg != nil {
+		if err := s.client.SendCommitTx(ctx, peerRouting, commitKey, tx.TransactionID); err == nil {
+			_ = s.outboundRepo.MarkSent(ctx, commitMsg.ID, http.StatusNoContent, nil)
 		}
+		// If sync send failed: outbox worker retries. Local is already committed — return success.
 	}
-
 	return nil
 }
 
