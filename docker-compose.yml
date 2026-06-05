@@ -89,6 +89,55 @@ services:
     healthcheck:
       test: curl -f http://localhost:${TRADING_SERVICE_PORT}/api/health || exit 1
 
+  interbank_service:
+    image: ghcr.io/raf-si-2025/banka-4-backend/interbank-service
+    ports:
+      - "${INTERBANK_SERVICE_PORT}:${INTERBANK_SERVICE_PORT}"
+    env_file: .env
+    environment:
+      AIR_CONFIG_PATH: /app/services/interbank-service/.air.toml
+      PORT: ${INTERBANK_SERVICE_PORT}
+      INTERBANK_ROUTING_NUMBER: "444"
+      INTERBANK_PEERS_CONFIG_PATH: ${INTERBANK_PEERS_CONFIG_PATH}
+    depends_on:
+      user_service_db:
+        condition: service_healthy
+      banking_service:
+        condition: service_healthy
+      trading_service:
+        condition: service_healthy
+    healthcheck:
+      test: curl -f http://localhost:${INTERBANK_SERVICE_PORT}/api/health || exit 1
+    volumes:
+      - .:/app:z
+      - /app/tmp
+      - /go/pkg/mod
+    working_dir: /app/services/interbank-service
+
+  email_service:
+    image: ghcr.io/raf-si-2025/banka-4-backend/email-service
+    ports:
+      - "${EMAIL_SERVICE_PORT}:${EMAIL_SERVICE_PORT}"
+    env_file: .env
+    environment:
+      AIR_CONFIG_PATH: /app/services/email-service/.air.toml
+      PORT: ${EMAIL_SERVICE_PORT}
+      GRPC_PORT: "50054"
+    depends_on:
+      maildev:
+        condition: service_started
+    healthcheck:
+      test: curl -f http://localhost:${EMAIL_SERVICE_PORT}/api/health || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    volumes:
+      - .:/app:z
+      - /app/tmp
+      - /go/pkg/mod
+    working_dir: /app/services/email-service
+
   maildev:
     image: maildev/maildev:latest
     restart: unless-stopped
