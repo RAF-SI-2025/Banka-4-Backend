@@ -22,7 +22,7 @@ import (
 
 const txBalanceEpsilon = 0.000001
 
-type preparedEffect struct {
+type preparedItem struct {
 	kind string
 	id   string
 }
@@ -63,11 +63,8 @@ func NewMessageProcessor(
 
 func (p *MessageProcessor) ProcessNewTx(ctx context.Context, peerRouting int, key dto.IdempotenceKey, tx *dto.Transaction) (int, any, error) {
 	return p.processInbound(ctx, peerRouting, key, dto.MessageTypeNewTx, tx, func(ctx context.Context) (int, any, error) {
-		vote, err := p.PrepareLocalTransaction(ctx, tx)
-		if err != nil {
-			return http.StatusOK, dto.TransactionVote{Vote: dto.VoteNo, Reasons: []dto.NoVoteReason{{Reason: dto.ReasonUnacceptableAsset}}}, nil
-		}
-		return http.StatusOK, vote, nil
+		statusCode, vote, err := p.PrepareLocalTransaction(ctx, tx)
+		return statusCode, vote, err
 	})
 }
 
@@ -85,136 +82,156 @@ func (p *MessageProcessor) ProcessRollbackTx(ctx context.Context, peerRouting in
 	})
 }
 
-func (p *MessageProcessor) PrepareLocalTransaction(ctx context.Context, tx *dto.Transaction) (dto.TransactionVote, error) {
+func (p *MessageProcessor) PrepareLocalTransaction(ctx context.Context, tx *dto.Transaction) (int, dto.TransactionVote, error) {
+	statusCode := http.StatusOK
 	var vote dto.TransactionVote
 	err := p.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
-		var err error
-		vote, err = p.prepareLocalTransaction(ctx, tx)
-		return err
-	})
-	return vote, err
-}
-
-func (p *MessageProcessor) prepareLocalTransaction(ctx context.Context, tx *dto.Transaction) (dto.TransactionVote, error) {
-	if tx == nil {
-		return noVote(dto.ReasonUnacceptableAsset, nil), nil
-	}
-	if reason := p.balanceFailure(tx); reason != nil {
-		return dto.TransactionVote{Vote: dto.VoteNo, Reasons: []dto.NoVoteReason{*reason}}, nil
-	}
-
-	existing, err := p.prepared.FindByID(ctx, tx.TransactionID.RoutingNumber, tx.TransactionID.ID)
-	if err != nil {
-		return noVote(dto.ReasonUnacceptableAsset, nil), err
-	}
-	if existing != nil {
-		if existing.Status == model.PreparedTransactionRolledBack {
-			return noVote(dto.ReasonUnacceptableAsset, nil), nil
+		if tx == nil {
+			vote = dto.TransactionVote{}
+			return fmt.Errorf("invalid transaction")
 		}
-		return dto.TransactionVote{Vote: dto.VoteYes}, nil
-	}
+		if reason := p.balanceFailure(tx); reason != nil {
+			vote = dto.TransactionVote{Vote: dto.VoteNo, Reasons: []dto.NoVoteReason{*reason}}
+			return nil
+		}
 
-	body, err := json.Marshal(tx)
-	if err != nil {
-		return noVote(dto.ReasonUnacceptableAsset, nil), err
-	}
-
-	var effects []preparedEffect
-	for i := range tx.Postings {
-		effect, reason, err := p.preparePosting(ctx, tx, i)
+		existing, err := p.prepared.FindByID(ctx, tx.TransactionID.RoutingNumber, tx.TransactionID.ID)
 		if err != nil {
-			p.rollbackEffects(ctx, effects)
-			return noVote(reason, &tx.Postings[i]), nil
+			statusCode = http.StatusInternalServerError
+			vote = dto.TransactionVote{}
+			return err
 		}
-		if effect != nil {
-			effects = append(effects, *effect)
+
+		if existing != nil {
+			if existing.Status == model.PreparedTransactionRolledBack {
+				vote = dto.TransactionVote{Vote: dto.VoteNo, Reasons: []dto.NoVoteReason{{Reason: dto.ReasonUnbalancedTx}}}
+				return nil
+			}
+			vote = dto.TransactionVote{Vote: dto.VoteYes}
+			return nil
 		}
-	}
 
-	prepared := &model.PreparedTransaction{
-		RoutingNumber: tx.TransactionID.RoutingNumber,
-		ID:            tx.TransactionID.ID,
-		Status:        model.PreparedTransactionPrepared,
-		RequestBody:   body,
-	}
-	if err := p.prepared.Create(ctx, prepared); err != nil {
-		p.rollbackEffects(ctx, effects)
-		return noVote(dto.ReasonUnacceptableAsset, nil), err
-	}
+		body, err := json.Marshal(tx)
+		if err != nil {
+			statusCode = http.StatusInternalServerError
+			vote = dto.TransactionVote{}
+			return err
+		}
 
-	return dto.TransactionVote{Vote: dto.VoteYes}, nil
+		var preparedItem []preparedItem
+		for i := range tx.Postings {
+			if !p.isLocalPosting(tx.Postings[i]) {
+				continue
+			}
+			item, reason, err := p.preparePosting(ctx, tx, i)
+			if err != nil {
+				p.rollbackEffects(ctx, preparedItem)
+				statusCode = http.StatusOK
+				vote = noVote(reason, &tx.Postings[i])
+				return nil
+			}
+			if item != nil {
+				preparedItem = append(preparedItem, *item)
+			}
+		}
+
+		prepared := &model.PreparedTransaction{
+			RoutingNumber: tx.TransactionID.RoutingNumber,
+			ID:            tx.TransactionID.ID,
+			Status:        model.PreparedTransactionPrepared,
+			RequestBody:   body,
+		}
+		if err := p.prepared.Create(ctx, prepared); err != nil {
+			p.rollbackEffects(ctx, preparedItem)
+			statusCode = http.StatusInternalServerError
+			vote = dto.TransactionVote{}
+			return err
+		}
+
+		statusCode = http.StatusOK
+		vote = dto.TransactionVote{Vote: dto.VoteYes}
+		return nil
+	})
+	return statusCode, vote, err
 }
 
 func (p *MessageProcessor) CommitLocalTransaction(ctx context.Context, txID dto.ForeignBankId) (int, error) {
 	var statusCode int
 	err := p.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
-		var err error
-		statusCode, err = p.commitLocalTransaction(ctx, txID)
-		return err
+		stored, tx, err := p.loadStoredTransaction(ctx, txID)
+		if err != nil {
+			statusCode = http.StatusInternalServerError
+			return err
+		}
+		if stored == nil {
+			statusCode = http.StatusAccepted
+			return nil
+		}
+		if stored.Status == model.PreparedTransactionCommitted {
+			statusCode = http.StatusNoContent
+			return nil
+		}
+		if stored.Status == model.PreparedTransactionRolledBack {
+			statusCode = http.StatusInternalServerError
+			return fmt.Errorf("transaction already rolled back")
+		}
+
+		for i := range tx.Postings {
+			if !p.isLocalPosting(tx.Postings[i]) {
+				continue
+			}
+			if err := p.commitPosting(ctx, tx, i); err != nil {
+				statusCode = http.StatusInternalServerError
+				return err
+			}
+		}
+		stored.Status = model.PreparedTransactionCommitted
+		if err := p.prepared.Update(ctx, stored); err != nil {
+			statusCode = http.StatusInternalServerError
+			return err
+		}
+		statusCode = http.StatusNoContent
+		return nil
 	})
 	return statusCode, err
-}
-
-func (p *MessageProcessor) commitLocalTransaction(ctx context.Context, txID dto.ForeignBankId) (int, error) {
-	stored, tx, err := p.loadStoredTransaction(ctx, txID)
-	if err != nil {
-		return http.StatusNoContent, err
-	}
-	if stored == nil {
-		return http.StatusAccepted, nil
-	}
-	if stored.Status == model.PreparedTransactionCommitted {
-		return http.StatusNoContent, nil
-	}
-	if stored.Status == model.PreparedTransactionRolledBack {
-		return http.StatusNoContent, nil
-	}
-
-	for i := range tx.Postings {
-		if err := p.commitPosting(ctx, tx, i); err != nil {
-			return http.StatusAccepted, err
-		}
-	}
-	stored.Status = model.PreparedTransactionCommitted
-	if err := p.prepared.Update(ctx, stored); err != nil {
-		return http.StatusAccepted, err
-	}
-	return http.StatusNoContent, nil
 }
 
 func (p *MessageProcessor) RollbackLocalTransaction(ctx context.Context, txID dto.ForeignBankId) (int, error) {
 	var statusCode int
 	err := p.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
-		var err error
-		statusCode, err = p.rollbackLocalTransaction(ctx, txID)
-		return err
+		stored, tx, err := p.loadStoredTransaction(ctx, txID)
+		if err != nil {
+			statusCode = http.StatusInternalServerError
+			return err
+		}
+		if stored == nil {
+			statusCode = http.StatusInternalServerError
+			return fmt.Errorf("transaction not found")
+		}
+		if stored.Status == model.PreparedTransactionRolledBack {
+			statusCode = http.StatusNoContent
+			return nil
+		}
+		if stored.Status == model.PreparedTransactionCommitted {
+			statusCode = http.StatusInternalServerError
+			return fmt.Errorf("transaction already committed")
+		}
+
+		for i := range tx.Postings {
+			if !p.isLocalPosting(tx.Postings[i]) {
+				continue
+			}
+			_ = p.rollbackPosting(ctx, tx, i)
+		}
+		stored.Status = model.PreparedTransactionRolledBack
+		if err := p.prepared.Update(ctx, stored); err != nil {
+			statusCode = http.StatusInternalServerError
+			return err
+		}
+		statusCode = http.StatusNoContent
+		return nil
 	})
 	return statusCode, err
-}
-
-func (p *MessageProcessor) rollbackLocalTransaction(ctx context.Context, txID dto.ForeignBankId) (int, error) {
-	stored, tx, err := p.loadStoredTransaction(ctx, txID)
-	if err != nil {
-		return http.StatusNoContent, err
-	}
-	if stored == nil {
-		return http.StatusNoContent, nil
-	}
-	if stored.Status == model.PreparedTransactionRolledBack {
-		return http.StatusNoContent, nil
-	}
-	if stored.Status == model.PreparedTransactionCommitted {
-		return http.StatusNoContent, nil
-	}
-
-	for i := range tx.Postings {
-		_ = p.rollbackPosting(ctx, tx, i)
-	}
-	stored.Status = model.PreparedTransactionRolledBack
-	if err := p.prepared.Update(ctx, stored); err != nil {
-		return http.StatusAccepted, err
-	}
-	return http.StatusNoContent, nil
 }
 
 func (p *MessageProcessor) processInbound(
@@ -241,8 +258,7 @@ func (p *MessageProcessor) processInbound(
 					if err := json.Unmarshal(existing.ResponseBody, &vote); err == nil {
 						cached = vote
 					}
-				}
-				if cached == nil {
+				} else {
 					var body map[string]any
 					if err := json.Unmarshal(existing.ResponseBody, &body); err == nil {
 						cached = body
@@ -291,17 +307,14 @@ func (p *MessageProcessor) processInbound(
 	return statusCode, body, nil
 }
 
-func (p *MessageProcessor) preparePosting(ctx context.Context, tx *dto.Transaction, index int) (*preparedEffect, dto.NoVoteReasonKind, error) {
+func (p *MessageProcessor) preparePosting(ctx context.Context, tx *dto.Transaction, index int) (*preparedItem, dto.NoVoteReasonKind, error) {
 	posting := tx.Postings[index]
 
 	switch posting.Asset.Type {
 	case dto.AssetMonas:
-		local, accountNumber, clientID, reason := p.localCashAccount(posting.Account)
-		if reason != "" {
-			return nil, reason, fmt.Errorf("invalid local cash account")
-		}
-		if !local {
-			return nil, "", nil
+		isValid, accountNumber := p.localCashAccount(posting.Account)
+		if !isValid {
+			return nil, dto.ReasonNoSuchAccount, fmt.Errorf("invalid local cash account")
 		}
 		currency, ok := monetaryCurrency(posting.Asset)
 		if !ok {
@@ -311,14 +324,14 @@ func (p *MessageProcessor) preparePosting(ctx context.Context, tx *dto.Transacti
 		_, err := p.banking.PrepareInterbankCashPosting(ctx, &pb.PrepareInterbankCashPostingRequest{
 			PostingId:     postingID,
 			AccountNumber: accountNumber,
-			ClientId:      uint64(clientID),
+			ClientId:      uint64(0), // this is for when we dont have account number, not needed here
 			CurrencyCode:  currency,
 			Amount:        posting.Amount,
 		})
 		if err != nil {
 			return nil, cashNoVoteReason(err), err
 		}
-		return &preparedEffect{kind: "cash", id: postingID}, "", nil
+		return &preparedItem{kind: "cash", id: postingID}, "", nil
 
 	case dto.AssetOption:
 		return p.prepareOptionPosting(ctx, tx, index)
@@ -328,16 +341,16 @@ func (p *MessageProcessor) preparePosting(ctx context.Context, tx *dto.Transacti
 	}
 }
 
-func (p *MessageProcessor) prepareOptionPosting(ctx context.Context, tx *dto.Transaction, index int) (*preparedEffect, dto.NoVoteReasonKind, error) {
+func (p *MessageProcessor) prepareOptionPosting(ctx context.Context, tx *dto.Transaction, index int) (*preparedItem, dto.NoVoteReasonKind, error) {
 	posting := tx.Postings[index]
 	if math.Abs(math.Abs(posting.Amount)-1) > txBalanceEpsilon {
 		return nil, dto.ReasonOptionAmountIncorrect, fmt.Errorf("option posting amount must be +/-1")
 	}
-	local, _, clientID, reason := p.localPersonAccount(posting.Account)
-	if reason != "" {
-		return nil, reason, fmt.Errorf("invalid option account")
+	isValid, clientID := p.localPersonAccount(posting.Account)
+	if !isValid {
+		return nil, dto.ReasonNoSuchAccount, fmt.Errorf("invalid option account")
 	}
-	if !local || posting.Amount > 0 {
+	if posting.Amount > 0 { //no preparation needed
 		return nil, "", nil
 	}
 
@@ -345,8 +358,8 @@ func (p *MessageProcessor) prepareOptionPosting(ctx context.Context, tx *dto.Tra
 	if !ok {
 		return nil, dto.ReasonUnacceptableAsset, fmt.Errorf("invalid OPTION asset")
 	}
-	if option.NegotiationID.RoutingNumber != p.peers.OurRoutingNumber() {
-		return nil, "", nil
+	if option.NegotiationID.RoutingNumber != p.peers.OurRoutingNumber() { // we are sellers, id is ours
+		return nil, dto.ReasonUnacceptableAsset, fmt.Errorf("routing number mismatch")
 	}
 	negotiation, err := p.negotiations.FindByID(ctx, option.NegotiationID.ID)
 	if err != nil {
@@ -364,45 +377,55 @@ func (p *MessageProcessor) prepareOptionPosting(ctx context.Context, tx *dto.Tra
 	if err != nil {
 		return nil, dto.ReasonInsufficientAsset, err
 	}
-	return &preparedEffect{kind: "option", id: fmt.Sprintf("%d:%s", option.NegotiationID.RoutingNumber, option.NegotiationID.ID)}, "", nil
+	return &preparedItem{kind: "option", id: fmt.Sprintf("%d:%s", option.NegotiationID.RoutingNumber, option.NegotiationID.ID)}, "", nil
 }
 
 func (p *MessageProcessor) commitPosting(ctx context.Context, tx *dto.Transaction, index int) error {
 	posting := tx.Postings[index]
-	if posting.Asset.Type != dto.AssetMonas {
-		return nil
-	}
-	local, _, _, reason := p.localCashAccount(posting.Account)
-	if reason != "" || !local {
-		return nil
-	}
-	_, err := p.banking.CommitInterbankCashPosting(ctx, postingID(tx, index))
-	return err
-}
-
-func (p *MessageProcessor) rollbackPosting(ctx context.Context, tx *dto.Transaction, index int) error {
-	posting := tx.Postings[index]
 	switch posting.Asset.Type {
 	case dto.AssetMonas:
-		local, _, _, reason := p.localCashAccount(posting.Account)
-		if reason != "" || !local {
+		isValid, _ := p.localCashAccount(posting.Account)
+		if !isValid {
 			return nil
 		}
-		_, err := p.banking.RollbackInterbankCashPosting(ctx, postingID(tx, index))
+		_, err := p.banking.CommitInterbankCashPosting(ctx, postingID(tx, index))
 		return err
 	case dto.AssetOption:
 		option, ok := optionDescription(posting.Asset)
-		if !ok || option.NegotiationID.RoutingNumber != p.peers.OurRoutingNumber() || posting.Amount > 0 {
+		if !ok || posting.Amount > 0 {
 			return nil
 		}
-		_, err := p.trading.ReleasePeerOtcShares(ctx, fmt.Sprintf("%d:%s", option.NegotiationID.RoutingNumber, option.NegotiationID.ID))
+		_, err := p.trading.ConsumePeerOtcShares(ctx,
+			fmt.Sprintf("%d:%s", option.NegotiationID.RoutingNumber, option.NegotiationID.ID))
 		return err
 	default:
 		return nil
 	}
 }
 
-func (p *MessageProcessor) rollbackEffects(ctx context.Context, effects []preparedEffect) {
+func (p *MessageProcessor) rollbackPosting(ctx context.Context, tx *dto.Transaction, index int) error {
+	posting := tx.Postings[index]
+	switch posting.Asset.Type {
+	case dto.AssetMonas:
+		isValid, account := p.localCashAccount(posting.Account)
+		if !isValid || account == "" {
+			return fmt.Errorf("invalid account")
+		}
+		_, err := p.banking.RollbackInterbankCashPosting(ctx, postingID(tx, index))
+		return err
+	case dto.AssetOption:
+		option, ok := optionDescription(posting.Asset)
+		if !ok || option.NegotiationID.RoutingNumber != p.peers.OurRoutingNumber() || posting.Amount > 0 {
+			return fmt.Errorf("invalid option")
+		}
+		_, err := p.trading.ReleasePeerOtcShares(ctx, fmt.Sprintf("%d:%s", option.NegotiationID.RoutingNumber, option.NegotiationID.ID))
+		return err
+	default:
+		return fmt.Errorf("posting not recognized")
+	}
+}
+
+func (p *MessageProcessor) rollbackEffects(ctx context.Context, effects []preparedItem) {
 	for i := len(effects) - 1; i >= 0; i-- {
 		switch effects[i].kind {
 		case "cash":
@@ -420,7 +443,7 @@ func (p *MessageProcessor) loadStoredTransaction(ctx context.Context, txID dto.F
 	}
 	var tx dto.Transaction
 	if err := json.Unmarshal(stored.RequestBody, &tx); err != nil {
-		return nil, nil, err
+		return stored, nil, err
 	}
 	return stored, &tx, nil
 }
@@ -445,34 +468,50 @@ func (p *MessageProcessor) balanceFailure(tx *dto.Transaction) *dto.NoVoteReason
 	return nil
 }
 
-func (p *MessageProcessor) localCashAccount(account dto.TxAccount) (bool, string, uint, dto.NoVoteReasonKind) {
-	switch account.Type {
-	case dto.TxAccountPerson:
-		return p.localPersonAccount(account)
+func (p *MessageProcessor) isLocalPosting(posting dto.Posting) bool {
+	switch posting.Account.Type {
 	case dto.TxAccountAccount:
-		if account.Num == nil || strings.TrimSpace(*account.Num) == "" {
-			return false, "", 0, dto.ReasonNoSuchAccount
+		if posting.Account.Num == nil {
+			return false
 		}
-		num := strings.TrimSpace(*account.Num)
 		prefix := fmt.Sprintf("%03d", p.peers.OurRoutingNumber())
-		return strings.HasPrefix(num, prefix), num, 0, ""
+		return strings.HasPrefix(strings.TrimSpace(*posting.Account.Num), prefix)
+	case dto.TxAccountPerson, dto.TxAccountOption:
+		if posting.Account.ID == nil {
+			return false
+		}
+		return posting.Account.ID.RoutingNumber == p.peers.OurRoutingNumber()
 	default:
-		return false, "", 0, dto.ReasonUnacceptableAsset
+		return false
 	}
 }
 
-func (p *MessageProcessor) localPersonAccount(account dto.TxAccount) (bool, string, uint, dto.NoVoteReasonKind) {
+func (p *MessageProcessor) localCashAccount(account dto.TxAccount) (bool, string) {
+	switch account.Type {
+	case dto.TxAccountAccount:
+		if account.Num == nil || strings.TrimSpace(*account.Num) == "" {
+			return false, ""
+		}
+		num := strings.TrimSpace(*account.Num)
+		prefix := fmt.Sprintf("%03d", p.peers.OurRoutingNumber())
+		return strings.HasPrefix(num, prefix), num
+	default:
+		return false, ""
+	}
+}
+
+func (p *MessageProcessor) localPersonAccount(account dto.TxAccount) (bool, uint) {
 	if account.Type != dto.TxAccountPerson || account.ID == nil {
-		return false, "", 0, dto.ReasonNoSuchAccount
+		return false, 0
 	}
 	if account.ID.RoutingNumber != p.peers.OurRoutingNumber() {
-		return false, "", 0, ""
+		return false, 0
 	}
 	id, err := strconv.ParseUint(account.ID.ID, 10, 64)
 	if err != nil || id == 0 {
-		return false, "", 0, dto.ReasonNoSuchAccount
+		return false, 0
 	}
-	return true, "", uint(id), ""
+	return true, uint(id)
 }
 
 func monetaryCurrency(asset dto.Asset) (string, bool) {

@@ -1128,7 +1128,7 @@ func (s *PeerOtcService) exerciseCashTransaction(contract *model.PeerContract, e
 }
 
 func (s *PeerOtcService) coordinateTwoBankTransaction(ctx context.Context, peerRouting int, tx dto.Transaction, keyPrefix string) error {
-	localVote, err := s.processor.PrepareLocalTransaction(ctx, &tx)
+	_, localVote, err := s.processor.PrepareLocalTransaction(ctx, &tx)
 	if err != nil {
 		return errors.InternalErr(err)
 	}
@@ -1166,7 +1166,7 @@ func (s *PeerOtcService) coordinateTwoBankTransaction(ctx context.Context, peerR
 }
 
 func (s *PeerOtcService) prepareTwoBankTransaction(ctx context.Context, peerRouting int, tx dto.Transaction, keyPrefix string) error {
-	localVote, err := s.processor.PrepareLocalTransaction(ctx, &tx)
+	_, localVote, err := s.processor.PrepareLocalTransaction(ctx, &tx)
 	if err != nil {
 		return errors.InternalErr(err)
 	}
