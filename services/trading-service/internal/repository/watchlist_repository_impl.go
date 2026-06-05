@@ -65,6 +65,7 @@ func (r *watchlistRepository) FindDetail(ctx context.Context, id uint, assetType
 	itemsQuery := r.db.WithContext(ctx).
 		Where("watchlist_items.watchlist_id = ?", id).
 		Preload("Listing.Asset").
+		Preload("Listing.Exchange").
 		Order("watchlist_items.created_at ASC, watchlist_items.watchlist_item_id ASC")
 
 	if assetType != nil {

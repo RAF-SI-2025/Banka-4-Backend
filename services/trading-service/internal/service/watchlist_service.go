@@ -276,5 +276,12 @@ func toWatchlistListingResponse(item model.WatchlistItem) dto.WatchlistListingRe
 	if item.Listing.Asset != nil {
 		resp.AssetType = string(item.Listing.Asset.AssetType)
 	}
+
+	resp.ChangePercent = resp.Change
+
+	if item.Listing.Exchange != nil {
+		resp.Currency = item.Listing.Exchange.Currency
+	}
+
 	return resp
 }

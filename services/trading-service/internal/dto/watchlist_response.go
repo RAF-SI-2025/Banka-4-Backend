@@ -15,8 +15,10 @@ type WatchlistResponse struct {
 // volume), plus the asset type and the time it was added to the watchlist.
 type WatchlistListingResponse struct {
 	BaseListingResponse
-	AssetType string    `json:"asset_type"`
-	AddedAt   time.Time `json:"added_at"`
+	AssetType     string    `json:"asset_type"`
+	AddedAt       time.Time `json:"added_at"`
+	ChangePercent float64   `json:"change_percent"`
+	Currency      string    `json:"currency"`
 }
 
 // WatchlistDetailResponse is a single watchlist with all of its tracked
