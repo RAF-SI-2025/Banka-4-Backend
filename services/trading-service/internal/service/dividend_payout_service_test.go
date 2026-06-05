@@ -136,11 +136,24 @@ func (f *fakeDividendListingRepo) FindByAssetIDs(_ context.Context, _ []uint) ([
 
 // ── Helpers ────────────────────────────────────────────────────────
 
+// ── Helpers ────────────────────────────────────────────────────────────
+
 func newTestDividendService(
 	dividendRepo *fakeDividendRepo,
 	ownershipRepo *fakeDividendOwnershipRepo,
 	stockRepo *fakeDividendStockRepo,
 	banking *fakeBankingClient,
+) *DividendPayoutService {
+	return newTestDividendServiceWithFund(dividendRepo, ownershipRepo, stockRepo, banking, nil, nil)
+}
+
+func newTestDividendServiceWithFund(
+	dividendRepo *fakeDividendRepo,
+	ownershipRepo *fakeDividendOwnershipRepo,
+	stockRepo *fakeDividendStockRepo,
+	banking *fakeBankingClient,
+	fundRepo *fakeFundRepo,
+	positionRepo *fakePositionRepo,
 ) *DividendPayoutService {
 	taxRepo := &fakeTaxRepo{}
 	taxSvc := NewTaxService(taxRepo, banking, &config.Configuration{
@@ -157,6 +170,9 @@ func newTestDividendService(
 		&config.Configuration{
 			DividendAccountNumber: "444000000000000099",
 		},
+		fundRepo,
+		positionRepo,
+		nil, // orderService — not needed for basic fund dividend tests
 	)
 }
 
@@ -417,4 +433,208 @@ func TestGetPayoutsForAssetOwnership_RepoError(t *testing.T) {
 	result, err := svc.GetPayoutsForAssetOwnership(context.Background(), 42)
 	require.Error(t, err)
 	require.Nil(t, result)
+}
+
+// ── Fund Dividend Tests ────────────────────────────────────────────────
+
+func makeFundWithReinvestPct(pct float64) *model.InvestmentFund {
+	return &model.InvestmentFund{
+		FundID:                      42,
+		Name:                        "TestFund",
+		AccountNumber:               "444000099999000001",
+		ManagerID:                   10,
+		DividendReinvestmentPercent: &pct,
+	}
+}
+
+func TestProcessDividends_FundReceivesGrossDividend(t *testing.T) {
+	// Fund owns 100 shares of a stock at price 100, DividendYield=4%
+	// gross = 100 * 100 * (4/400) = 100
+	stock := makeDividendStock(4, 100.0)
+	ownership := model.AssetOwnership{
+		UserId:    42, // FundID
+		OwnerType: model.OwnerTypeFund,
+		AssetID:   10,
+		Amount:    100,
+	}
+	stockRepo := &fakeDividendStockRepo{stocks: []model.Stock{stock}}
+	ownershipRepo := &fakeDividendOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
+	dividendRepo := &fakeDividendRepo{}
+	banking := &fakeBankingClient{
+		accountsResp:    &pb.GetAccountsByClientIDResponse{Accounts: []*pb.AccountInfo{{AccountNumber: "444000100000000001"}}},
+		paymentResp:     &pb.CreatePaymentResponse{},
+		convertedAmount: 1.0,
+	}
+	fundRepo := &fakeFundRepo{findByIDResult: makeFundWithReinvestPct(50)}
+	positionRepo := &fakePositionRepo{findByFundRes: []model.ClientFundPosition{}}
+
+	svc := newTestDividendServiceWithFund(dividendRepo, ownershipRepo, stockRepo, banking, fundRepo, positionRepo)
+	err := svc.ProcessDividends(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, dividendRepo.saved, 1)
+	payout := dividendRepo.saved[0]
+	require.InDelta(t, 100.0, payout.GrossAmount, 0.001)
+	require.Equal(t, 0.0, payout.TaxAmount)
+	require.Equal(t, payout.GrossAmount, payout.NetAmount)
+	require.Equal(t, "444000099999000001", payout.AccountNumber)
+}
+
+func TestProcessDividends_FundDistributesToClients(t *testing.T) {
+	// Gross = 400.  Reinvest 50% → 200.  Payout 50% → 200 to one client.
+	stock := makeDividendStock(8, 200.0) // 100 shares * 200 * (8/400) = 400
+	ownership := model.AssetOwnership{
+		UserId:    42,
+		OwnerType: model.OwnerTypeFund,
+		AssetID:   10,
+		Amount:    100,
+	}
+	stockRepo := &fakeDividendStockRepo{stocks: []model.Stock{stock}}
+	ownershipRepo := &fakeDividendOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
+	dividendRepo := &fakeDividendRepo{}
+	banking := &fakeBankingClient{
+		accountsResp:    &pb.GetAccountsByClientIDResponse{Accounts: []*pb.AccountInfo{{AccountNumber: "444000100000000001"}}},
+		paymentResp:     &pb.CreatePaymentResponse{},
+		convertedAmount: 1.0,
+	}
+	clientUnits := 10.0
+	positionRepo := &fakePositionRepo{
+		findByFundRes: []model.ClientFundPosition{
+			{ClientID: 1, OwnerType: model.OwnerTypeClient, UnitsOwned: clientUnits},
+		},
+	}
+	fundRepo := &fakeFundRepo{findByIDResult: makeFundWithReinvestPct(50)}
+
+	svc := newTestDividendServiceWithFund(dividendRepo, ownershipRepo, stockRepo, banking, fundRepo, positionRepo)
+	err := svc.ProcessDividends(context.Background())
+
+	require.NoError(t, err)
+	// Only the fund-level payout is persisted; client distributions go via banking payments
+	require.Len(t, dividendRepo.saved, 1)
+	require.InDelta(t, 400.0, dividendRepo.saved[0].GrossAmount, 0.001)
+}
+
+func TestProcessDividends_FundWithZeroReinvestment(t *testing.T) {
+	// 0% reinvestment — everything goes to clients
+	stock := makeDividendStock(4, 100.0) // 100 shares → gross=100
+	ownership := model.AssetOwnership{UserId: 42, OwnerType: model.OwnerTypeFund, AssetID: 10, Amount: 100}
+	stockRepo := &fakeDividendStockRepo{stocks: []model.Stock{stock}}
+	ownershipRepo := &fakeDividendOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
+	dividendRepo := &fakeDividendRepo{}
+	banking := &fakeBankingClient{
+		accountsResp:    &pb.GetAccountsByClientIDResponse{Accounts: []*pb.AccountInfo{{AccountNumber: "444000100000000001"}}},
+		paymentResp:     &pb.CreatePaymentResponse{},
+		convertedAmount: 1.0,
+	}
+	positionRepo := &fakePositionRepo{
+		findByFundRes: []model.ClientFundPosition{
+			{ClientID: 1, OwnerType: model.OwnerTypeClient, UnitsOwned: 5},
+		},
+	}
+	fundRepo := &fakeFundRepo{findByIDResult: makeFundWithReinvestPct(0)}
+
+	svc := newTestDividendServiceWithFund(dividendRepo, ownershipRepo, stockRepo, banking, fundRepo, positionRepo)
+	require.NoError(t, svc.ProcessDividends(context.Background()))
+
+	// Only fund-level payout persisted; client payment goes via banking client
+	require.Len(t, dividendRepo.saved, 1)
+	require.InDelta(t, 100.0, dividendRepo.saved[0].GrossAmount, 0.001)
+}
+
+func TestProcessDividends_FundWithFullReinvestment(t *testing.T) {
+	// 100% reinvestment — nothing goes to clients (orderService is nil so no orders placed)
+	stock := makeDividendStock(4, 100.0)
+	ownership := model.AssetOwnership{UserId: 42, OwnerType: model.OwnerTypeFund, AssetID: 10, Amount: 100}
+	stockRepo := &fakeDividendStockRepo{stocks: []model.Stock{stock}}
+	ownershipRepo := &fakeDividendOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
+	dividendRepo := &fakeDividendRepo{}
+	banking := &fakeBankingClient{
+		paymentResp:     &pb.CreatePaymentResponse{},
+		convertedAmount: 1.0,
+	}
+	positionRepo := &fakePositionRepo{
+		findByFundRes: []model.ClientFundPosition{
+			{ClientID: 1, OwnerType: model.OwnerTypeClient, UnitsOwned: 5},
+		},
+	}
+	fundRepo := &fakeFundRepo{findByIDResult: makeFundWithReinvestPct(100)}
+
+	svc := newTestDividendServiceWithFund(dividendRepo, ownershipRepo, stockRepo, banking, fundRepo, positionRepo)
+	require.NoError(t, svc.ProcessDividends(context.Background()))
+
+	// Only fund-level payout, no client payouts
+	require.Len(t, dividendRepo.saved, 1)
+	require.InDelta(t, 100.0, dividendRepo.saved[0].GrossAmount, 0.001)
+}
+
+func TestProcessDividends_FundNotFound_SkipsPayout(t *testing.T) {
+	stock := makeDividendStock(4, 100.0)
+	ownership := model.AssetOwnership{UserId: 99, OwnerType: model.OwnerTypeFund, AssetID: 10, Amount: 100}
+	stockRepo := &fakeDividendStockRepo{stocks: []model.Stock{stock}}
+	ownershipRepo := &fakeDividendOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
+	dividendRepo := &fakeDividendRepo{}
+	banking := &fakeBankingClient{}
+	// findByIDResult=nil means fund not found
+	fundRepo := &fakeFundRepo{findByIDResult: nil}
+
+	svc := newTestDividendServiceWithFund(dividendRepo, ownershipRepo, stockRepo, banking, fundRepo, nil)
+	// Should log error and continue, not bubble up at the top level
+	require.NoError(t, svc.ProcessDividends(context.Background()))
+	require.Empty(t, dividendRepo.saved)
+}
+
+func TestProcessDividends_FundClientProportionalSplit(t *testing.T) {
+	// Two clients: 1 unit and 3 units → 25% and 75% of payout
+	// gross=100, reinvest=50% → payout=50
+	// client1 gets 50*0.25=12.5, client2 gets 50*0.75=37.5
+	stock := makeDividendStock(4, 100.0)
+	ownership := model.AssetOwnership{UserId: 42, OwnerType: model.OwnerTypeFund, AssetID: 10, Amount: 100}
+	stockRepo := &fakeDividendStockRepo{stocks: []model.Stock{stock}}
+	ownershipRepo := &fakeDividendOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
+	dividendRepo := &fakeDividendRepo{}
+	banking := &fakeBankingClient{
+		accountsResp:    &pb.GetAccountsByClientIDResponse{Accounts: []*pb.AccountInfo{{AccountNumber: "444000100000000001"}}},
+		paymentResp:     &pb.CreatePaymentResponse{},
+		convertedAmount: 1.0,
+	}
+	positionRepo := &fakePositionRepo{
+		findByFundRes: []model.ClientFundPosition{
+			{ClientID: 1, OwnerType: model.OwnerTypeClient, UnitsOwned: 1},
+			{ClientID: 2, OwnerType: model.OwnerTypeClient, UnitsOwned: 3},
+		},
+	}
+	fundRepo := &fakeFundRepo{findByIDResult: makeFundWithReinvestPct(50)}
+
+	svc := newTestDividendServiceWithFund(dividendRepo, ownershipRepo, stockRepo, banking, fundRepo, positionRepo)
+	require.NoError(t, svc.ProcessDividends(context.Background()))
+
+	// Only fund-level payout persisted; client distributions go via banking payments
+	require.Len(t, dividendRepo.saved, 1)
+	require.InDelta(t, 100.0, dividendRepo.saved[0].GrossAmount, 0.001)
+}
+
+func TestResolveTargetAccount_FundOwnership(t *testing.T) {
+	ownership := model.AssetOwnership{UserId: 42, OwnerType: model.OwnerTypeFund}
+	fundRepo := &fakeFundRepo{findByIDResult: &model.InvestmentFund{
+		FundID:        42,
+		AccountNumber: "444000099999000001",
+	}}
+	banking := &fakeBankingClient{}
+
+	svc := newTestDividendServiceWithFund(&fakeDividendRepo{}, &fakeDividendOwnershipRepo{}, &fakeDividendStockRepo{}, banking, fundRepo, nil)
+	accNum, currency, err := svc.resolveTargetAccount(context.Background(), ownership, "USD")
+
+	require.NoError(t, err)
+	require.Equal(t, "444000099999000001", accNum)
+	require.Equal(t, "RSD", currency)
+}
+
+func TestResolveTargetAccount_FundNotFound(t *testing.T) {
+	ownership := model.AssetOwnership{UserId: 99, OwnerType: model.OwnerTypeFund}
+	fundRepo := &fakeFundRepo{findByIDResult: nil}
+	banking := &fakeBankingClient{}
+
+	svc := newTestDividendServiceWithFund(&fakeDividendRepo{}, &fakeDividendOwnershipRepo{}, &fakeDividendStockRepo{}, banking, fundRepo, nil)
+	_, _, err := svc.resolveTargetAccount(context.Background(), ownership, "USD")
+	require.Error(t, err)
 }

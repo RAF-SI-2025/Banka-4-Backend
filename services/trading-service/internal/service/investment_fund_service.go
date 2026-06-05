@@ -343,12 +343,13 @@ func (s *InvestmentFundService) CreateFund(ctx context.Context, req dto.CreateFu
 	}
 
 	fund := &model.InvestmentFund{
-		Name:                req.Name,
-		Description:         req.Description,
-		MinimumContribution: req.MinimumContribution,
-		ManagerID:           managerID,
-		AccountNumber:       accountNumber,
-		CreatedAt:           s.now(),
+		Name:                        req.Name,
+		Description:                 req.Description,
+		MinimumContribution:         req.MinimumContribution,
+		ManagerID:                   managerID,
+		AccountNumber:               accountNumber,
+		DividendReinvestmentPercent: req.DividendReinvestmentPercent,
+		CreatedAt:                   s.now(),
 	}
 
 	if err := s.fundRepo.Create(ctx, fund); err != nil {
@@ -356,13 +357,14 @@ func (s *InvestmentFundService) CreateFund(ctx context.Context, req dto.CreateFu
 	}
 
 	return &dto.CreateFundResponse{
-		FundID:              fund.FundID,
-		Name:                fund.Name,
-		Description:         fund.Description,
-		MinimumContribution: fund.MinimumContribution,
-		ManagerID:           fund.ManagerID,
-		AccountNumber:       fund.AccountNumber,
-		CreatedAt:           fund.CreatedAt,
+		FundID:                      fund.FundID,
+		Name:                        fund.Name,
+		Description:                 fund.Description,
+		MinimumContribution:         fund.MinimumContribution,
+		ManagerID:                   fund.ManagerID,
+		AccountNumber:               fund.AccountNumber,
+		DividendReinvestmentPercent: fund.DividendReinvestmentPercent,
+		CreatedAt:                   fund.CreatedAt,
 	}, nil
 }
 
@@ -1124,21 +1126,22 @@ func (s *InvestmentFundService) GetFundDetail(ctx context.Context, fundID uint) 
 	}
 
 	return &dto.FundDetailResponse{
-		ID:                   fund.FundID,
-		Name:                 fund.Name,
-		Description:          fund.Description,
-		Manager:              managerName,
-		FundValue:            fundValue,
-		MinInvestment:        fund.MinimumContribution,
-		Profit:               profit,
-		LiquidAssets:         liquidAssets,
-		Holdings:             holdingsResp,
-		PerformanceHistory:   perfResp,
-		AnnualReturn:         metrics.AnnualReturn,
-		RewardToVariability:  metrics.RewardToVariability,
-		MaxDrawdown:          metrics.MaxDrawdown,
-		Volatility:           metrics.Volatility,
-		AverageMarketHistory: avgHistoryResp,
+		ID:                          fund.FundID,
+		Name:                        fund.Name,
+		Description:                 fund.Description,
+		Manager:                     managerName,
+		FundValue:                   fundValue,
+		MinInvestment:               fund.MinimumContribution,
+		Profit:                      profit,
+		LiquidAssets:                liquidAssets,
+		DividendReinvestmentPercent: fund.DividendReinvestmentPercent,
+		Holdings:                    holdingsResp,
+		PerformanceHistory:          perfResp,
+		AnnualReturn:                metrics.AnnualReturn,
+		RewardToVariability:         metrics.RewardToVariability,
+		MaxDrawdown:                 metrics.MaxDrawdown,
+		Volatility:                  metrics.Volatility,
+		AverageMarketHistory:        avgHistoryResp,
 	}, nil
 }
 

@@ -2632,6 +2632,86 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/otc/offers/{id}/history": {
+            "get": {
+                "description": "Retrieves the negotiation history for a given offer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "Get negotiation history",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Offer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by date from",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by date to",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by counterparty",
+                        "name": "counterparty",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.OtcNegotiationHistory"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/otc/offers/{id}/reject": {
             "patch": {
                 "description": "Either party may reject the offer, terminating the negotiation.",
@@ -3687,6 +3767,11 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "dividend_reinvestment_percent": {
+                    "type": "number",
+                    "maximum": 100,
+                    "minimum": 0
+                },
                 "minimum_contribution": {
                     "type": "number"
                 },
@@ -3706,6 +3791,9 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
+                },
+                "dividend_reinvestment_percent": {
+                    "type": "number"
                 },
                 "fund_id": {
                     "type": "integer"
@@ -4148,6 +4236,9 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "dividend_reinvestment_percent": {
+                    "type": "number"
+                },
                 "fund_value": {
                     "type": "number"
                 },
@@ -4263,6 +4354,9 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
+                },
+                "dividend_reinvestment_percent": {
+                    "type": "number"
                 },
                 "fund_id": {
                     "type": "integer"
@@ -5040,6 +5134,9 @@ const docTemplate = `{
                 "public_amount": {
                     "type": "number"
                 },
+                "reserved_amount": {
+                    "type": "number"
+                },
                 "ticker": {
                     "type": "string"
                 },
@@ -5531,6 +5628,53 @@ const docTemplate = `{
                 "OtcExecutionStepOwnershipTransferred",
                 "OtcExecutionStepCompleted"
             ]
+        },
+        "model.OtcNegotiationHistory": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "modifiedBy": {
+                    "type": "integer"
+                },
+                "newAmount": {
+                    "type": "integer"
+                },
+                "newPremiumRSD": {
+                    "type": "number"
+                },
+                "newPricePerStockRSD": {
+                    "type": "number"
+                },
+                "newSettlementDate": {
+                    "type": "string"
+                },
+                "oldAmount": {
+                    "type": "integer"
+                },
+                "oldPremiumRSD": {
+                    "type": "number"
+                },
+                "oldPricePerStockRSD": {
+                    "type": "number"
+                },
+                "oldSettlementDate": {
+                    "type": "string"
+                },
+                "otcNegotiationHistoryID": {
+                    "type": "integer"
+                },
+                "otcOfferID": {
+                    "type": "integer"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
         },
         "model.OtcOfferStatus": {
             "type": "string",

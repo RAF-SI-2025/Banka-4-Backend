@@ -80,6 +80,7 @@ func TestMain(m *testing.M) {
 		&model.TaxCollection{},
 		&model.OtcOffer{},
 		&model.OtcOptionContract{},
+		&model.OtcNegotiationHistory{},
 		&model.OtcShareReservation{},
 		&model.OtcExecutionSaga{},
 		&model.InvestmentFund{},
@@ -381,8 +382,11 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 	taxSvc := service.NewTaxService(taxRepo, bankingClient, cfg, auditSvc)
 	otcSvc := service.NewOTCService(assetOwnershipRepo, listingRepo, userClient)
 	otcProcessingSvc := service.NewOtcDealProcessingService(otcOfferRepo, otcContractRepo, otcShareReservationRepo, otcExecutionRepo, assetOwnershipRepo, txManager, bankingClient)
+	otcHistoryRepo := repository.NewOtcNegotiationHistoryRepository(db)
+	otcHistoryService := service.NewOtcNegotiationHistoryService(otcOfferRepo, otcHistoryRepo)
+	otcHistoryHandler := handler.NewOtcNegotiationHistoryHandler(otcHistoryService)
 	otcOfferSvc := service.NewOtcOfferService(otcOfferRepo, otcContractRepo, assetOwnershipRepo, stockRepo, bankingClient,
-		userClient, mailer, otcProcessingSvc)
+		userClient, mailer, otcProcessingSvc, otcHistoryService)
 
 	healthHandler := handler.NewHealthHandler()
 	exchangeHandler := handler.NewExchangeHandler(exchangeSvc)
@@ -394,7 +398,7 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 	otcOfferHandler := handler.NewOtcOfferHandler(otcOfferSvc)
 	watchlistHandler := handler.NewWatchlistHandler(service.NewWatchlistService(repository.NewWatchlistRepository(db), listingRepo))
 	dividendRepo := repository.NewDividendPayoutRepository(db)
-	dividendSvc := service.NewDividendPayoutService(dividendRepo, assetOwnershipRepo, stockRepo, listingRepo, taxSvc, bankingClient, cfg)
+	dividendSvc := service.NewDividendPayoutService(dividendRepo, assetOwnershipRepo, stockRepo, listingRepo, taxSvc, bankingClient, cfg, fundRepo, positionRepo, orderSvc)
 	dividendHandler := handler.NewDividendHandler(dividendSvc)
 
 	recurringOrderRepo := repository.NewRecurringOrderRepository(db)

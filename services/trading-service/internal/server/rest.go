@@ -44,7 +44,9 @@ func NewServer(
 	verifier auth.TokenVerifier,
 	permProvider auth.PermissionProvider,
 	userClient client.UserServiceClient,
+	otcNegotiationHistoryHandler *handler.OtcNegotiationHistoryHandler,
 ) {
+
 	r := gin.New()
 
 	InitRouter(r, cfg)
@@ -263,6 +265,8 @@ func SetupRoutes(
 
 			// Odustajanje — bilo koja strana može odustati od pregovora.
 			otc.PATCH("/offers/:id/reject", otcOfferHandler.RejectOffer)
+
+			otc.GET("/offers/:id/history", otcNegotiationHistoryHandler.GetNegotiationHistory)
 		}
 
 		orders := api.Group("/orders")

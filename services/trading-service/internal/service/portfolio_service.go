@@ -239,6 +239,7 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, ownerships []model.
 			LastModified:    o.UpdatedAt,
 			Profit:          profit,
 			PublicAmount:    o.PublicAmount,
+			ReservedAmount:  o.ReservedAmount,
 			OptionData:      optionData[o.AssetID],
 		})
 	}

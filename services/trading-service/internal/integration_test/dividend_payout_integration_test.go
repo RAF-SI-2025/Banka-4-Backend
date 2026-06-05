@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
@@ -432,6 +433,93 @@ func TestTriggerDividends_Unauthorized(t *testing.T) {
 
 	rec := performRequest(t, router, http.MethodPost, "/api/dividends/process", nil, "")
 	requireStatus(t, rec, http.StatusUnauthorized)
+}
+
+// ── Fund Dividend Integration Tests ────────────────────────────────────
+
+func TestTriggerDividends_FundOwnedStockCreatesPayoutForFundAccount(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	// Seed exchange in simulated MIC so currency resolves to RSD
+	exchange := seedExchange(t, db, uniqueValue(t, "MIC"))
+	listing := seedListing(t, db, uniqueValue(t, "TICK"), exchange.MicCode, model.AssetTypeStock, 200.0)
+	stock := seedStock(t, db, listing.ListingID)
+
+	// Create a fund that owns the stock
+	fund := seedInvestmentFund(t, db, uniqueValue(t, "Fund"), 10)
+	ownership := &model.AssetOwnership{
+		UserId:    fund.FundID,
+		OwnerType: model.OwnerTypeFund,
+		AssetID:   stock.AssetID,
+		Amount:    100,
+	}
+	require.NoError(t, db.Create(ownership).Error)
+
+	rec := performRequest(t, router, http.MethodPost, "/api/dividends/process", nil, authHeaderForSupervisor(t))
+	requireStatus(t, rec, http.StatusOK)
+
+	// The fund-level DividendPayout should reference the fund's account number
+	var payouts []model.DividendPayout
+	require.NoError(t, db.Where("asset_ownership_id = ?", ownership.AssetOwnershipID).Find(&payouts).Error)
+	require.Len(t, payouts, 1)
+
+	// gross = 100 shares * 200 price * (2.5/400) = 125.0
+	require.InDelta(t, 125.0, payouts[0].GrossAmount, 0.001)
+	require.Equal(t, 0.0, payouts[0].TaxAmount)
+	require.Equal(t, payouts[0].GrossAmount, payouts[0].NetAmount)
+	require.Equal(t, fund.AccountNumber, payouts[0].AccountNumber)
+}
+
+func TestTriggerDividends_FundDistributesPayoutToClients(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	exchange := seedExchange(t, db, uniqueValue(t, "MIC"))
+	listing := seedListing(t, db, uniqueValue(t, "TICK"), exchange.MicCode, model.AssetTypeStock, 200.0)
+	stock := seedStock(t, db, listing.ListingID)
+
+	reinvestPct := 0.0 // 0% reinvestment → 100% to clients
+	fund := &model.InvestmentFund{
+		Name:                        uniqueValue(t, "Fund"),
+		Description:                 "test fund",
+		MinimumContribution:         100,
+		ManagerID:                   10,
+		AccountNumber:               fmt.Sprintf("444000199999%06d", uniqueCounter.Add(1)),
+		DividendReinvestmentPercent: &reinvestPct,
+		CreatedAt:                   time.Now(),
+	}
+	require.NoError(t, db.Create(fund).Error)
+
+	// Fund owns 40 shares of the stock
+	ownership := &model.AssetOwnership{
+		UserId:    fund.FundID,
+		OwnerType: model.OwnerTypeFund,
+		AssetID:   stock.AssetID,
+		Amount:    40,
+	}
+	require.NoError(t, db.Create(ownership).Error)
+
+	// Two clients: 3 and 1 unit — 75% and 25% of payout
+	pos1 := &model.ClientFundPosition{FundID: fund.FundID, ClientID: 1, OwnerType: model.OwnerTypeClient, UnitsOwned: 3, UpdatedAt: time.Now()}
+	pos2 := &model.ClientFundPosition{FundID: fund.FundID, ClientID: 2, OwnerType: model.OwnerTypeClient, UnitsOwned: 1, UpdatedAt: time.Now()}
+	require.NoError(t, db.Create(pos1).Error)
+	require.NoError(t, db.Create(pos2).Error)
+
+	rec := performRequest(t, router, http.MethodPost, "/api/dividends/process", nil, authHeaderForSupervisor(t))
+	requireStatus(t, rec, http.StatusOK)
+
+	// gross = 40 * 200 * (2.5/400) = 50
+	// 0% reinvestment → all 50 distributed to clients via banking payments
+	// Client distributions do NOT create DividendPayout records (no valid AssetOwnershipID).
+	// Only the fund-level payout record is persisted.
+	var fundPayouts []model.DividendPayout
+	require.NoError(t, db.Where("asset_ownership_id = ? AND account_number = ?", ownership.AssetOwnershipID, fund.AccountNumber).Find(&fundPayouts).Error)
+	require.Len(t, fundPayouts, 1)
+	require.InDelta(t, 50.0, fundPayouts[0].GrossAmount, 0.001)
+	require.Equal(t, 0.0, fundPayouts[0].TaxAmount)
 }
 
 func TestTriggerDividends_MultipleOwnersGetSeparatePayouts(t *testing.T) {

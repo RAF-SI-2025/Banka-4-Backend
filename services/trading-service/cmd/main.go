@@ -141,6 +141,9 @@ func main() {
 			service.NewPriceAlertService,
 			handler.NewPriceAlertHandler,
 			tradinggrpc.NewTradingServiceServer,
+			handler.NewOtcNegotiationHistoryHandler,
+			service.NewOtcNegotiationHistoryService,
+			repository.NewOtcNegotiationHistoryRepository,
 			job.NewOtcOptionExpirationJob,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
@@ -181,6 +184,7 @@ func main() {
 				&model.FundPerformance{},
 				&model.Watchlist{},
 				&model.WatchlistItem{},
+				&model.OtcNegotiationHistory{},
 				&model.DividendPayout{},
 				&model.RecurringOrder{},
 				&model.PriceAlert{},

@@ -7,20 +7,21 @@ import (
 )
 
 type FundSummaryResponse struct {
-	FundID              uint      `json:"fund_id"`
-	Name                string    `json:"name"`
-	Description         string    `json:"description"`
-	MinimumContribution float64   `json:"minimum_contribution"`
-	ManagerID           uint      `json:"manager_id"`
-	FundValue           float64   `json:"fund_value"`
-	Profit              float64   `json:"profit"`
-	LiquidAssets        float64   `json:"liquid_assets"`
-	AccountNumber       string    `json:"account_number"`
-	CreatedAt           time.Time `json:"created_at"`
-	AnnualReturn        *float64  `json:"annual_return,omitempty"`
-	RewardToVariability *float64  `json:"reward_to_variability,omitempty"`
-	MaxDrawdown         *float64  `json:"max_drawdown,omitempty"`
-	Volatility          *float64  `json:"volatility,omitempty"`
+	FundID                      uint      `json:"fund_id"`
+	Name                        string    `json:"name"`
+	Description                 string    `json:"description"`
+	MinimumContribution         float64   `json:"minimum_contribution"`
+	ManagerID                   uint      `json:"manager_id"`
+	FundValue                   float64   `json:"fund_value"`
+	Profit                      float64   `json:"profit"`
+	LiquidAssets                float64   `json:"liquid_assets"`
+	AccountNumber               string    `json:"account_number"`
+	DividendReinvestmentPercent *float64  `json:"dividend_reinvestment_percent,omitempty"`
+	CreatedAt                   time.Time `json:"created_at"`
+	AnnualReturn                *float64  `json:"annual_return,omitempty"`
+	RewardToVariability         *float64  `json:"reward_to_variability,omitempty"`
+	MaxDrawdown                 *float64  `json:"max_drawdown,omitempty"`
+	Volatility                  *float64  `json:"volatility,omitempty"`
 }
 
 type ListFundsResponse struct {
@@ -47,20 +48,21 @@ func ToFundSummaryResponse(fund model.InvestmentFund, securitiesValue, liquidAss
 	}
 	profit := fundValue - totalInvested
 	return FundSummaryResponse{
-		FundID:              fund.FundID,
-		Name:                fund.Name,
-		Description:         fund.Description,
-		MinimumContribution: fund.MinimumContribution,
-		ManagerID:           fund.ManagerID,
-		FundValue:           fundValue,
-		Profit:              profit,
-		LiquidAssets:        liquidAssets,
-		AccountNumber:       fund.AccountNumber,
-		CreatedAt:           fund.CreatedAt,
-		AnnualReturn:        annualReturn,
-		RewardToVariability: rewardToVariability,
-		MaxDrawdown:         maxDrawdown,
-		Volatility:          volatility,
+		FundID:                      fund.FundID,
+		Name:                        fund.Name,
+		Description:                 fund.Description,
+		MinimumContribution:         fund.MinimumContribution,
+		ManagerID:                   fund.ManagerID,
+		FundValue:                   fundValue,
+		Profit:                      profit,
+		LiquidAssets:                liquidAssets,
+		AccountNumber:               fund.AccountNumber,
+		DividendReinvestmentPercent: fund.DividendReinvestmentPercent,
+		CreatedAt:                   fund.CreatedAt,
+		AnnualReturn:                annualReturn,
+		RewardToVariability:         rewardToVariability,
+		MaxDrawdown:                 maxDrawdown,
+		Volatility:                  volatility,
 	}
 }
 

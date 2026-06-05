@@ -22,6 +22,7 @@ type PortfolioAssetResponse struct {
 	LastModified    time.Time                `json:"last_modified"`
 	Profit          float64                  `json:"profit"`
 	PublicAmount    float64                  `json:"public_amount"`
+	ReservedAmount  float64                  `json:"reserved_amount"`
 	OptionData      *OptionSpecificAssetData `json:"option_data"`
 }
 
