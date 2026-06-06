@@ -1,0 +1,27 @@
+# Peer-bank registry for this deployment.
+#
+# This file is gitignored (operator-provided, like .env). For a single-bank
+# setup leave the list empty; add an entry per partner bank to enable inter-bank
+# payments and OTC. See peers.example.yaml for the full field reference.
+#
+# Each peer needs: routingNumber, baseUrl, ourApiKey (sent in X-Api-Key when we
+# call them), theirApiKey (expected in X-Api-Key when they call us), displayName.
+
+peers:
+  # Real external peer. baseUrl is the host root WITHOUT a trailing /interbank
+  # (the client appends /interbank itself). theirApiKey is "shared".
+  - routingNumber: 111
+    baseUrl: "http://172.18.0.1:8090/api/v3/cross-bank-protocol"   # local exbanka gateway (host gateway from container)
+    ourApiKey: "banka4-secret-key"      # sent in X-Api-Key when we call them
+    theirApiKey: "shared"    # expected in X-Api-Key when they call us
+    displayName: "Bank 1 (exbanka)"
+
+  # Local mock peer (docker container on the compose network) — used to test
+  # OUTBOUND OTC + the inter-bank payment flow end to end.
+  - routingNumber: 555
+    baseUrl: "http://mock_peer:8088"
+    ourApiKey: "banka4-secret-key"
+    theirApiKey: "mock-in"
+    displayName: "Mock Bank 555"
+
+
