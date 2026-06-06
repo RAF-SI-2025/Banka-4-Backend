@@ -38,18 +38,6 @@ type PeerOtcService struct {
 	txManager     repository.TransactionManager
 }
 
-type remoteCommitPendingError struct {
-	err error
-}
-
-func (e *remoteCommitPendingError) Error() string {
-	return "local transaction committed, remote commit is still pending: " + e.err.Error()
-}
-
-func (e *remoteCommitPendingError) Unwrap() error {
-	return e.err
-}
-
 func NewPeerOtcService(
 	negotiations repository.PeerNegotiationRepository,
 	contracts repository.PeerContractRepository,

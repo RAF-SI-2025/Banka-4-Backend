@@ -313,12 +313,6 @@ func (r *fakeContracts) FindActive(_ context.Context) ([]model.PeerContract, err
 	return out, nil
 }
 
-func (r *fakeContracts) seed(c model.PeerContract) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.rows[contractKey(c.AuthorityRoutingNumber, c.ID)] = c
-}
-
 // ---------------------------------------------------------------------------
 // Peer negotiation repository.
 // ---------------------------------------------------------------------------
@@ -467,14 +461,6 @@ func (b *fakeBanking) FinalizeInterbankPayment(_ context.Context, bankingTxID ui
 	return nil
 }
 
-func (b *fakeBanking) finalizations() []finalizeCall {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	out := make([]finalizeCall, len(b.finalizeCalls))
-	copy(out, b.finalizeCalls)
-	return out
-}
-
 func (b *fakeBanking) prepareCount() int {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -553,22 +539,6 @@ func (t *fakeTrading) CreditPeerOtcShares(_ context.Context, req *pb.CreditPeerO
 		return nil, t.creditErr
 	}
 	return &pb.PeerOtcSharesResponse{}, nil
-}
-
-// ---------------------------------------------------------------------------
-// User client.
-// ---------------------------------------------------------------------------
-
-type fakeUser struct {
-	fullName string
-	err      error
-}
-
-func (u *fakeUser) GetClientByID(context.Context, uint64) (*pb.GetClientByIdResponse, error) {
-	if u.err != nil {
-		return nil, u.err
-	}
-	return &pb.GetClientByIdResponse{FullName: u.fullName}, nil
 }
 
 // ---------------------------------------------------------------------------
