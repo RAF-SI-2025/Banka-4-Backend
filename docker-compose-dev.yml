@@ -74,6 +74,7 @@ services:
       USER_SERVICE_ADDR: user_service:50051
       USER_SERVICE_BASE_URL: http://user_service:${PORT}
       EMAIL_SERVICE_ADDR: email_service:50054
+      INTERBANK_SERVICE_ADDR: interbank_service:50054
       WORK_CODES_CACHE_TTL: 24h
     depends_on:
       user_service_db:
@@ -139,8 +140,12 @@ services:
     environment:
       AIR_CONFIG_PATH: /app/services/interbank-service/.air.toml
       PORT: ${INTERBANK_SERVICE_PORT}
+      GRPC_PORT: "50054"
       INTERBANK_ROUTING_NUMBER: "444"
       INTERBANK_PEERS_CONFIG_PATH: /app/services/interbank-service/peers.yaml
+      USER_SERVICE_ADDR: user_service:50051
+      TRADING_SERVICE_ADDR: trading_service:50053
+      BANKING_SERVICE_ADDR: banking_service:50052
     depends_on:
       user_service_db:
         condition: service_healthy

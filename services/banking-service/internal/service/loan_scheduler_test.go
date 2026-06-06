@@ -136,7 +136,7 @@ func newScheduler(
 
 	txRepo := &fakeLoanTransactionRepo{}
 	txManager := &fakeBankingTxManager{}
-	txProcessor := NewTransactionProcessor(accRepo, txRepo, txManager)
+	txProcessor := NewTransactionProcessor(accRepo, txRepo, txManager, nil)
 	loanSvc := NewLoanService(accRepo, nil, nil, loanRepo, txProcessor, txManager, userClient, mailer)
 
 	return NewLoanScheduler(loanRepo, accRepo, txRepo, txProcessor, txManager, mailer, userClient, loanSvc)
@@ -588,7 +588,7 @@ func TestProcessInstallment_AccountNotFound(t *testing.T) {
 
 	txRepo := &fakeLoanTransactionRepo{}
 	txManager := &fakeBankingTxManager{}
-	txProcessor := NewTransactionProcessor(accRepo, txRepo, txManager)
+	txProcessor := NewTransactionProcessor(accRepo, txRepo, txManager, nil)
 	loanSvc := NewLoanService(accRepo, nil, nil, loanRepo, txProcessor, txManager, &fakeUserClient{}, mailer)
 
 	sched := NewLoanScheduler(loanRepo, accRepo, txRepo, txProcessor, txManager, mailer, &fakeUserClient{}, loanSvc)
@@ -625,7 +625,7 @@ func TestProcessInstallment_InsufficientFunds_TriggersFailure(t *testing.T) {
 
 	txRepo := &fakeLoanTransactionRepo{}
 	txManager := &fakeBankingTxManager{}
-	txProcessor := NewTransactionProcessor(accRepo, txRepo, txManager)
+	txProcessor := NewTransactionProcessor(accRepo, txRepo, txManager, nil)
 	loanSvc := NewLoanService(accRepo, nil, nil, loanRepo, txProcessor, txManager, &fakeUserClient{}, mailer)
 
 	sched := NewLoanScheduler(loanRepo, accRepo, txRepo, txProcessor, txManager, mailer, &fakeUserClient{}, loanSvc)
@@ -664,7 +664,7 @@ func TestProcessInstallment_NoBankAccountForCurrency(t *testing.T) {
 
 	txRepo := &fakeLoanTransactionRepo{}
 	txManager := &fakeBankingTxManager{}
-	txProcessor := NewTransactionProcessor(accRepo, txRepo, txManager)
+	txProcessor := NewTransactionProcessor(accRepo, txRepo, txManager, nil)
 	loanSvc := NewLoanService(accRepo, nil, nil, loanRepo, txProcessor, txManager, &fakeUserClient{}, mailer)
 
 	sched := NewLoanScheduler(loanRepo, accRepo, txRepo, txProcessor, txManager, mailer, &fakeUserClient{}, loanSvc)
@@ -700,7 +700,7 @@ func TestProcessInstallment_TransactionCreateError(t *testing.T) {
 	mailer := &fakeSchedulerMailer{}
 	txRepo := &fakeLoanTransactionRepo{createErr: fmt.Errorf("db error")}
 	txManager := &fakeBankingTxManager{}
-	txProcessor := NewTransactionProcessor(accRepo, txRepo, txManager)
+	txProcessor := NewTransactionProcessor(accRepo, txRepo, txManager, nil)
 	loanSvc := NewLoanService(accRepo, nil, nil, loanRepo, txProcessor, txManager, &fakeUserClient{}, mailer)
 
 	sched := NewLoanScheduler(loanRepo, accRepo, txRepo, txProcessor, txManager, mailer, &fakeUserClient{}, loanSvc)
@@ -749,7 +749,7 @@ func TestProcessInstallment_Success(t *testing.T) {
 	mailer := &fakeSchedulerMailer{}
 	txRepo := &fakeLoanTransactionRepo{}
 	txManager := &fakeBankingTxManager{}
-	txProcessor := NewTransactionProcessor(accRepo, txRepo, txManager)
+	txProcessor := NewTransactionProcessor(accRepo, txRepo, txManager, nil)
 	loanSvc := NewLoanService(accRepo, nil, nil, loanRepo, txProcessor, txManager, &fakeUserClient{}, mailer)
 
 	sched := NewLoanScheduler(loanRepo, accRepo, txRepo, txProcessor, txManager, mailer, &fakeUserClient{}, loanSvc)

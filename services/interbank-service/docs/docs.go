@@ -15,6 +15,82 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/peer-otc/contracts": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "peer-otc"
+                ],
+                "summary": "List my cross-bank OTC contracts",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.PeerContract"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/peer-otc/contracts/{rn}/{id}/exercise": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "peer-otc"
+                ],
+                "summary": "Exercise a cross-bank OTC contract",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Authoritative bank routing number",
+                        "name": "rn",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Contract id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Buyer account number",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.ExerciseContractRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.PeerContract"
+                        }
+                    }
+                }
+            }
+        },
         "/api/peer-otc/negotiations": {
             "get": {
                 "security": [
@@ -36,7 +112,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/dto.OtcNegotiation"
+                                "$ref": "#/definitions/dto.OtcNegotiationView"
                             }
                         }
                     },
@@ -160,6 +236,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/peer-otc/negotiations/{rn}/{id}/accept": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "peer-otc"
+                ],
+                "summary": "Accept a cross-bank OTC negotiation",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Authoritative bank routing number",
+                        "name": "rn",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Negotiation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Local account number",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AcceptPeerNegotiationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.PeerContract"
+                        }
+                    }
+                }
+            }
+        },
         "/api/peer-otc/negotiations/{rn}/{id}/counter": {
             "put": {
                 "security": [
@@ -167,7 +294,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Forwards a counter-offer to the authoritative bank via §3.3.",
+                "description": "Posts a counter-offer whether the authenticated user is the\nbuyer or the seller, notifying the opposing party's bank via §3.3.",
                 "consumes": [
                     "application/json"
                 ],
@@ -388,7 +515,7 @@ const docTemplate = `{
         },
         "/interbank/negotiations/{rn}/{id}": {
             "get": {
-                "description": "§3.4 — returns the current state of a negotiation owned by\nthis bank. The :rn path parameter must match this bank's\nrouting number.",
+                "description": "§3.4 — returns the current negotiation state as the spec shape\n(the OtcOffer fields plus isOngoing). The :rn path parameter is\nthe negotiation's authoritative (seller's) routing number.",
                 "produces": [
                     "application/json"
                 ],
@@ -406,7 +533,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Routing number (this bank)",
+                        "description": "Authoritative (seller's) routing number",
                         "name": "rn",
                         "in": "path",
                         "required": true
@@ -447,7 +574,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "§3.3 — peer bank posts a counter-offer against an ongoing\nnegotiation owned by us. Buyer/seller and ticker are\nimmutable; only negotiable parameters may change. The\nsame party may not counter twice in a row (turn rule).",
+                "description": "§3.3 — a peer bank posts a counter-offer (either party may\ncounter; the recipient may be the authoritative seller's bank\nor the buyer's mirror-holding bank). Buyer/seller and ticker are\nimmutable; only negotiable parameters may change. The same party\nmay not counter twice in a row (turn rule).",
                 "consumes": [
                     "application/json"
                 ],
@@ -468,7 +595,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Routing number (this bank)",
+                        "description": "Authoritative (seller's) routing number",
                         "name": "rn",
                         "in": "path",
                         "required": true
@@ -527,7 +654,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "§3.5 — either party may withdraw from a negotiation. The\noperation is idempotent: closing an already-closed\nnegotiation returns 204 without changing state.",
+                "description": "§3.5 — either party may withdraw from a negotiation (the\nrecipient may be the authoritative or the mirror side). The\noperation is idempotent: closing an already-closed negotiation\nreturns 204 without changing state.",
                 "produces": [
                     "application/json"
                 ],
@@ -545,7 +672,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Routing number (this bank)",
+                        "description": "Authoritative (seller's) routing number",
                         "name": "rn",
                         "in": "path",
                         "required": true
@@ -591,12 +718,69 @@ const docTemplate = `{
         },
         "/interbank/negotiations/{rn}/{id}/accept": {
             "get": {
-                "description": "§3.6 — STUB. Triggers a §2 NEW_TX with the 4 premium +\noption-pseudo postings. Implementation pending (depends\non §2 protocol layer).",
+                "description": "§3.6 — accepts the current offer on a negotiation owned by us\n(we are the seller's authoritative bank). Forms the option\ncontract and drives the §2 NEW_TX that moves the premium, then\nreturns the resulting contract.",
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "interbank-otc"
                 ],
                 "summary": "Accept OTC negotiation",
-                "responses": {}
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Peer bank API key",
+                        "name": "X-Api-Key",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Routing number (this bank)",
+                        "name": "rn",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Negotiation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.PeerContract"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
             }
         },
         "/interbank/public-stock": {
@@ -744,6 +928,29 @@ const docTemplate = `{
                 "AssetOption"
             ]
         },
+        "dto.CurrencyCode": {
+            "type": "string",
+            "enum": [
+                "RSD",
+                "EUR",
+                "USD",
+                "CHF",
+                "JPY",
+                "AUD",
+                "CAD",
+                "GBP"
+            ],
+            "x-enum-varnames": [
+                "CurrencyRSD",
+                "CurrencyEUR",
+                "CurrencyUSD",
+                "CurrencyCHF",
+                "CurrencyJPY",
+                "CurrencyAUD",
+                "CurrencyCAD",
+                "CurrencyGBP"
+            ]
+        },
         "dto.ForeignBankId": {
             "type": "object",
             "required": [
@@ -813,6 +1020,21 @@ const docTemplate = `{
                 "MessageTypeRollbackTx"
             ]
         },
+        "dto.MonetaryValue": {
+            "type": "object",
+            "required": [
+                "amount",
+                "currency"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "currency": {
+                    "$ref": "#/definitions/dto.CurrencyCode"
+                }
+            }
+        },
         "dto.NoVoteReason": {
             "type": "object",
             "properties": {
@@ -849,6 +1071,52 @@ const docTemplate = `{
         },
         "dto.OtcNegotiation": {
             "type": "object",
+            "required": [
+                "amount",
+                "buyerId",
+                "lastModifiedBy",
+                "pricePerUnit",
+                "sellerId",
+                "settlementDate",
+                "stock"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "buyerAccountNumber": {
+                    "description": "BuyerAccountNumber is a Banka-4 extension to the protocol's OtcOffer.",
+                    "type": "string"
+                },
+                "buyerId": {
+                    "$ref": "#/definitions/dto.ForeignBankId"
+                },
+                "isOngoing": {
+                    "type": "boolean"
+                },
+                "lastModifiedBy": {
+                    "$ref": "#/definitions/dto.ForeignBankId"
+                },
+                "premium": {
+                    "$ref": "#/definitions/dto.MonetaryValue"
+                },
+                "pricePerUnit": {
+                    "$ref": "#/definitions/dto.MonetaryValue"
+                },
+                "sellerId": {
+                    "$ref": "#/definitions/dto.ForeignBankId"
+                },
+                "settlementDate": {
+                    "type": "string"
+                },
+                "stock": {
+                    "$ref": "#/definitions/dto.StockDescription"
+                }
+            }
+        },
+        "dto.OtcNegotiationView": {
+            "type": "object",
             "properties": {
                 "id": {
                     "$ref": "#/definitions/dto.ForeignBankId"
@@ -871,18 +1139,19 @@ const docTemplate = `{
                 "amount",
                 "buyerId",
                 "lastModifiedBy",
-                "premium",
-                "premiumCurrency",
-                "priceCurrency",
-                "pricePerStock",
+                "pricePerUnit",
                 "sellerId",
                 "settlementDate",
-                "ticker"
+                "stock"
             ],
             "properties": {
                 "amount": {
                     "type": "integer",
                     "minimum": 1
+                },
+                "buyerAccountNumber": {
+                    "description": "BuyerAccountNumber is a Banka-4 extension to the protocol's OtcOffer.",
+                    "type": "string"
                 },
                 "buyerId": {
                     "$ref": "#/definitions/dto.ForeignBankId"
@@ -891,18 +1160,10 @@ const docTemplate = `{
                     "$ref": "#/definitions/dto.ForeignBankId"
                 },
                 "premium": {
-                    "type": "number"
+                    "$ref": "#/definitions/dto.MonetaryValue"
                 },
-                "premiumCurrency": {
-                    "type": "string",
-                    "maxLength": 8
-                },
-                "priceCurrency": {
-                    "type": "string",
-                    "maxLength": 8
-                },
-                "pricePerStock": {
-                    "type": "number"
+                "pricePerUnit": {
+                    "$ref": "#/definitions/dto.MonetaryValue"
                 },
                 "sellerId": {
                     "$ref": "#/definitions/dto.ForeignBankId"
@@ -910,9 +1171,52 @@ const docTemplate = `{
                 "settlementDate": {
                     "type": "string"
                 },
+                "stock": {
+                    "$ref": "#/definitions/dto.StockDescription"
+                }
+            }
+        },
+        "dto.PeerContract": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "buyerId": {
+                    "$ref": "#/definitions/dto.ForeignBankId"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "exercisedAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "$ref": "#/definitions/dto.ForeignBankId"
+                },
+                "negotiationId": {
+                    "$ref": "#/definitions/dto.ForeignBankId"
+                },
+                "premium": {
+                    "$ref": "#/definitions/dto.MonetaryValue"
+                },
+                "sellerId": {
+                    "$ref": "#/definitions/dto.ForeignBankId"
+                },
+                "settlementDate": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "strikePrice": {
+                    "$ref": "#/definitions/dto.MonetaryValue"
+                },
                 "ticker": {
-                    "type": "string",
-                    "maxLength": 16
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
                 }
             }
         },
@@ -1060,6 +1364,9 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.AcceptPeerNegotiationRequest": {
+            "type": "object"
+        },
         "handler.CounterPeerNegotiationRequest": {
             "type": "object",
             "required": [
@@ -1097,6 +1404,7 @@ const docTemplate = `{
         "handler.CreatePeerNegotiationRequest": {
             "type": "object",
             "required": [
+                "accountNumber",
                 "amount",
                 "premium",
                 "premiumCurrency",
@@ -1107,6 +1415,9 @@ const docTemplate = `{
                 "ticker"
             ],
             "properties": {
+                "accountNumber": {
+                    "type": "string"
+                },
                 "amount": {
                     "type": "integer",
                     "minimum": 1
@@ -1134,6 +1445,17 @@ const docTemplate = `{
                 "ticker": {
                     "type": "string",
                     "maxLength": 16
+                }
+            }
+        },
+        "handler.ExerciseContractRequest": {
+            "type": "object",
+            "required": [
+                "accountNumber"
+            ],
+            "properties": {
+                "accountNumber": {
+                    "type": "string"
                 }
             }
         }

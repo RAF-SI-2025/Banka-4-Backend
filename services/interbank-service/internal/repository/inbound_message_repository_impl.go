@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/interbank-service/internal/model"
@@ -37,5 +38,19 @@ func (r *inboundMessageRepository) FindByKey(ctx context.Context, peerRoutingNum
 }
 
 func (r *inboundMessageRepository) Save(ctx context.Context, m *model.InboundMessage) error {
-	return db.DBFromContext(ctx, r.db).Create(m).Error
+	return db.DBFromContext(ctx, r.db).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{
+				{Name: "peer_routing_number"},
+				{Name: "locally_generated_key"},
+			},
+			DoUpdates: clause.AssignmentColumns([]string{
+				"message_type",
+				"request_body",
+				"response_status",
+				"response_body",
+				"processed_at",
+			}),
+		}).
+		Create(m).Error
 }

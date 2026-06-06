@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/interbank-service/internal/model"
@@ -44,6 +45,23 @@ func (r *peerNegotiationRepository) Update(ctx context.Context, n *model.PeerNeg
 	return db.DBFromContext(ctx, r.db).Save(n).Error
 }
 
+func (r *peerNegotiationRepository) FindByIDForUpdate(ctx context.Context, id string) (*model.PeerNegotiation, error) {
+	var n model.PeerNegotiation
+
+	err := db.DBFromContext(ctx, r.db).
+		Where("id = ?", id).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		First(&n).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &n, nil
+}
+
 func (r *peerNegotiationRepository) ListByParty(ctx context.Context, routingNumber int, partyID string) ([]model.PeerNegotiation, error) {
 	var rows []model.PeerNegotiation
 
@@ -53,6 +71,17 @@ func (r *peerNegotiationRepository) ListByParty(ctx context.Context, routingNumb
 			routingNumber, partyID, routingNumber, partyID,
 		).
 		Order("updated_at DESC").
+		Find(&rows).Error
+
+	return rows, err
+}
+
+func (r *peerNegotiationRepository) FindOngoing(ctx context.Context) ([]model.PeerNegotiation, error) {
+	var rows []model.PeerNegotiation
+
+	err := db.DBFromContext(ctx, r.db).
+		Where("status = ?", model.PeerNegotiationOngoing).
+		Order("settlement_date ASC").
 		Find(&rows).Error
 
 	return rows, err

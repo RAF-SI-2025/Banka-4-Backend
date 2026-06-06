@@ -64,35 +64,40 @@ func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymen
 		return nil, errors.NotFoundErr("payer account not found")
 	}
 
-	recipientAccount, err := s.accountRepo.FindByAccountNumber(ctx, req.RecipientAccountNumber)
-	if err != nil {
-		return nil, errors.NotFoundErr("recipient account not found")
-	}
-
-	if recipientAccount.ClientID == payerAccount.ClientID {
-		if len(skipSameClientCheck) == 0 || !skipSameClientCheck[0] {
-			return nil, errors.BadRequestErr("cannot make payment for same client accounts, that is a transfer")
-		}
-	}
-
 	commission := 0.0
 	startAmount := req.Amount
 	endAmount := req.Amount
 	endCurrencyCode := payerAccount.Currency.Code
 
-	if payerAccount.Currency.Code != recipientAccount.Currency.Code {
-		converted, err := s.exchangeService.Convert(ctx, req.Amount, payerAccount.Currency.Code, recipientAccount.Currency.Code)
+	// Foreign recipient: no local recipient account, no same-client check and no
+	// currency conversion — the payment is sent in the payer's currency and the
+	// receiving bank handles its side. Settlement is driven by interbank-service.
+	if !model.IsForeignAccountNumber(req.RecipientAccountNumber) {
+		recipientAccount, err := s.accountRepo.FindByAccountNumber(ctx, req.RecipientAccountNumber)
 		if err != nil {
-			return nil, errors.InternalErr(err)
+			return nil, errors.NotFoundErr("recipient account not found")
 		}
 
-		if !req.CommissionExempt {
-			commission = s.exchangeService.CalculateFee(req.Amount)
-			startAmount = req.Amount + commission
+		if recipientAccount.ClientID == payerAccount.ClientID {
+			if len(skipSameClientCheck) == 0 || !skipSameClientCheck[0] {
+				return nil, errors.BadRequestErr("cannot make payment for same client accounts, that is a transfer")
+			}
 		}
 
-		endAmount = converted
-		endCurrencyCode = recipientAccount.Currency.Code
+		if payerAccount.Currency.Code != recipientAccount.Currency.Code {
+			converted, err := s.exchangeService.Convert(ctx, req.Amount, payerAccount.Currency.Code, recipientAccount.Currency.Code)
+			if err != nil {
+				return nil, errors.InternalErr(err)
+			}
+
+			if !req.CommissionExempt {
+				commission = s.exchangeService.CalculateFee(req.Amount)
+				startAmount = req.Amount + commission
+			}
+
+			endAmount = converted
+			endCurrencyCode = recipientAccount.Currency.Code
+		}
 	}
 
 	if payerAccount.AvailableBalance < startAmount {
@@ -155,6 +160,30 @@ func (s *PaymentService) CreatePaymentWithoutVerification(ctx context.Context, r
 	}
 
 	return payment, nil
+}
+
+// FinalizeInterbankPayment moves a foreign-bank payment out of its Processing
+// state once interbank-service reports the 2PC outcome via gRPC. Idempotent: a
+// transaction that is already terminal is left unchanged.
+func (s *PaymentService) FinalizeInterbankPayment(ctx context.Context, bankingTxID uint, success bool) error {
+	return s.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
+		transaction, err := s.transactionRepo.GetByID(ctx, bankingTxID)
+		if err != nil {
+			return errors.InternalErr(err)
+		}
+		if transaction == nil {
+			return errors.NotFoundErr("transaction not found")
+		}
+		if transaction.Status != model.TransactionProcessing {
+			return nil
+		}
+		if success {
+			transaction.Status = model.TransactionCompleted
+		} else {
+			transaction.Status = model.TransactionRejected
+		}
+		return s.transactionRepo.Update(ctx, transaction)
+	})
 }
 
 func (s *PaymentService) GetPaymentByID(ctx context.Context, id uint) (*model.Payment, error) {

@@ -261,7 +261,7 @@ func newLoanService(
 	}
 
 	txRepo := &fakeLoanTransactionRepo{}
-	txProcessor := NewTransactionProcessor(accountRepo, txRepo, &fakeBankingTxManager{})
+	txProcessor := NewTransactionProcessor(accountRepo, txRepo, &fakeBankingTxManager{}, nil)
 	return NewLoanService(accountRepo, loanTypeRepo, loanRequestRepo, loanRepo, txProcessor, &fakeBankingTxManager{}, userClient, mailer)
 }
 

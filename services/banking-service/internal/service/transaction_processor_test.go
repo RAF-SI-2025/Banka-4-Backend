@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
@@ -133,8 +134,20 @@ func tpAccount(number string, balance float64, currency model.CurrencyCode) *mod
 	}
 }
 
+// fakeInterbankClient records InitiatePayment calls and can be configured to
+// fail, so the foreign-recipient path can be exercised both ways.
+type fakeInterbankClient struct {
+	calls   []*pb.InitiateInterbankPaymentRequest
+	initErr error
+}
+
+func (f *fakeInterbankClient) InitiatePayment(_ context.Context, req *pb.InitiateInterbankPaymentRequest) error {
+	f.calls = append(f.calls, req)
+	return f.initErr
+}
+
 func newTpProcessor(accRepo *fakeTpAccountRepo, txRepo *fakeTpTransactionRepo) *TransactionProcessor {
-	return NewTransactionProcessor(accRepo, txRepo, &fakeBankingTxManager{})
+	return NewTransactionProcessor(accRepo, txRepo, &fakeBankingTxManager{}, &fakeInterbankClient{})
 }
 
 // ── Process Tests ──────────────────────────────────────────────────────────
@@ -631,4 +644,90 @@ func TestProcessLoanInstallment_InsufficientFunds(t *testing.T) {
 	err := tp.ProcessLoanInstallment(context.Background(), 1)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "insufficient payer funds")
+}
+
+// ── Foreign-recipient (interbank) Process Tests ──────────────────────────────
+
+func TestProcess_ForeignRecipient_StaysProcessing(t *testing.T) {
+	payer := tpAccount("444000000000000011", 10_000, model.RSD)
+	txRepo := &fakeTpTransactionRepo{
+		tx: &model.Transaction{
+			TransactionID:          1,
+			PayerAccountNumber:     "444000000000000011",
+			RecipientAccountNumber: "111000000000000022", // foreign bank (prefix 111)
+			StartAmount:            500,
+			StartCurrencyCode:      model.RSD,
+			EndAmount:              500,
+			EndCurrencyCode:        model.RSD,
+			Status:                 model.TransactionProcessing,
+		},
+	}
+	accRepo := newFakeTpAccountRepo(payer)
+	ibank := &fakeInterbankClient{}
+	tp := NewTransactionProcessor(accRepo, txRepo, &fakeBankingTxManager{}, ibank)
+
+	err := tp.Process(context.Background(), 1)
+	require.NoError(t, err)
+
+	// interbank was asked to settle, with the right fields.
+	require.Len(t, ibank.calls, 1)
+	require.Equal(t, "444000000000000011", ibank.calls[0].PayerAccountNumber)
+	require.Equal(t, "111000000000000022", ibank.calls[0].PayeeAccountNumber)
+	require.InDelta(t, 500, ibank.calls[0].Amount, 0.01)
+	require.Equal(t, "RSD", ibank.calls[0].Currency)
+	require.Equal(t, uint64(1), ibank.calls[0].BankingTxId)
+
+	// The transaction stays Processing (awaiting the Finalize callback) and no
+	// local balances were moved — interbank reserves/settles the payer itself.
+	require.Equal(t, model.TransactionProcessing, txRepo.tx.Status)
+	require.InDelta(t, 10_000, accRepo.accounts["444000000000000011"].AvailableBalance, 0.01)
+}
+
+func TestProcess_ForeignRecipient_InitiateErrorRejects(t *testing.T) {
+	payer := tpAccount("444000000000000011", 10_000, model.RSD)
+	txRepo := &fakeTpTransactionRepo{
+		tx: &model.Transaction{
+			TransactionID:          1,
+			PayerAccountNumber:     "444000000000000011",
+			RecipientAccountNumber: "111000000000000022",
+			StartAmount:            500,
+			StartCurrencyCode:      model.RSD,
+			EndAmount:              500,
+			EndCurrencyCode:        model.RSD,
+			Status:                 model.TransactionProcessing,
+		},
+	}
+	accRepo := newFakeTpAccountRepo(payer)
+	ibank := &fakeInterbankClient{initErr: errors.New("insufficient funds")}
+	tp := NewTransactionProcessor(accRepo, txRepo, &fakeBankingTxManager{}, ibank)
+
+	err := tp.Process(context.Background(), 1)
+	require.Error(t, err)
+
+	// Up-front initiation failure → Rejected, still no balances moved.
+	require.Equal(t, model.TransactionRejected, txRepo.tx.Status)
+	require.InDelta(t, 10_000, accRepo.accounts["444000000000000011"].AvailableBalance, 0.01)
+}
+
+func TestPaymentService_FinalizeInterbankPayment(t *testing.T) {
+	cases := []struct {
+		name        string
+		startStatus model.TransactionStatus
+		success     bool
+		wantStatus  model.TransactionStatus
+	}{
+		{"success flips Processing → Completed", model.TransactionProcessing, true, model.TransactionCompleted},
+		{"failure flips Processing → Rejected", model.TransactionProcessing, false, model.TransactionRejected},
+		{"idempotent: already Completed stays Completed", model.TransactionCompleted, false, model.TransactionCompleted},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			txRepo := &fakeTpTransactionRepo{tx: &model.Transaction{TransactionID: 7, Status: tc.startStatus}}
+			svc := &PaymentService{transactionRepo: txRepo, txManager: &fakeBankingTxManager{}}
+
+			err := svc.FinalizeInterbankPayment(context.Background(), 7, tc.success)
+			require.NoError(t, err)
+			require.Equal(t, tc.wantStatus, txRepo.tx.Status)
+		})
+	}
 }

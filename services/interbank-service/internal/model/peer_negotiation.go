@@ -21,17 +21,16 @@ const (
 // same-bank OtcOffer
 //
 // Identification follows spec §3.2: the ID is an opaque string assigned by
-// the seller's bank (the authoritative party). Buyer-side mirrors carry
-// the same ID in their RemoteNegotiationID to enable cross-referencing.
+// the seller's bank (the authoritative party). Both banks store the same ID —
+// the buyer's mirror row uses the seller-assigned ID directly.
 //
 // Each party — buyer, seller, last-modifier — is encoded as the protocol's
 // ForeignBankId pair (routing number + opaque id). A row may represent a
 // negotiation where both parties live in our bank (router == ours for all),
 // or any cross-bank combination.
 type PeerNegotiation struct {
-	// ID is the negotiation identifier owned by the authoritative bank
-	// (the seller's bank, per §3.2). For mirrors held by the buyer's
-	// bank, this is the same value that the seller's bank generated.
+	// ID is the negotiation identifier assigned by the seller's bank (§3.2).
+	// Both authoritative and mirror rows use this same value.
 	ID string `gorm:"primaryKey;size:64;column:id"`
 
 	// Parties — flat (routing, id) encoding of ForeignBankId.
@@ -41,13 +40,14 @@ type PeerNegotiation struct {
 	SellerID            string `gorm:"not null;size:64;column:seller_id"`
 
 	// Offer contents (§3.2 OtcOffer body).
-	Ticker          string  `gorm:"not null;size:16;column:ticker"`
-	Amount          int     `gorm:"not null;column:amount"`
-	PricePerStock   float64 `gorm:"not null;column:price_per_stock"`
-	PriceCurrency   string  `gorm:"not null;size:8;column:price_currency"`
-	Premium         float64 `gorm:"not null;column:premium"`
-	PremiumCurrency string  `gorm:"not null;size:8;column:premium_currency"`
-	SettlementDate  string  `gorm:"not null;column:settlement_date"`
+	Ticker             string  `gorm:"not null;size:16;column:ticker"`
+	Amount             int     `gorm:"not null;column:amount"`
+	PricePerStock      float64 `gorm:"not null;column:price_per_stock"`
+	PriceCurrency      string  `gorm:"not null;size:8;column:price_currency"`
+	Premium            float64 `gorm:"not null;column:premium"`
+	PremiumCurrency    string  `gorm:"not null;size:8;column:premium_currency"`
+	SettlementDate     string  `gorm:"not null;column:settlement_date"`
+	BuyerAccountNumber string  `gorm:"not null;size:64;column:buyer_account_number"`
 
 	// Tracking the last modifier — required for §3.3 turn enforcement
 	// ("the party opposite to lastModifiedBy may post the next update").
@@ -58,14 +58,12 @@ type PeerNegotiation struct {
 	Status          PeerNegotiationStatus `gorm:"not null;size:16;column:status"`
 	IsAuthoritative bool                  `gorm:"not null;column:is_authoritative"`
 
-	// RemoteNegotiationID is populated only when we are the mirror
-	// (i.e., the buyer's bank) — holds the partner's ID for the same
-	// negotiation so we can address them on outbound PUT/GET/DELETE.
-	RemoteNegotiationID *string `gorm:"size:64;column:remote_negotiation_id"`
-
-	// Version is GORM's optimistic-locking column. Concurrent counter-offers
-	// from the same peer are rejected at the DB layer rather than via
-	// application-level locks.
+	// Version is a reserved counter column. NOTE: plain GORM does not treat a
+	// field named Version as an optimistic-lock column (that needs the
+	// gorm.io/plugin/optimisticlock type), so this field is currently inert and
+	// never incremented. Concurrent counter-offers are actually serialized via
+	// FindByIDForUpdate (SELECT ... FOR UPDATE) inside UpdateCounter, which is
+	// sufficient. Kept for a future migration to real optimistic locking.
 	Version uint `gorm:"not null;default:0;column:version"`
 
 	CreatedAt time.Time

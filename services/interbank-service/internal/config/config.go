@@ -31,6 +31,7 @@ type URLConfig struct {
 type Configuration struct {
 	Env                string
 	Port               string
+	GrpcPort           string
 	DB                 DBConfig
 	URLs               URLConfig
 	OurRoutingNumber   int
@@ -41,6 +42,7 @@ type Configuration struct {
 	JWTSecret          string
 	UserServiceAddr    string
 	TradingServiceAddr string
+	BankingServiceAddr string
 	OurBankDisplayName string
 }
 
@@ -91,6 +93,7 @@ func Load() *Configuration {
 	return &Configuration{
 		Env:                getOrDefault("ENV", "development"),
 		Port:               getOrDefault("PORT", "8083"),
+		GrpcPort:           getOrDefault("GRPC_PORT", "50054"),
 		OurRoutingNumber:   getIntOrDefault("INTERBANK_ROUTING_NUMBER", 444),
 		PeersConfigPath:    getOrDefault("INTERBANK_PEERS_CONFIG_PATH", "./peers.yaml"),
 		OutboundHTTPTO:     getDurationOrDefault("INTERBANK_OUTBOUND_HTTP_TIMEOUT", 10*time.Second),
@@ -99,6 +102,7 @@ func Load() *Configuration {
 		JWTSecret:          getOrThrow("JWT_SECRET"),
 		UserServiceAddr:    getOrDefault("USER_SERVICE_ADDR", "localhost:50051"),
 		TradingServiceAddr: getOrDefault("TRADING_SERVICE_ADDR", "localhost:50053"),
+		BankingServiceAddr: getOrDefault("BANKING_SERVICE_ADDR", "localhost:50052"),
 		OurBankDisplayName: getOrDefault("INTERBANK_BANK_DISPLAY_NAME", "Banka 4"),
 		DB: DBConfig{
 			Host:     getOrThrow("DB_HOST"),

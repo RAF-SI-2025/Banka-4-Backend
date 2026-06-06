@@ -16,6 +16,10 @@ service BankingService {
   rpc CommitOtcFunds(OtcFundsRequest) returns (OtcFundsReservationResponse);
   rpc RefundOtcFunds(OtcFundsRequest) returns (OtcFundsReservationResponse);
   rpc CreateFundAccount(CreateFundAccountRequest) returns (CreateFundAccountResponse);
+  rpc PrepareInterbankCashPosting(PrepareInterbankCashPostingRequest) returns (InterbankCashPostingResponse);
+  rpc CommitInterbankCashPosting(InterbankCashPostingRequest) returns (InterbankCashPostingResponse);
+  rpc RollbackInterbankCashPosting(InterbankCashPostingRequest) returns (InterbankCashPostingResponse);
+  rpc FinalizeInterbankPayment(FinalizeInterbankPaymentRequest) returns (FinalizeInterbankPaymentResponse);
 }
 
 enum TradeSettlementDirection {
@@ -140,3 +144,30 @@ message CreateFundAccountRequest {
 message CreateFundAccountResponse {
   string account_number = 1;
 }
+
+message PrepareInterbankCashPostingRequest {
+  string posting_id = 1;
+  string account_number = 2;
+  uint64 client_id = 3;
+  string currency_code = 4;
+  double amount = 5;
+}
+
+message InterbankCashPostingRequest {
+  string posting_id = 1;
+}
+
+message InterbankCashPostingResponse {
+  string posting_id = 1;
+  string account_number = 2;
+  string currency_code = 3;
+  double amount = 4;
+  string status = 5;
+}
+
+message FinalizeInterbankPaymentRequest {
+  uint64 banking_tx_id = 1;
+  bool success = 2;
+}
+
+message FinalizeInterbankPaymentResponse {}

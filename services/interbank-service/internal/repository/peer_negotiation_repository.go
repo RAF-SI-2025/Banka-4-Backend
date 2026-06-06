@@ -12,6 +12,10 @@ import (
 type PeerNegotiationRepository interface {
 	Create(ctx context.Context, n *model.PeerNegotiation) error
 	FindByID(ctx context.Context, id string) (*model.PeerNegotiation, error)
+	FindByIDForUpdate(ctx context.Context, id string) (*model.PeerNegotiation, error)
 	Update(ctx context.Context, n *model.PeerNegotiation) error
 	ListByParty(ctx context.Context, routingNumber int, partyID string) ([]model.PeerNegotiation, error)
+	// FindOngoing returns all ONGOING negotiations. Settlement-date expiry is
+	// decided in Go (SettlementPassed), not in SQL.
+	FindOngoing(ctx context.Context) ([]model.PeerNegotiation, error)
 }

@@ -30,6 +30,10 @@ const (
 	BankingService_CommitOtcFunds_FullMethodName                   = "/banking.v1.BankingService/CommitOtcFunds"
 	BankingService_RefundOtcFunds_FullMethodName                   = "/banking.v1.BankingService/RefundOtcFunds"
 	BankingService_CreateFundAccount_FullMethodName                = "/banking.v1.BankingService/CreateFundAccount"
+	BankingService_PrepareInterbankCashPosting_FullMethodName      = "/banking.v1.BankingService/PrepareInterbankCashPosting"
+	BankingService_CommitInterbankCashPosting_FullMethodName       = "/banking.v1.BankingService/CommitInterbankCashPosting"
+	BankingService_RollbackInterbankCashPosting_FullMethodName     = "/banking.v1.BankingService/RollbackInterbankCashPosting"
+	BankingService_FinalizeInterbankPayment_FullMethodName         = "/banking.v1.BankingService/FinalizeInterbankPayment"
 )
 
 // BankingServiceClient is the client API for BankingService service.
@@ -47,6 +51,10 @@ type BankingServiceClient interface {
 	CommitOtcFunds(ctx context.Context, in *OtcFundsRequest, opts ...grpc.CallOption) (*OtcFundsReservationResponse, error)
 	RefundOtcFunds(ctx context.Context, in *OtcFundsRequest, opts ...grpc.CallOption) (*OtcFundsReservationResponse, error)
 	CreateFundAccount(ctx context.Context, in *CreateFundAccountRequest, opts ...grpc.CallOption) (*CreateFundAccountResponse, error)
+	PrepareInterbankCashPosting(ctx context.Context, in *PrepareInterbankCashPostingRequest, opts ...grpc.CallOption) (*InterbankCashPostingResponse, error)
+	CommitInterbankCashPosting(ctx context.Context, in *InterbankCashPostingRequest, opts ...grpc.CallOption) (*InterbankCashPostingResponse, error)
+	RollbackInterbankCashPosting(ctx context.Context, in *InterbankCashPostingRequest, opts ...grpc.CallOption) (*InterbankCashPostingResponse, error)
+	FinalizeInterbankPayment(ctx context.Context, in *FinalizeInterbankPaymentRequest, opts ...grpc.CallOption) (*FinalizeInterbankPaymentResponse, error)
 }
 
 type bankingServiceClient struct {
@@ -167,6 +175,46 @@ func (c *bankingServiceClient) CreateFundAccount(ctx context.Context, in *Create
 	return out, nil
 }
 
+func (c *bankingServiceClient) PrepareInterbankCashPosting(ctx context.Context, in *PrepareInterbankCashPostingRequest, opts ...grpc.CallOption) (*InterbankCashPostingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InterbankCashPostingResponse)
+	err := c.cc.Invoke(ctx, BankingService_PrepareInterbankCashPosting_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bankingServiceClient) CommitInterbankCashPosting(ctx context.Context, in *InterbankCashPostingRequest, opts ...grpc.CallOption) (*InterbankCashPostingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InterbankCashPostingResponse)
+	err := c.cc.Invoke(ctx, BankingService_CommitInterbankCashPosting_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bankingServiceClient) RollbackInterbankCashPosting(ctx context.Context, in *InterbankCashPostingRequest, opts ...grpc.CallOption) (*InterbankCashPostingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InterbankCashPostingResponse)
+	err := c.cc.Invoke(ctx, BankingService_RollbackInterbankCashPosting_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bankingServiceClient) FinalizeInterbankPayment(ctx context.Context, in *FinalizeInterbankPaymentRequest, opts ...grpc.CallOption) (*FinalizeInterbankPaymentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FinalizeInterbankPaymentResponse)
+	err := c.cc.Invoke(ctx, BankingService_FinalizeInterbankPayment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BankingServiceServer is the server API for BankingService service.
 // All implementations must embed UnimplementedBankingServiceServer
 // for forward compatibility.
@@ -182,6 +230,10 @@ type BankingServiceServer interface {
 	CommitOtcFunds(context.Context, *OtcFundsRequest) (*OtcFundsReservationResponse, error)
 	RefundOtcFunds(context.Context, *OtcFundsRequest) (*OtcFundsReservationResponse, error)
 	CreateFundAccount(context.Context, *CreateFundAccountRequest) (*CreateFundAccountResponse, error)
+	PrepareInterbankCashPosting(context.Context, *PrepareInterbankCashPostingRequest) (*InterbankCashPostingResponse, error)
+	CommitInterbankCashPosting(context.Context, *InterbankCashPostingRequest) (*InterbankCashPostingResponse, error)
+	RollbackInterbankCashPosting(context.Context, *InterbankCashPostingRequest) (*InterbankCashPostingResponse, error)
+	FinalizeInterbankPayment(context.Context, *FinalizeInterbankPaymentRequest) (*FinalizeInterbankPaymentResponse, error)
 	mustEmbedUnimplementedBankingServiceServer()
 }
 
@@ -224,6 +276,18 @@ func (UnimplementedBankingServiceServer) RefundOtcFunds(context.Context, *OtcFun
 }
 func (UnimplementedBankingServiceServer) CreateFundAccount(context.Context, *CreateFundAccountRequest) (*CreateFundAccountResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateFundAccount not implemented")
+}
+func (UnimplementedBankingServiceServer) PrepareInterbankCashPosting(context.Context, *PrepareInterbankCashPostingRequest) (*InterbankCashPostingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PrepareInterbankCashPosting not implemented")
+}
+func (UnimplementedBankingServiceServer) CommitInterbankCashPosting(context.Context, *InterbankCashPostingRequest) (*InterbankCashPostingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CommitInterbankCashPosting not implemented")
+}
+func (UnimplementedBankingServiceServer) RollbackInterbankCashPosting(context.Context, *InterbankCashPostingRequest) (*InterbankCashPostingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RollbackInterbankCashPosting not implemented")
+}
+func (UnimplementedBankingServiceServer) FinalizeInterbankPayment(context.Context, *FinalizeInterbankPaymentRequest) (*FinalizeInterbankPaymentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FinalizeInterbankPayment not implemented")
 }
 func (UnimplementedBankingServiceServer) mustEmbedUnimplementedBankingServiceServer() {}
 func (UnimplementedBankingServiceServer) testEmbeddedByValue()                        {}
@@ -444,6 +508,78 @@ func _BankingService_CreateFundAccount_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BankingService_PrepareInterbankCashPosting_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PrepareInterbankCashPostingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BankingServiceServer).PrepareInterbankCashPosting(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BankingService_PrepareInterbankCashPosting_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BankingServiceServer).PrepareInterbankCashPosting(ctx, req.(*PrepareInterbankCashPostingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BankingService_CommitInterbankCashPosting_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InterbankCashPostingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BankingServiceServer).CommitInterbankCashPosting(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BankingService_CommitInterbankCashPosting_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BankingServiceServer).CommitInterbankCashPosting(ctx, req.(*InterbankCashPostingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BankingService_RollbackInterbankCashPosting_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InterbankCashPostingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BankingServiceServer).RollbackInterbankCashPosting(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BankingService_RollbackInterbankCashPosting_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BankingServiceServer).RollbackInterbankCashPosting(ctx, req.(*InterbankCashPostingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BankingService_FinalizeInterbankPayment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FinalizeInterbankPaymentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BankingServiceServer).FinalizeInterbankPayment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BankingService_FinalizeInterbankPayment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BankingServiceServer).FinalizeInterbankPayment(ctx, req.(*FinalizeInterbankPaymentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BankingService_ServiceDesc is the grpc.ServiceDesc for BankingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -494,6 +630,22 @@ var BankingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateFundAccount",
 			Handler:    _BankingService_CreateFundAccount_Handler,
+		},
+		{
+			MethodName: "PrepareInterbankCashPosting",
+			Handler:    _BankingService_PrepareInterbankCashPosting_Handler,
+		},
+		{
+			MethodName: "CommitInterbankCashPosting",
+			Handler:    _BankingService_CommitInterbankCashPosting_Handler,
+		},
+		{
+			MethodName: "RollbackInterbankCashPosting",
+			Handler:    _BankingService_RollbackInterbankCashPosting_Handler,
+		},
+		{
+			MethodName: "FinalizeInterbankPayment",
+			Handler:    _BankingService_FinalizeInterbankPayment_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

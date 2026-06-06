@@ -138,6 +138,14 @@ func (f *fakePermissionProvider) GetPermissions(_ context.Context, _ *commonjwt.
 	return nil, nil
 }
 
+// fakeInterbankClient stands in for the outbound interbank gRPC client. These
+// tests use only local (444) accounts, so the foreign-payment path is never hit.
+type fakeInterbankClient struct{}
+
+func (f *fakeInterbankClient) InitiatePayment(_ context.Context, _ *pb.InitiateInterbankPaymentRequest) error {
+	return nil
+}
+
 type fakeCurrencyConverter struct{}
 
 func (f *fakeCurrencyConverter) Convert(_ context.Context, amount float64, from, to model.CurrencyCode) (float64, error) {
@@ -212,7 +220,7 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	companySvc := service.NewCompanyService(companyRepo, userCl, db, nil)
 	payeeSvc := service.NewPayeeService(payeeRepo)
 	exchangeSvc := service.NewExchangeService(exchangeRateRepo, nil)
-	transactionProcessor := service.NewTransactionProcessor(accountRepo, transactionRepo, txManager)
+	transactionProcessor := service.NewTransactionProcessor(accountRepo, transactionRepo, txManager, &fakeInterbankClient{})
 	paymentSvc := service.NewPaymentService(paymentRepo, transactionRepo, accountRepo, mobileSecretCl, converter, txManager, transactionProcessor, userCl, mailer)
 	transferSvc := service.NewTransferService(transferRepo, transactionRepo, accountRepo, converter, txManager, transactionProcessor, userCl, mailer)
 	loanSvc := service.NewLoanService(accountRepo, loanTypeRepo, loanRequestRepo, loanRepo, transactionProcessor, txManager, userCl, mailer)

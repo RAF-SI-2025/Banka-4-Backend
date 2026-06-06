@@ -36,17 +36,18 @@ func (c *DBConfig) DSN() string {
 }
 
 type Configuration struct {
-	Env                string
-	Port               string
-	DB                 DBConfig
-	JWTSecret          string
-	GrpcPort           string
-	UserServiceAddr    string
-	UserServiceBaseURL string
-	EmailServiceAddr   string
-	ExchangeRateAPIKey string
-	URLs               URLConfig
-	Redis              RedisConfig
+	Env                  string
+	Port                 string
+	DB                   DBConfig
+	JWTSecret            string
+	GrpcPort             string
+	UserServiceAddr      string
+	UserServiceBaseURL   string
+	EmailServiceAddr     string
+	InterbankServiceAddr string
+	ExchangeRateAPIKey   string
+	URLs                 URLConfig
+	Redis                RedisConfig
 }
 
 func GetDurationOrDefault(env string, defaultValue time.Duration) time.Duration {
@@ -98,14 +99,15 @@ func Load() *Configuration {
 	_ = godotenv.Load()
 
 	return &Configuration{
-		Env:                GetOrDefault("ENV", "development"),
-		Port:               GetOrDefault("PORT", "8081"),
-		GrpcPort:           GetOrDefault("GRPC_PORT", "50052"),
-		JWTSecret:          GetOrThrow("JWT_SECRET"),
-		UserServiceAddr:    GetOrDefault("USER_SERVICE_ADDR", "localhost:50051"),
-		UserServiceBaseURL: GetOrDefault("USER_SERVICE_BASE_URL", "http://localhost:8080"),
-		EmailServiceAddr:   GetOrDefault("EMAIL_SERVICE_ADDR", "localhost:50054"),
-		ExchangeRateAPIKey: GetOrThrow("EXCHANGE_RATE_API_KEY"),
+		Env:                  GetOrDefault("ENV", "development"),
+		Port:                 GetOrDefault("PORT", "8081"),
+		GrpcPort:             GetOrDefault("GRPC_PORT", "50052"),
+		JWTSecret:            GetOrThrow("JWT_SECRET"),
+		UserServiceAddr:      GetOrDefault("USER_SERVICE_ADDR", "localhost:50051"),
+		UserServiceBaseURL:   GetOrDefault("USER_SERVICE_BASE_URL", "http://localhost:8080"),
+		EmailServiceAddr:     GetOrDefault("EMAIL_SERVICE_ADDR", "localhost:50054"),
+		InterbankServiceAddr: GetOrDefault("INTERBANK_SERVICE_ADDR", "localhost:50054"),
+		ExchangeRateAPIKey:   GetOrThrow("EXCHANGE_RATE_API_KEY"),
 		DB: DBConfig{
 			Host:     GetOrThrow("DB_HOST"),
 			Port:     GetOrThrow("DB_PORT"),

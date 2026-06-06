@@ -582,7 +582,7 @@ func newTransferServiceForTests(accounts []model.Account, converter *fakeTransfe
 		transferRepo:    transferRepo,
 	}
 
-	transactionProcessor := NewTransactionProcessor(accountRepo, transactionRepo, txManager)
+	transactionProcessor := NewTransactionProcessor(accountRepo, transactionRepo, txManager, nil)
 	service := NewTransferService(transferRepo, transactionRepo, accountRepo, converter, txManager, transactionProcessor, &fakeUserClient{}, &fakeAccountServiceMailer{})
 	return &transferTestEnv{
 		service:         service,

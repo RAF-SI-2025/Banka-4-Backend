@@ -1,20 +1,28 @@
 # Sample peer registry. Copy to peers.yaml (or wherever INTERBANK_PEERS_CONFIG_PATH points)
 # and fill in real values for each partner bank.
+#
+# IMPORTANT: baseUrl is the peer's interbank ROOT *without* a trailing "/interbank"
+# — the client appends "/interbank", "/interbank/negotiations", etc. itself. If you
+# include "/interbank" here, outbound calls become ".../interbank/interbank/..." and
+# 404. For exbanka the correct value is:
+#   https://exbanka.vlupsic.dev/instance1/api/v3/cross-bank-protocol
+#
+# theirApiKey must be UNIQUE across peers (LoadPeers rejects duplicates).
 peers:
   - routingNumber: 111
-    baseUrl: "http://bank1.local/interbank"
-    ourApiKey: "key-they-issued-to-us"      # sent in X-Api-Key when we call them
-    theirApiKey: "key-we-issued-to-them"    # expected in X-Api-Key when they call us
+    baseUrl: "http://bank1.local"               # host root only — NO /interbank suffix
+    ourApiKey: "key-they-issued-to-us"          # sent in X-Api-Key when we call them
+    theirApiKey: "key-we-issued-to-them"        # expected in X-Api-Key when they call us
     displayName: "Bank 1"
 
   - routingNumber: 222
-    baseUrl: "http://bank2.local/interbank"
+    baseUrl: "http://bank2.local"
     ourApiKey: "..."
     theirApiKey: "..."
     displayName: "Bank 2"
 
   - routingNumber: 333
-    baseUrl: "http://bank3.local/interbank"
+    baseUrl: "http://bank3.local"
     ourApiKey: "..."
     theirApiKey: "..."
     displayName: "Bank 3"

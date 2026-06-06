@@ -25,6 +25,26 @@ definitions:
     - AssetMonas
     - AssetStock
     - AssetOption
+  dto.CurrencyCode:
+    enum:
+    - RSD
+    - EUR
+    - USD
+    - CHF
+    - JPY
+    - AUD
+    - CAD
+    - GBP
+    type: string
+    x-enum-varnames:
+    - CurrencyRSD
+    - CurrencyEUR
+    - CurrencyUSD
+    - CurrencyCHF
+    - CurrencyJPY
+    - CurrencyAUD
+    - CurrencyCAD
+    - CurrencyGBP
   dto.ForeignBankId:
     properties:
       id:
@@ -72,6 +92,16 @@ definitions:
     - MessageTypeNewTx
     - MessageTypeCommitTx
     - MessageTypeRollbackTx
+  dto.MonetaryValue:
+    properties:
+      amount:
+        type: number
+      currency:
+        $ref: '#/definitions/dto.CurrencyCode'
+    required:
+    - amount
+    - currency
+    type: object
   dto.NoVoteReason:
     properties:
       posting:
@@ -101,6 +131,39 @@ definitions:
     - ReasonOptionNegotiationNotFound
   dto.OtcNegotiation:
     properties:
+      amount:
+        minimum: 1
+        type: integer
+      buyerAccountNumber:
+        description: BuyerAccountNumber is a Banka-4 extension to the protocol's OtcOffer.
+        type: string
+      buyerId:
+        $ref: '#/definitions/dto.ForeignBankId'
+      isOngoing:
+        type: boolean
+      lastModifiedBy:
+        $ref: '#/definitions/dto.ForeignBankId'
+      premium:
+        $ref: '#/definitions/dto.MonetaryValue'
+      pricePerUnit:
+        $ref: '#/definitions/dto.MonetaryValue'
+      sellerId:
+        $ref: '#/definitions/dto.ForeignBankId'
+      settlementDate:
+        type: string
+      stock:
+        $ref: '#/definitions/dto.StockDescription'
+    required:
+    - amount
+    - buyerId
+    - lastModifiedBy
+    - pricePerUnit
+    - sellerId
+    - settlementDate
+    - stock
+    type: object
+  dto.OtcNegotiationView:
+    properties:
       id:
         $ref: '#/definitions/dto.ForeignBankId'
       offer:
@@ -116,38 +179,60 @@ definitions:
       amount:
         minimum: 1
         type: integer
+      buyerAccountNumber:
+        description: BuyerAccountNumber is a Banka-4 extension to the protocol's OtcOffer.
+        type: string
       buyerId:
         $ref: '#/definitions/dto.ForeignBankId'
       lastModifiedBy:
         $ref: '#/definitions/dto.ForeignBankId'
       premium:
-        type: number
-      premiumCurrency:
-        maxLength: 8
-        type: string
-      priceCurrency:
-        maxLength: 8
-        type: string
-      pricePerStock:
-        type: number
+        $ref: '#/definitions/dto.MonetaryValue'
+      pricePerUnit:
+        $ref: '#/definitions/dto.MonetaryValue'
       sellerId:
         $ref: '#/definitions/dto.ForeignBankId'
       settlementDate:
         type: string
-      ticker:
-        maxLength: 16
-        type: string
+      stock:
+        $ref: '#/definitions/dto.StockDescription'
     required:
     - amount
     - buyerId
     - lastModifiedBy
-    - premium
-    - premiumCurrency
-    - priceCurrency
-    - pricePerStock
+    - pricePerUnit
     - sellerId
     - settlementDate
-    - ticker
+    - stock
+    type: object
+  dto.PeerContract:
+    properties:
+      amount:
+        type: integer
+      buyerId:
+        $ref: '#/definitions/dto.ForeignBankId'
+      createdAt:
+        type: string
+      exercisedAt:
+        type: string
+      id:
+        $ref: '#/definitions/dto.ForeignBankId'
+      negotiationId:
+        $ref: '#/definitions/dto.ForeignBankId'
+      premium:
+        $ref: '#/definitions/dto.MonetaryValue'
+      sellerId:
+        $ref: '#/definitions/dto.ForeignBankId'
+      settlementDate:
+        type: string
+      status:
+        type: string
+      strikePrice:
+        $ref: '#/definitions/dto.MonetaryValue'
+      ticker:
+        type: string
+      updatedAt:
+        type: string
     type: object
   dto.Posting:
     properties:
@@ -244,6 +329,8 @@ definitions:
       timestamp:
         type: string
     type: object
+  handler.AcceptPeerNegotiationRequest:
+    type: object
   handler.CounterPeerNegotiationRequest:
     properties:
       amount:
@@ -271,6 +358,8 @@ definitions:
     type: object
   handler.CreatePeerNegotiationRequest:
     properties:
+      accountNumber:
+        type: string
       amount:
         minimum: 1
         type: integer
@@ -292,6 +381,7 @@ definitions:
         maxLength: 16
         type: string
     required:
+    - accountNumber
     - amount
     - premium
     - premiumCurrency
@@ -300,6 +390,13 @@ definitions:
     - sellerId
     - settlementDate
     - ticker
+    type: object
+  handler.ExerciseContractRequest:
+    properties:
+      accountNumber:
+        type: string
+    required:
+    - accountNumber
     type: object
 info:
   contact: {}
@@ -310,6 +407,53 @@ info:
   title: Interbank Service API
   version: "1.0"
 paths:
+  /api/peer-otc/contracts:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.PeerContract'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List my cross-bank OTC contracts
+      tags:
+      - peer-otc
+  /api/peer-otc/contracts/{rn}/{id}/exercise:
+    post:
+      parameters:
+      - description: Authoritative bank routing number
+        in: path
+        name: rn
+        required: true
+        type: integer
+      - description: Contract id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Buyer account number
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.ExerciseContractRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PeerContract'
+      security:
+      - BearerAuth: []
+      summary: Exercise a cross-bank OTC contract
+      tags:
+      - peer-otc
   /api/peer-otc/negotiations:
     get:
       description: |-
@@ -322,7 +466,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/dto.OtcNegotiation'
+              $ref: '#/definitions/dto.OtcNegotiationView'
             type: array
         "401":
           description: Unauthorized
@@ -407,11 +551,45 @@ paths:
       summary: Withdraw from a cross-bank negotiation
       tags:
       - peer-otc
+  /api/peer-otc/negotiations/{rn}/{id}/accept:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Authoritative bank routing number
+        in: path
+        name: rn
+        required: true
+        type: integer
+      - description: Negotiation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Local account number
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/handler.AcceptPeerNegotiationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PeerContract'
+      security:
+      - BearerAuth: []
+      summary: Accept a cross-bank OTC negotiation
+      tags:
+      - peer-otc
   /api/peer-otc/negotiations/{rn}/{id}/counter:
     put:
       consumes:
       - application/json
-      description: Forwards a counter-offer to the authoritative bank via §3.3.
+      description: |-
+        Posts a counter-offer whether the authenticated user is the
+        buyer or the seller, notifying the opposing party's bank via §3.3.
       parameters:
       - description: Authoritative bank routing number
         in: path
@@ -565,16 +743,17 @@ paths:
   /interbank/negotiations/{rn}/{id}:
     delete:
       description: |-
-        §3.5 — either party may withdraw from a negotiation. The
-        operation is idempotent: closing an already-closed
-        negotiation returns 204 without changing state.
+        §3.5 — either party may withdraw from a negotiation (the
+        recipient may be the authoritative or the mirror side). The
+        operation is idempotent: closing an already-closed negotiation
+        returns 204 without changing state.
       parameters:
       - description: Peer bank API key
         in: header
         name: X-Api-Key
         required: true
         type: string
-      - description: Routing number (this bank)
+      - description: Authoritative (seller's) routing number
         in: path
         name: rn
         required: true
@@ -610,16 +789,16 @@ paths:
       - interbank-otc
     get:
       description: |-
-        §3.4 — returns the current state of a negotiation owned by
-        this bank. The :rn path parameter must match this bank's
-        routing number.
+        §3.4 — returns the current negotiation state as the spec shape
+        (the OtcOffer fields plus isOngoing). The :rn path parameter is
+        the negotiation's authoritative (seller's) routing number.
       parameters:
       - description: Peer bank API key
         in: header
         name: X-Api-Key
         required: true
         type: string
-      - description: Routing number (this bank)
+      - description: Authoritative (seller's) routing number
         in: path
         name: rn
         required: true
@@ -655,17 +834,18 @@ paths:
       consumes:
       - application/json
       description: |-
-        §3.3 — peer bank posts a counter-offer against an ongoing
-        negotiation owned by us. Buyer/seller and ticker are
-        immutable; only negotiable parameters may change. The
-        same party may not counter twice in a row (turn rule).
+        §3.3 — a peer bank posts a counter-offer (either party may
+        counter; the recipient may be the authoritative seller's bank
+        or the buyer's mirror-holding bank). Buyer/seller and ticker are
+        immutable; only negotiable parameters may change. The same party
+        may not counter twice in a row (turn rule).
       parameters:
       - description: Peer bank API key
         in: header
         name: X-Api-Key
         required: true
         type: string
-      - description: Routing number (this bank)
+      - description: Authoritative (seller's) routing number
         in: path
         name: rn
         required: true
@@ -712,10 +892,49 @@ paths:
   /interbank/negotiations/{rn}/{id}/accept:
     get:
       description: |-
-        §3.6 — STUB. Triggers a §2 NEW_TX with the 4 premium +
-        option-pseudo postings. Implementation pending (depends
-        on §2 protocol layer).
-      responses: {}
+        §3.6 — accepts the current offer on a negotiation owned by us
+        (we are the seller's authoritative bank). Forms the option
+        contract and drives the §2 NEW_TX that moves the premium, then
+        returns the resulting contract.
+      parameters:
+      - description: Peer bank API key
+        in: header
+        name: X-Api-Key
+        required: true
+        type: string
+      - description: Routing number (this bank)
+        in: path
+        name: rn
+        required: true
+        type: integer
+      - description: Negotiation id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PeerContract'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errors.AppError'
       summary: Accept OTC negotiation
       tags:
       - interbank-otc

@@ -86,8 +86,12 @@ func setupRoutes(
 				peerOtcNegotiations.GET("", peerOtcFrontendHandler.ListMyNegotiations)
 				peerOtcNegotiations.POST("", peerOtcFrontendHandler.CreateNegotiation)
 				peerOtcNegotiations.PUT("/:rn/:id/counter", peerOtcFrontendHandler.SendCounterOffer)
+				peerOtcNegotiations.POST("/:rn/:id/accept", peerOtcFrontendHandler.AcceptNegotiation)
 				peerOtcNegotiations.DELETE("/:rn/:id", peerOtcFrontendHandler.Withdraw)
 			}
+
+			peerOtc.GET("/contracts", peerOtcFrontendHandler.ListMyContracts)
+			peerOtc.POST("/contracts/:rn/:id/exercise", peerOtcFrontendHandler.ExerciseContract)
 		}
 	}
 
@@ -112,6 +116,7 @@ func setupRoutes(
 			negotiations.DELETE("/:rn/:id", peerOtcHandler.DeleteNegotiation)
 			negotiations.GET("/:rn/:id/accept", peerOtcHandler.AcceptNegotiation)
 		}
+
 	}
 }
 

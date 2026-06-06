@@ -7,6 +7,8 @@ package main
 // @description per-peer via the X-Api-Key header (see §2.10).
 
 import (
+	"context"
+
 	"go.uber.org/fx"
 	"gorm.io/gorm"
 
@@ -18,7 +20,9 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/interbank-service/internal/client"
 	clientgrpc "github.com/RAF-SI-2025/Banka-4-Backend/services/interbank-service/internal/client/grpc"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/interbank-service/internal/config"
+	grpcsvc "github.com/RAF-SI-2025/Banka-4-Backend/services/interbank-service/internal/grpc"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/interbank-service/internal/handler"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/interbank-service/internal/job"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/interbank-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/interbank-service/internal/permission"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/interbank-service/internal/repository"
@@ -43,8 +47,10 @@ func main() {
 
 			client.NewUserServiceConnection,
 			client.NewTradingServiceConnection,
+			client.NewBankingServiceConnection,
 			clientgrpc.NewUserClient,
 			clientgrpc.NewTradingClient,
+			clientgrpc.NewBankingClient,
 
 			// PermissionService is exposed by user-service, so it shares
 			// the user-service gRPC connection.
@@ -60,11 +66,18 @@ func main() {
 			repository.NewGormTransactionManager,
 			repository.NewInboundMessageRepository,
 			repository.NewOutboundMessageRepository,
+			repository.NewPreparedTransactionRepository,
 			repository.NewPeerNegotiationRepository,
+			repository.NewPeerContractRepository,
 
 			service.NewMessageProcessor,
 			service.NewPeerOtcService,
 			service.NewPeerOtcClient,
+
+			grpcsvc.NewInterbankGRPCService,
+
+			job.NewOutboxWorker,
+			job.NewContractExpiryJob,
 
 			handler.NewHealthHandler,
 			handler.NewInterbankHandler,
@@ -79,9 +92,24 @@ func main() {
 			return db.AutoMigrate(
 				&model.InboundMessage{},
 				&model.OutboundMessage{},
+				&model.PreparedTransaction{},
 				&model.PeerNegotiation{},
+				&model.PeerContract{},
 			)
 		}),
+		fx.Invoke(func(lc fx.Lifecycle, worker *job.OutboxWorker) {
+			lc.Append(fx.Hook{
+				OnStart: func(_ context.Context) error { worker.Start(); return nil },
+				OnStop:  func(_ context.Context) error { worker.Stop(); return nil },
+			})
+		}),
+		fx.Invoke(func(lc fx.Lifecycle, j *job.ContractExpiryJob) {
+			lc.Append(fx.Hook{
+				OnStart: func(_ context.Context) error { j.Start(); return nil },
+				OnStop:  func(_ context.Context) error { j.Stop(); return nil },
+			})
+		}),
 		fx.Invoke(server.NewServer),
+		fx.Invoke(server.NewGRPCServer),
 	).Run()
 }

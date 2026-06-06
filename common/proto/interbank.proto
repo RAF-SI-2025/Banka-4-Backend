@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package interbank.v1;
+
+option go_package = "common/pkg/pb;pb";
+
+service InterbankService {
+  rpc InitiatePayment(InitiateInterbankPaymentRequest) returns (InitiateInterbankPaymentResponse);
+}
+
+message InitiateInterbankPaymentRequest {
+  string payer_account_number  = 1;
+  string payee_account_number  = 2;
+  double amount                = 3;
+  string currency              = 4;
+  uint64 banking_tx_id         = 5;
+  string message               = 6;
+  string payment_code          = 7;
+  string payment_purpose       = 8;
+}
+
+message InitiateInterbankPaymentResponse {}

@@ -60,13 +60,13 @@ func (h *PeerOtcHandler) CreateNegotiation(c *gin.Context) {
 
 // GetNegotiation godoc
 // @Summary Get OTC negotiation
-// @Description §3.4 — returns the current state of a negotiation owned by
-// @Description this bank. The :rn path parameter must match this bank's
-// @Description routing number.
+// @Description §3.4 — returns the current negotiation state as the spec shape
+// @Description (the OtcOffer fields plus isOngoing). The :rn path parameter is
+// @Description the negotiation's authoritative (seller's) routing number.
 // @Tags interbank-otc
 // @Produce json
 // @Param X-Api-Key header string true "Peer bank API key"
-// @Param rn path int true "Routing number (this bank)"
+// @Param rn path int true "Authoritative (seller's) routing number"
 // @Param id path string true "Negotiation id"
 // @Success 200 {object} dto.OtcNegotiation
 // @Failure 400 {object} errors.AppError
@@ -96,15 +96,16 @@ func (h *PeerOtcHandler) GetNegotiation(c *gin.Context) {
 
 // UpdateNegotiation godoc
 // @Summary Post counter-offer
-// @Description §3.3 — peer bank posts a counter-offer against an ongoing
-// @Description negotiation owned by us. Buyer/seller and ticker are
-// @Description immutable; only negotiable parameters may change. The
-// @Description same party may not counter twice in a row (turn rule).
+// @Description §3.3 — a peer bank posts a counter-offer (either party may
+// @Description counter; the recipient may be the authoritative seller's bank
+// @Description or the buyer's mirror-holding bank). Buyer/seller and ticker are
+// @Description immutable; only negotiable parameters may change. The same party
+// @Description may not counter twice in a row (turn rule).
 // @Tags interbank-otc
 // @Accept json
 // @Produce json
 // @Param X-Api-Key header string true "Peer bank API key"
-// @Param rn path int true "Routing number (this bank)"
+// @Param rn path int true "Authoritative (seller's) routing number"
 // @Param id path string true "Negotiation id"
 // @Param request body dto.OtcOffer true "Updated offer"
 // @Success 204
@@ -147,13 +148,14 @@ func (h *PeerOtcHandler) UpdateNegotiation(c *gin.Context) {
 
 // DeleteNegotiation godoc
 // @Summary Close OTC negotiation
-// @Description §3.5 — either party may withdraw from a negotiation. The
-// @Description operation is idempotent: closing an already-closed
-// @Description negotiation returns 204 without changing state.
+// @Description §3.5 — either party may withdraw from a negotiation (the
+// @Description recipient may be the authoritative or the mirror side). The
+// @Description operation is idempotent: closing an already-closed negotiation
+// @Description returns 204 without changing state.
 // @Tags interbank-otc
 // @Produce json
 // @Param X-Api-Key header string true "Peer bank API key"
-// @Param rn path int true "Routing number (this bank)"
+// @Param rn path int true "Authoritative (seller's) routing number"
 // @Param id path string true "Negotiation id"
 // @Success 204
 // @Failure 400 {object} errors.AppError
@@ -188,13 +190,45 @@ func (h *PeerOtcHandler) DeleteNegotiation(c *gin.Context) {
 
 // AcceptNegotiation godoc
 // @Summary Accept OTC negotiation
-// @Description §3.6 — STUB. Triggers a §2 NEW_TX with the 4 premium +
-// @Description option-pseudo postings. Implementation pending (depends
-// @Description on §2 protocol layer).
+// @Description §3.6 — accepts the current offer on a negotiation owned by us
+// @Description (we are the seller's authoritative bank). Forms the option
+// @Description contract and drives the §2 NEW_TX that moves the premium, then
+// @Description returns the resulting contract.
 // @Tags interbank-otc
+// @Produce json
+// @Param X-Api-Key header string true "Peer bank API key"
+// @Param rn path int true "Routing number (this bank)"
+// @Param id path string true "Negotiation id"
+// @Success 200 {object} dto.PeerContract
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Failure 409 {object} errors.AppError
 // @Router /interbank/negotiations/{rn}/{id}/accept [get]
 func (h *PeerOtcHandler) AcceptNegotiation(c *gin.Context) {
-	_ = c.Error(errors.NewAppError(http.StatusNotImplemented, "accept-negotiation not implemented yet", nil))
+	senderRouting, ok := senderRoutingFromContext(c)
+	if !ok {
+		return
+	}
+
+	rn, ok := parseRoutingNumber(c)
+	if !ok {
+		return
+	}
+
+	id := c.Param("id")
+	if id == "" {
+		_ = c.Error(errors.BadRequestErr("id is required"))
+		return
+	}
+
+	contract, err := h.service.AcceptFromPeer(c.Request.Context(), senderRouting, rn, id)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, contract)
 }
 
 // PublicStock godoc

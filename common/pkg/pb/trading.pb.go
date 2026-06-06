@@ -304,6 +304,290 @@ func (x *ListPublicStocksResponse) GetStocks() []*PublicStockEntry {
 	return nil
 }
 
+type ReservePeerOtcSharesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContractId    string                 `protobuf:"bytes,1,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	SellerId      uint64                 `protobuf:"varint,2,opt,name=seller_id,json=sellerId,proto3" json:"seller_id,omitempty"`
+	Ticker        string                 `protobuf:"bytes,3,opt,name=ticker,proto3" json:"ticker,omitempty"`
+	Amount        float64                `protobuf:"fixed64,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReservePeerOtcSharesRequest) Reset() {
+	*x = ReservePeerOtcSharesRequest{}
+	mi := &file_common_proto_trading_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReservePeerOtcSharesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReservePeerOtcSharesRequest) ProtoMessage() {}
+
+func (x *ReservePeerOtcSharesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_trading_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReservePeerOtcSharesRequest.ProtoReflect.Descriptor instead.
+func (*ReservePeerOtcSharesRequest) Descriptor() ([]byte, []int) {
+	return file_common_proto_trading_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ReservePeerOtcSharesRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+func (x *ReservePeerOtcSharesRequest) GetSellerId() uint64 {
+	if x != nil {
+		return x.SellerId
+	}
+	return 0
+}
+
+func (x *ReservePeerOtcSharesRequest) GetTicker() string {
+	if x != nil {
+		return x.Ticker
+	}
+	return ""
+}
+
+func (x *ReservePeerOtcSharesRequest) GetAmount() float64 {
+	if x != nil {
+		return x.Amount
+	}
+	return 0
+}
+
+type ReleasePeerOtcSharesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContractId    string                 `protobuf:"bytes,1,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReleasePeerOtcSharesRequest) Reset() {
+	*x = ReleasePeerOtcSharesRequest{}
+	mi := &file_common_proto_trading_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReleasePeerOtcSharesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReleasePeerOtcSharesRequest) ProtoMessage() {}
+
+func (x *ReleasePeerOtcSharesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_trading_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReleasePeerOtcSharesRequest.ProtoReflect.Descriptor instead.
+func (*ReleasePeerOtcSharesRequest) Descriptor() ([]byte, []int) {
+	return file_common_proto_trading_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ReleasePeerOtcSharesRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+type ConsumePeerOtcSharesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContractId    string                 `protobuf:"bytes,1,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConsumePeerOtcSharesRequest) Reset() {
+	*x = ConsumePeerOtcSharesRequest{}
+	mi := &file_common_proto_trading_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConsumePeerOtcSharesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConsumePeerOtcSharesRequest) ProtoMessage() {}
+
+func (x *ConsumePeerOtcSharesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_trading_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConsumePeerOtcSharesRequest.ProtoReflect.Descriptor instead.
+func (*ConsumePeerOtcSharesRequest) Descriptor() ([]byte, []int) {
+	return file_common_proto_trading_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ConsumePeerOtcSharesRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+type CreditPeerOtcSharesRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ContractId      string                 `protobuf:"bytes,1,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	BuyerId         uint64                 `protobuf:"varint,2,opt,name=buyer_id,json=buyerId,proto3" json:"buyer_id,omitempty"`
+	Ticker          string                 `protobuf:"bytes,3,opt,name=ticker,proto3" json:"ticker,omitempty"`
+	Amount          float64                `protobuf:"fixed64,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	PricePerUnitRsd float64                `protobuf:"fixed64,5,opt,name=price_per_unit_rsd,json=pricePerUnitRsd,proto3" json:"price_per_unit_rsd,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *CreditPeerOtcSharesRequest) Reset() {
+	*x = CreditPeerOtcSharesRequest{}
+	mi := &file_common_proto_trading_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreditPeerOtcSharesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreditPeerOtcSharesRequest) ProtoMessage() {}
+
+func (x *CreditPeerOtcSharesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_trading_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreditPeerOtcSharesRequest.ProtoReflect.Descriptor instead.
+func (*CreditPeerOtcSharesRequest) Descriptor() ([]byte, []int) {
+	return file_common_proto_trading_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *CreditPeerOtcSharesRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+func (x *CreditPeerOtcSharesRequest) GetBuyerId() uint64 {
+	if x != nil {
+		return x.BuyerId
+	}
+	return 0
+}
+
+func (x *CreditPeerOtcSharesRequest) GetTicker() string {
+	if x != nil {
+		return x.Ticker
+	}
+	return ""
+}
+
+func (x *CreditPeerOtcSharesRequest) GetAmount() float64 {
+	if x != nil {
+		return x.Amount
+	}
+	return 0
+}
+
+func (x *CreditPeerOtcSharesRequest) GetPricePerUnitRsd() float64 {
+	if x != nil {
+		return x.PricePerUnitRsd
+	}
+	return 0
+}
+
+type PeerOtcSharesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContractId    string                 `protobuf:"bytes,1,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PeerOtcSharesResponse) Reset() {
+	*x = PeerOtcSharesResponse{}
+	mi := &file_common_proto_trading_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PeerOtcSharesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PeerOtcSharesResponse) ProtoMessage() {}
+
+func (x *PeerOtcSharesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_trading_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PeerOtcSharesResponse.ProtoReflect.Descriptor instead.
+func (*PeerOtcSharesResponse) Descriptor() ([]byte, []int) {
+	return file_common_proto_trading_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *PeerOtcSharesResponse) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+func (x *PeerOtcSharesResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
 var File_common_proto_trading_proto protoreflect.FileDescriptor
 
 const file_common_proto_trading_proto_rawDesc = "" +
@@ -323,10 +607,37 @@ const file_common_proto_trading_proto_rawDesc = "" +
 	"\x06ticker\x18\x01 \x01(\tR\x06ticker\x127\n" +
 	"\asellers\x18\x02 \x03(\v2\x1d.trading.v1.PublicStockSellerR\asellers\"P\n" +
 	"\x18ListPublicStocksResponse\x124\n" +
-	"\x06stocks\x18\x01 \x03(\v2\x1c.trading.v1.PublicStockEntryR\x06stocks2\xc5\x01\n" +
+	"\x06stocks\x18\x01 \x03(\v2\x1c.trading.v1.PublicStockEntryR\x06stocks\"\x8b\x01\n" +
+	"\x1bReservePeerOtcSharesRequest\x12\x1f\n" +
+	"\vcontract_id\x18\x01 \x01(\tR\n" +
+	"contractId\x12\x1b\n" +
+	"\tseller_id\x18\x02 \x01(\x04R\bsellerId\x12\x16\n" +
+	"\x06ticker\x18\x03 \x01(\tR\x06ticker\x12\x16\n" +
+	"\x06amount\x18\x04 \x01(\x01R\x06amount\">\n" +
+	"\x1bReleasePeerOtcSharesRequest\x12\x1f\n" +
+	"\vcontract_id\x18\x01 \x01(\tR\n" +
+	"contractId\">\n" +
+	"\x1bConsumePeerOtcSharesRequest\x12\x1f\n" +
+	"\vcontract_id\x18\x01 \x01(\tR\n" +
+	"contractId\"\xb5\x01\n" +
+	"\x1aCreditPeerOtcSharesRequest\x12\x1f\n" +
+	"\vcontract_id\x18\x01 \x01(\tR\n" +
+	"contractId\x12\x19\n" +
+	"\bbuyer_id\x18\x02 \x01(\x04R\abuyerId\x12\x16\n" +
+	"\x06ticker\x18\x03 \x01(\tR\x06ticker\x12\x16\n" +
+	"\x06amount\x18\x04 \x01(\x01R\x06amount\x12+\n" +
+	"\x12price_per_unit_rsd\x18\x05 \x01(\x01R\x0fpricePerUnitRsd\"P\n" +
+	"\x15PeerOtcSharesResponse\x12\x1f\n" +
+	"\vcontract_id\x18\x01 \x01(\tR\n" +
+	"contractId\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status2\xd3\x04\n" +
 	"\x0eTradingService\x12T\n" +
 	"\rTransferFunds\x12 .trading.v1.TransferFundsRequest\x1a!.trading.v1.TransferFundsResponse\x12]\n" +
-	"\x10ListPublicStocks\x12#.trading.v1.ListPublicStocksRequest\x1a$.trading.v1.ListPublicStocksResponseB\x12Z\x10common/pkg/pb;pbb\x06proto3"
+	"\x10ListPublicStocks\x12#.trading.v1.ListPublicStocksRequest\x1a$.trading.v1.ListPublicStocksResponse\x12b\n" +
+	"\x14ReservePeerOtcShares\x12'.trading.v1.ReservePeerOtcSharesRequest\x1a!.trading.v1.PeerOtcSharesResponse\x12b\n" +
+	"\x14ReleasePeerOtcShares\x12'.trading.v1.ReleasePeerOtcSharesRequest\x1a!.trading.v1.PeerOtcSharesResponse\x12b\n" +
+	"\x14ConsumePeerOtcShares\x12'.trading.v1.ConsumePeerOtcSharesRequest\x1a!.trading.v1.PeerOtcSharesResponse\x12`\n" +
+	"\x13CreditPeerOtcShares\x12&.trading.v1.CreditPeerOtcSharesRequest\x1a!.trading.v1.PeerOtcSharesResponseB\x12Z\x10common/pkg/pb;pbb\x06proto3"
 
 var (
 	file_common_proto_trading_proto_rawDescOnce sync.Once
@@ -340,27 +651,40 @@ func file_common_proto_trading_proto_rawDescGZIP() []byte {
 	return file_common_proto_trading_proto_rawDescData
 }
 
-var file_common_proto_trading_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_common_proto_trading_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_common_proto_trading_proto_goTypes = []any{
-	(*TransferFundsRequest)(nil),     // 0: trading.v1.TransferFundsRequest
-	(*TransferFundsResponse)(nil),    // 1: trading.v1.TransferFundsResponse
-	(*ListPublicStocksRequest)(nil),  // 2: trading.v1.ListPublicStocksRequest
-	(*PublicStockSeller)(nil),        // 3: trading.v1.PublicStockSeller
-	(*PublicStockEntry)(nil),         // 4: trading.v1.PublicStockEntry
-	(*ListPublicStocksResponse)(nil), // 5: trading.v1.ListPublicStocksResponse
+	(*TransferFundsRequest)(nil),        // 0: trading.v1.TransferFundsRequest
+	(*TransferFundsResponse)(nil),       // 1: trading.v1.TransferFundsResponse
+	(*ListPublicStocksRequest)(nil),     // 2: trading.v1.ListPublicStocksRequest
+	(*PublicStockSeller)(nil),           // 3: trading.v1.PublicStockSeller
+	(*PublicStockEntry)(nil),            // 4: trading.v1.PublicStockEntry
+	(*ListPublicStocksResponse)(nil),    // 5: trading.v1.ListPublicStocksResponse
+	(*ReservePeerOtcSharesRequest)(nil), // 6: trading.v1.ReservePeerOtcSharesRequest
+	(*ReleasePeerOtcSharesRequest)(nil), // 7: trading.v1.ReleasePeerOtcSharesRequest
+	(*ConsumePeerOtcSharesRequest)(nil), // 8: trading.v1.ConsumePeerOtcSharesRequest
+	(*CreditPeerOtcSharesRequest)(nil),  // 9: trading.v1.CreditPeerOtcSharesRequest
+	(*PeerOtcSharesResponse)(nil),       // 10: trading.v1.PeerOtcSharesResponse
 }
 var file_common_proto_trading_proto_depIdxs = []int32{
-	3, // 0: trading.v1.PublicStockEntry.sellers:type_name -> trading.v1.PublicStockSeller
-	4, // 1: trading.v1.ListPublicStocksResponse.stocks:type_name -> trading.v1.PublicStockEntry
-	0, // 2: trading.v1.TradingService.TransferFunds:input_type -> trading.v1.TransferFundsRequest
-	2, // 3: trading.v1.TradingService.ListPublicStocks:input_type -> trading.v1.ListPublicStocksRequest
-	1, // 4: trading.v1.TradingService.TransferFunds:output_type -> trading.v1.TransferFundsResponse
-	5, // 5: trading.v1.TradingService.ListPublicStocks:output_type -> trading.v1.ListPublicStocksResponse
-	4, // [4:6] is the sub-list for method output_type
-	2, // [2:4] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	3,  // 0: trading.v1.PublicStockEntry.sellers:type_name -> trading.v1.PublicStockSeller
+	4,  // 1: trading.v1.ListPublicStocksResponse.stocks:type_name -> trading.v1.PublicStockEntry
+	0,  // 2: trading.v1.TradingService.TransferFunds:input_type -> trading.v1.TransferFundsRequest
+	2,  // 3: trading.v1.TradingService.ListPublicStocks:input_type -> trading.v1.ListPublicStocksRequest
+	6,  // 4: trading.v1.TradingService.ReservePeerOtcShares:input_type -> trading.v1.ReservePeerOtcSharesRequest
+	7,  // 5: trading.v1.TradingService.ReleasePeerOtcShares:input_type -> trading.v1.ReleasePeerOtcSharesRequest
+	8,  // 6: trading.v1.TradingService.ConsumePeerOtcShares:input_type -> trading.v1.ConsumePeerOtcSharesRequest
+	9,  // 7: trading.v1.TradingService.CreditPeerOtcShares:input_type -> trading.v1.CreditPeerOtcSharesRequest
+	1,  // 8: trading.v1.TradingService.TransferFunds:output_type -> trading.v1.TransferFundsResponse
+	5,  // 9: trading.v1.TradingService.ListPublicStocks:output_type -> trading.v1.ListPublicStocksResponse
+	10, // 10: trading.v1.TradingService.ReservePeerOtcShares:output_type -> trading.v1.PeerOtcSharesResponse
+	10, // 11: trading.v1.TradingService.ReleasePeerOtcShares:output_type -> trading.v1.PeerOtcSharesResponse
+	10, // 12: trading.v1.TradingService.ConsumePeerOtcShares:output_type -> trading.v1.PeerOtcSharesResponse
+	10, // 13: trading.v1.TradingService.CreditPeerOtcShares:output_type -> trading.v1.PeerOtcSharesResponse
+	8,  // [8:14] is the sub-list for method output_type
+	2,  // [2:8] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_common_proto_trading_proto_init() }
@@ -374,7 +698,7 @@ func file_common_proto_trading_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_common_proto_trading_proto_rawDesc), len(file_common_proto_trading_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

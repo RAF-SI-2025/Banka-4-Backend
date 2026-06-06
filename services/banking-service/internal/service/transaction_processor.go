@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
 )
@@ -23,13 +25,29 @@ type TransactionProcessor struct {
 	accountRepo     repository.AccountRepository
 	transactionRepo repository.TransactionRepository
 	txManager       repository.TransactionManager
+	interbankClient client.InterbankClient
 }
 
-func NewTransactionProcessor(accountRepo repository.AccountRepository, transactionRepo repository.TransactionRepository, txManager repository.TransactionManager) *TransactionProcessor {
-	return &TransactionProcessor{accountRepo: accountRepo, transactionRepo: transactionRepo, txManager: txManager}
+func NewTransactionProcessor(accountRepo repository.AccountRepository, transactionRepo repository.TransactionRepository, txManager repository.TransactionManager, interbankClient client.InterbankClient) *TransactionProcessor {
+	return &TransactionProcessor{accountRepo: accountRepo, transactionRepo: transactionRepo, txManager: txManager, interbankClient: interbankClient}
 }
 
 func (tp *TransactionProcessor) Process(ctx context.Context, transactionID uint) error {
+	// A foreign recipient is settled through interbank-service (2PC), not the
+	// local ledger. Branch here, before opening a DB transaction: interbank calls
+	// back into banking to reserve/commit the payer, so holding a tx on the payer
+	// row here would deadlock with that callback.
+	transaction, err := tp.transactionRepo.GetByID(ctx, transactionID)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+	if transaction == nil {
+		return errors.NotFoundErr("transaction not found")
+	}
+	if model.IsForeignAccountNumber(transaction.RecipientAccountNumber) {
+		return tp.processInterbank(ctx, transaction)
+	}
+
 	return tp.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
 		transaction, err := tp.transactionRepo.GetByID(ctx, transactionID)
 		if err != nil {
@@ -117,6 +135,38 @@ func (tp *TransactionProcessor) Process(ctx context.Context, transactionID uint)
 		transaction.Status = model.TransactionCompleted
 		return tp.transactionRepo.Update(ctx, transaction)
 	})
+}
+
+// processInterbank hands a foreign-recipient payment to interbank-service. The
+// payer is reserved/settled by interbank calling back into banking's
+// PrepareInterbankCashPosting/Commit/Rollback, so we move no balances here. The
+// transaction stays Processing until interbank reports the 2PC outcome via the
+// FinalizeInterbankPayment callback — it is only Rejected up-front if the
+// initiation itself fails (e.g. insufficient funds at reservation).
+func (tp *TransactionProcessor) processInterbank(ctx context.Context, transaction *model.Transaction) error {
+	if transaction.Status != model.TransactionProcessing {
+		return errors.BadRequestErr("transaction already processed")
+	}
+
+	req := &pb.InitiateInterbankPaymentRequest{
+		PayerAccountNumber: transaction.PayerAccountNumber,
+		PayeeAccountNumber: transaction.RecipientAccountNumber,
+		Amount:             transaction.StartAmount,
+		Currency:           string(transaction.StartCurrencyCode),
+		BankingTxId:        uint64(transaction.TransactionID),
+	}
+
+	if err := tp.interbankClient.InitiatePayment(ctx, req); err != nil {
+		transaction.Status = model.TransactionRejected
+		if updateErr := tp.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
+			return tp.transactionRepo.Update(ctx, transaction)
+		}); updateErr != nil {
+			return errors.InternalErr(updateErr)
+		}
+		return errors.MapGrpcToHttpError(err)
+	}
+
+	return nil
 }
 
 func (tp *TransactionProcessor) ProcessTradeSettlement(ctx context.Context, transactionID uint) error {

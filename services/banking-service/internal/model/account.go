@@ -38,6 +38,15 @@ const (
 	BranchCode = "0001"
 )
 
+// IsForeignAccountNumber reports whether an account number belongs to another
+// bank — i.e. it is a full 18-digit account number whose 3-digit bank-code
+// prefix is not ours. Such payments are settled through interbank-service
+// (2PC), not the local ledger. Requiring the full length avoids misclassifying
+// short placeholder identifiers as foreign accounts.
+func IsForeignAccountNumber(accountNumber string) bool {
+	return len(accountNumber) == 18 && accountNumber[:3] != BankCode
+}
+
 const (
 	DefaultDailyLimitRSD   = 250000.0
 	DefaultMonthlyLimitRSD = 1000000.0
@@ -107,14 +116,17 @@ type Account struct {
 	DailySpending   float64 `gorm:"not null;default:0"`
 	MonthlySpending float64 `gorm:"not null;default:0"`
 
-	Payees                []Payee             `gorm:"foreignKey:AccountNumber"`
-	VerificationTokens    []VerificationToken `gorm:"foreignKey:AccountNumber"`
-	CardRequests          []CardRequest       `gorm:"foreignKey:AccountNumber"`
-	AuthorizedPersons     []AuthorizedPerson  `gorm:"foreignKey:AccountNumber"`
-	LoanRequests          []LoanRequest       `gorm:"foreignKey:AccountNumber"`
-	TransactionsRecipient []Transaction       `gorm:"foreignKey:RecipientAccountNumber"`
-	TransactionsPayer     []Transaction       `gorm:"foreignKey:PayerAccountNumber"`
-	Cards                 []Card              `gorm:"foreignKey:AccountNumber"`
+	Payees             []Payee             `gorm:"foreignKey:AccountNumber"`
+	VerificationTokens []VerificationToken `gorm:"foreignKey:AccountNumber"`
+	CardRequests       []CardRequest       `gorm:"foreignKey:AccountNumber"`
+	AuthorizedPersons  []AuthorizedPerson  `gorm:"foreignKey:AccountNumber"`
+	LoanRequests       []LoanRequest       `gorm:"foreignKey:AccountNumber"`
+	Cards              []Card              `gorm:"foreignKey:AccountNumber"`
+	// NOTE: Transactions are intentionally NOT modelled as has-many relations
+	// here. Doing so makes GORM add FK constraints on transactions.payer/
+	// recipient_account_number, which would forbid inter-bank payments whose
+	// counterparty account lives at another bank. Transactions are queried by
+	// account-number string via TransactionRepository instead.
 }
 
 func GetSubtypeCode(s Subtype) string {

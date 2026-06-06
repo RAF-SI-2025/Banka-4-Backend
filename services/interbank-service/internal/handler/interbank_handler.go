@@ -76,7 +76,7 @@ func (h *InterbankHandler) Receive(c *gin.Context) {
 			return
 		}
 
-		status, body, err := h.processor.ProcessNewTx(ctx, peerRouting, &msg.Message)
+		status, body, err := h.processor.ProcessNewTx(ctx, peerRouting, envelope.IdempotenceKey, &msg.Message)
 		h.writeResult(c, status, body, err)
 
 	case dto.MessageTypeCommitTx:
@@ -86,7 +86,7 @@ func (h *InterbankHandler) Receive(c *gin.Context) {
 			return
 		}
 
-		status, body, err := h.processor.ProcessCommitTx(ctx, peerRouting, &msg.Message)
+		status, body, err := h.processor.ProcessCommitTx(ctx, peerRouting, envelope.IdempotenceKey, &msg.Message)
 		h.writeResult(c, status, body, err)
 
 	case dto.MessageTypeRollbackTx:
@@ -96,7 +96,7 @@ func (h *InterbankHandler) Receive(c *gin.Context) {
 			return
 		}
 
-		status, body, err := h.processor.ProcessRollbackTx(ctx, peerRouting, &msg.Message)
+		status, body, err := h.processor.ProcessRollbackTx(ctx, peerRouting, envelope.IdempotenceKey, &msg.Message)
 		h.writeResult(c, status, body, err)
 	}
 }

@@ -57,6 +57,7 @@ services:
       GRPC_PORT: "50052"
       USER_SERVICE_ADDR: user_service:50051
       USER_SERVICE_BASE_URL: http://user_service:${PORT}
+      INTERBANK_SERVICE_ADDR: interbank_service:50054
       WORK_CODES_CACHE_TTL: 24h
     depends_on:
       user_service_db:
@@ -88,6 +89,34 @@ services:
         condition: service_healthy
     healthcheck:
       test: curl -f http://localhost:${TRADING_SERVICE_PORT}/api/health || exit 1
+
+  interbank_service:
+    image: ghcr.io/raf-si-2025/banka-4-backend/interbank-service
+    ports:
+      - "${INTERBANK_SERVICE_PORT}:${INTERBANK_SERVICE_PORT}"
+    env_file: .env
+    environment:
+      PORT: ${INTERBANK_SERVICE_PORT}
+      GRPC_PORT: "50054"
+      INTERBANK_ROUTING_NUMBER: "444"
+      INTERBANK_PEERS_CONFIG_PATH: /app/peers.yaml
+      USER_SERVICE_ADDR: user_service:50051
+      TRADING_SERVICE_ADDR: trading_service:50053
+      BANKING_SERVICE_ADDR: banking_service:50052
+    volumes:
+      # Operator-provided peer registry (gitignored; copy from peers.example.yaml).
+      - ./services/interbank-service/peers.yaml:/app/peers.yaml:ro
+    depends_on:
+      user_service_db:
+        condition: service_healthy
+      banking_service:
+        condition: service_healthy
+      trading_service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: curl -f http://localhost:${INTERBANK_SERVICE_PORT}/api/health || exit 1
 
   maildev:
     image: maildev/maildev:latest
