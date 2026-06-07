@@ -1,0 +1,6 @@
+peers:
+  - routingNumber: 555
+    baseUrl: "http://mock_peer:8088"
+    ourApiKey: "bank4-secret-key"
+    theirApiKey: "mock-in"
+    displayName: "Mock Bank 555"
