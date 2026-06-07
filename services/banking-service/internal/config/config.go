@@ -105,7 +105,7 @@ func Load() *Configuration {
 		JWTSecret:            GetOrThrow("JWT_SECRET"),
 		UserServiceAddr:      GetOrDefault("USER_SERVICE_ADDR", "localhost:50051"),
 		UserServiceBaseURL:   GetOrDefault("USER_SERVICE_BASE_URL", "http://localhost:8080"),
-		EmailServiceAddr:     GetOrDefault("EMAIL_SERVICE_ADDR", "localhost:50054"),
+		EmailServiceAddr:     GetOrDefault("EMAIL_SERVICE_ADDR", "localhost:50055"),
 		InterbankServiceAddr: GetOrDefault("INTERBANK_SERVICE_ADDR", "localhost:50054"),
 		ExchangeRateAPIKey:   GetOrThrow("EXCHANGE_RATE_API_KEY"),
 		DB: DBConfig{

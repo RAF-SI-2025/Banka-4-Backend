@@ -50,7 +50,7 @@ func Load() *Configuration {
 	return &Configuration{
 		Env:      GetOrDefault("ENV", "development"),
 		Port:     GetOrDefault("PORT", "8084"),
-		GrpcPort: GetOrDefault("GRPC_PORT", "50054"),
+		GrpcPort: GetOrDefault("GRPC_PORT", "50055"),
 		SMTP: SMTPConfig{
 			Host: GetOrThrow("SMTP_HOST"),
 			Port: GetOrDefault("SMTP_PORT", "587"),

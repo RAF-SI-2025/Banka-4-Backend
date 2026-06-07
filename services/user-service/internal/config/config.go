@@ -81,7 +81,7 @@ func Load() *Configuration {
 		Port:               GetOrDefault("PORT", "8080"),
 		GrpcPort:           GetOrDefault("GRPC_PORT", "50051"),
 		TradingServiceAddr: GetOrDefault("TRADING_SERVICE_ADDR", "localhost:50053"),
-		EmailServiceAddr:   GetOrDefault("EMAIL_SERVICE_ADDR", "localhost:50054"),
+		EmailServiceAddr:   GetOrDefault("EMAIL_SERVICE_ADDR", "localhost:50055"),
 		DB: DBConfig{
 			Host:     GetOrThrow("DB_HOST"),
 			Port:     GetOrThrow("DB_PORT"),
