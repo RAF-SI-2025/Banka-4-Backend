@@ -138,7 +138,7 @@ func TestSendCounterOfferAsLocal_SellerSide(t *testing.T) {
 
 	// The counter must be PUT to the BUYER's bank (the opposing party), with the
 	// authoritative routing in the path.
-	require.Equal(t, []string{"PUT /interbank/negotiations/444/neg-seller"}, bank.otcGot())
+	require.Equal(t, []string{"PUT /negotiations/444/neg-seller"}, bank.otcGot())
 
 	// Local authoritative row reflects the counter and that we moved last.
 	updated, _ := negs.FindByID(context.Background(), "neg-seller")

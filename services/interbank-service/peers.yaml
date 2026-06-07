@@ -11,10 +11,19 @@ peers:
   # Real external peer. baseUrl is the host root WITHOUT a trailing /interbank
   # (the client appends /interbank itself). theirApiKey is "shared".
   - routingNumber: 111
-    baseUrl: "http://172.18.0.1:8090/api/v3/cross-bank-protocol"   # local exbanka gateway (host gateway from container)
+    #baseUrl: "http://172.18.0.1:8090/api/v3/cross-bank-protocol"   # local exbanka gateway (host gateway from container)
+    baseUrl: "https://exbanka.vlupsic.dev/instance1/api/v3/cross-bank-protocol"
     ourApiKey: "bank4-secret-key"      # sent in X-Api-Key when we call them
-    theirApiKey: "shared"    # expected in X-Api-Key when they call us
+    theirApiKey: "bank4-secret-key"    # expected in X-Api-Key when they call us
+    #theirApiKey: "shared"
     displayName: "Bank 1 (exbanka)"
+
+
+  - routingNumber: 333
+    baseUrl: "https://banka.raf-project.com/"
+    ourApiKey:   "bank4-secret-key"
+    theirApiKey: "4CJYwLN/Ec2i5M/J8Anv+Av1O81OGE9re4lG+m9PsEQ="
+    displayName: "Bank 3"
 
   # Local mock peer (docker container on the compose network) — used to test
   # OUTBOUND OTC + the inter-bank payment flow end to end.
@@ -23,8 +32,3 @@ peers:
     ourApiKey: "bank4-secret-key"
     theirApiKey: "mock-in"
     displayName: "Mock Bank 555"
-
-  - routingNumber: 333
-    baseUrl: "https://banka.raf-project.com/"
-    ourApiKey:   "bank4-secret-key"
-    theirApiKey: "4CJYwLN/Ec2i5M/J8Anv+Av1O81OGE9re4lG+m9PsEQ="

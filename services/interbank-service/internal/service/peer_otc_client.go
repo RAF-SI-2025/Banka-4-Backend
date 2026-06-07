@@ -41,7 +41,7 @@ func NewPeerOtcClient(peers *PeerResolver) *PeerOtcClient {
 // bank, returning the negotiation id assigned by that bank.
 func (c *PeerOtcClient) CreateNegotiation(ctx context.Context, offer dto.OtcOffer) (*dto.ForeignBankId, error) {
 	var result dto.ForeignBankId
-	if err := c.do(ctx, offer.SellerID.RoutingNumber, http.MethodPost, "/interbank/negotiations", offer, &result); err != nil {
+	if err := c.do(ctx, offer.SellerID.RoutingNumber, http.MethodPost, "/negotiations", offer, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -52,14 +52,14 @@ func (c *PeerOtcClient) CreateNegotiation(ctx context.Context, offer dto.OtcOffe
 // while targetRouting is the OPPOSING party's bank the notification is sent
 // to (the buyer's bank when the seller counters, or vice versa).
 func (c *PeerOtcClient) UpdateCounter(ctx context.Context, targetRouting int, negotiationID dto.ForeignBankId, offer dto.OtcOffer) error {
-	path := fmt.Sprintf("/interbank/negotiations/%d/%s", negotiationID.RoutingNumber, negotiationID.ID)
+	path := fmt.Sprintf("/negotiations/%d/%s", negotiationID.RoutingNumber, negotiationID.ID)
 	return c.do(ctx, targetRouting, http.MethodPut, path, offer, nil)
 }
 
 // GetNegotiation calls §3.4 GET /interbank/negotiations/{rn}/{id} on the
 // authoritative bank.
 func (c *PeerOtcClient) GetNegotiation(ctx context.Context, negotiationID dto.ForeignBankId) (*dto.OtcNegotiation, error) {
-	path := fmt.Sprintf("/interbank/negotiations/%d/%s", negotiationID.RoutingNumber, negotiationID.ID)
+	path := fmt.Sprintf("/negotiations/%d/%s", negotiationID.RoutingNumber, negotiationID.ID)
 
 	var result dto.OtcNegotiation
 	if err := c.do(ctx, negotiationID.RoutingNumber, http.MethodGet, path, nil, &result); err != nil {
@@ -73,7 +73,7 @@ func (c *PeerOtcClient) GetNegotiation(ctx context.Context, negotiationID dto.Fo
 // UpdateCounter, the path {rn} is the authoritative routing number while
 // targetRouting is the opposing party's bank the notification is sent to.
 func (c *PeerOtcClient) Close(ctx context.Context, targetRouting int, negotiationID dto.ForeignBankId) error {
-	path := fmt.Sprintf("/interbank/negotiations/%d/%s", negotiationID.RoutingNumber, negotiationID.ID)
+	path := fmt.Sprintf("/negotiations/%d/%s", negotiationID.RoutingNumber, negotiationID.ID)
 	return c.do(ctx, targetRouting, http.MethodDelete, path, nil, nil)
 }
 
@@ -82,7 +82,7 @@ func (c *PeerOtcClient) Close(ctx context.Context, targetRouting int, negotiatio
 // NEW_TX flow before returning a success status; consumers should treat
 // the timeout accordingly.
 func (c *PeerOtcClient) Accept(ctx context.Context, negotiationID dto.ForeignBankId) (*dto.PeerContract, error) {
-	path := fmt.Sprintf("/interbank/negotiations/%d/%s/accept", negotiationID.RoutingNumber, negotiationID.ID)
+	path := fmt.Sprintf("/negotiations/%d/%s/accept", negotiationID.RoutingNumber, negotiationID.ID)
 
 	var result dto.PeerContract
 	if err := c.do(ctx, negotiationID.RoutingNumber, http.MethodGet, path, nil, &result); err != nil {
@@ -135,7 +135,7 @@ func (c *PeerOtcClient) SendRollbackTx(ctx context.Context, peerRouting int, key
 
 func (c *PeerOtcClient) PublicStock(ctx context.Context, peerRouting int) ([]dto.PublicStock, error) {
 	var result []dto.PublicStock
-	if err := c.do(ctx, peerRouting, http.MethodGet, "/interbank/public-stock", nil, &result); err != nil {
+	if err := c.do(ctx, peerRouting, http.MethodGet, "/public-stock", nil, &result); err != nil {
 		return nil, err
 	}
 
@@ -145,7 +145,7 @@ func (c *PeerOtcClient) PublicStock(ctx context.Context, peerRouting int) ([]dto
 // UserLookup calls §3.7 GET /interbank/user/{rn}/{id} on the bank that
 // owns the user.
 func (c *PeerOtcClient) UserLookup(ctx context.Context, userID dto.ForeignBankId) (*dto.UserInformation, error) {
-	path := fmt.Sprintf("/interbank/user/%d/%s", userID.RoutingNumber, userID.ID)
+	path := fmt.Sprintf("/user/%d/%s", userID.RoutingNumber, userID.ID)
 
 	var result dto.UserInformation
 	if err := c.do(ctx, userID.RoutingNumber, http.MethodGet, path, nil, &result); err != nil {

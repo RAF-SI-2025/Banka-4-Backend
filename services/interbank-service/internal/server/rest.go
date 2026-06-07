@@ -95,20 +95,19 @@ func setupRoutes(
 		}
 	}
 
-	// The /interbank endpoint is mounted at the root, not under /api, so its
-	// URL matches the spec exactly. Authentication is per-peer via X-Api-Key.
-	interbank := r.Group("/interbank")
-	interbank.Use(middleware.APIKeyAuth(peers))
+	// Peer-to-peer protocol endpoints, authenticated via X-Api-Key.
+	crossBank := r.Group("")
+	crossBank.Use(middleware.APIKeyAuth(peers))
 	{
 		// §2 transaction protocol.
-		interbank.POST("", interbankHandler.Receive)
+		crossBank.POST("/interbank", interbankHandler.Receive)
 
 		// §3.1 + §3.7 OTC lookups.
-		interbank.GET("/public-stock", peerOtcHandler.PublicStock)
-		interbank.GET("/user/:rn/:id", peerOtcHandler.UserLookup)
+		crossBank.GET("/public-stock", peerOtcHandler.PublicStock)
+		crossBank.GET("/user/:rn/:id", peerOtcHandler.UserLookup)
 
 		// §3.2–§3.6 OTC negotiation lifecycle.
-		negotiations := interbank.Group("/negotiations")
+		negotiations := crossBank.Group("/negotiations")
 		{
 			negotiations.POST("", peerOtcHandler.CreateNegotiation)
 			negotiations.GET("/:rn/:id", peerOtcHandler.GetNegotiation)
@@ -116,7 +115,6 @@ func setupRoutes(
 			negotiations.DELETE("/:rn/:id", peerOtcHandler.DeleteNegotiation)
 			negotiations.GET("/:rn/:id/accept", peerOtcHandler.AcceptNegotiation)
 		}
-
 	}
 }
 

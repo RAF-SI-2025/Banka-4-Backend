@@ -33,8 +33,8 @@ func newMockBank() *mockBank {
 	m := &mockBank{newTxStatus: http.StatusOK, newTxVote: dto.TransactionVote{Vote: dto.VoteYes}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/interbank", m.handle)
-	mux.HandleFunc("/interbank/negotiations", m.handleOtc)
-	mux.HandleFunc("/interbank/negotiations/", m.handleOtc)
+	mux.HandleFunc("/negotiations", m.handleOtc)
+	mux.HandleFunc("/negotiations/", m.handleOtc)
 	m.server = httptest.NewServer(mux)
 	return m
 }
