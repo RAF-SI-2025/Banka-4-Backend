@@ -77,15 +77,17 @@ func (c *PeerOtcClient) Close(ctx context.Context, targetRouting int, negotiatio
 	return c.do(ctx, targetRouting, http.MethodDelete, path, nil, nil)
 }
 
-// Accept calls §3.6 GET /interbank/negotiations/{rn}/{id}/accept on the
-// authoritative bank. The peer is expected to drive the resulting §2
-// NEW_TX flow before returning a success status; consumers should treat
-// the timeout accordingly.
-func (c *PeerOtcClient) Accept(ctx context.Context, negotiationID dto.ForeignBankId) (*dto.PeerContract, error) {
+// Accept calls §3.6 GET /interbank/negotiations/{rn}/{id}/accept. As with
+// UpdateCounter/Close, the path {rn} is always the negotiation's authoritative
+// (seller's) routing number — the shared id both banks use — while targetRouting
+// is the OPPOSING party's bank the accept is sent to. That bank forms the §2
+// transaction and is expected to drive the resulting NEW_TX flow before returning
+// a success status; consumers should treat the timeout accordingly.
+func (c *PeerOtcClient) Accept(ctx context.Context, targetRouting int, negotiationID dto.ForeignBankId) (*dto.PeerContract, error) {
 	path := fmt.Sprintf("/negotiations/%d/%s/accept", negotiationID.RoutingNumber, negotiationID.ID)
 
 	var result dto.PeerContract
-	if err := c.do(ctx, negotiationID.RoutingNumber, http.MethodGet, path, nil, &result); err != nil {
+	if err := c.do(ctx, targetRouting, http.MethodGet, path, nil, &result); err != nil {
 		return nil, err
 	}
 

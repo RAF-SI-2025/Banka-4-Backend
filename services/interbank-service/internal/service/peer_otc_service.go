@@ -511,9 +511,7 @@ func (s *PeerOtcService) SendCounterOfferAsLocal(
 }
 
 func (s *PeerOtcService) AcceptFromPeer(ctx context.Context, senderRouting, routingNumber int, id string) (*dto.PeerContract, error) {
-	if routingNumber != s.peers.OurRoutingNumber() {
-		return nil, errors.BadRequestErr("routingNumber does not match this bank")
-	}
+	ourRouting := s.peers.OurRoutingNumber()
 
 	// Lock the negotiation row so concurrent accepts serialize on its status.
 	// The contract-existence fast-path below runs after the lock is released;
@@ -530,6 +528,16 @@ func (s *PeerOtcService) AcceptFromPeer(ctx context.Context, senderRouting, rout
 		}
 		if locked == nil {
 			return errors.NotFoundErr("negotiation not found")
+		}
+		// The path {rn} must name the negotiation's authoritative (seller's) bank —
+		// the shared id both banks use — and we must be a party to it. We may be the
+		// authority (seller) or the non-authority (buyer): the accepting party's bank
+		// forwards the accept to us, the opposing party's bank, and we form the TX.
+		if routingNumber != locked.SellerRoutingNumber {
+			return errors.BadRequestErr("routingNumber does not identify this negotiation")
+		}
+		if ourRouting != locked.BuyerRoutingNumber && ourRouting != locked.SellerRoutingNumber {
+			return errors.ForbiddenErr("this bank is not a party to this negotiation")
 		}
 		if senderRouting != locked.BuyerRoutingNumber && senderRouting != locked.SellerRoutingNumber {
 			return errors.ForbiddenErr("sender is not a party to this negotiation")
@@ -610,14 +618,13 @@ func (s *PeerOtcService) AcceptAsLocal(ctx context.Context, localUserID uint, ne
 		return toPeerContractDTO(existing), nil
 	}
 
-	if negotiationID.RoutingNumber == ourRouting {
-		if err := s.coordinateAcceptTransaction(ctx, n); err != nil {
-			return nil, err
-		}
-	} else {
-		if _, err := s.client.Accept(ctx, negotiationID); err != nil {
-			return nil, err
-		}
+	// Always forward the accept to the opposing party's bank — the accepting
+	// bank never forms the transaction itself; the counterparty does. The path
+	// carries the authoritative (seller's) routing number, the shared negotiation
+	// id both banks use, while the destination is the opposing party's bank.
+	me := dto.ForeignBankId{RoutingNumber: ourRouting, ID: userIDStr}
+	if _, err := s.client.Accept(ctx, s.opposingRouting(n, me), negotiationID); err != nil {
+		return nil, err
 	}
 
 	contract, err := s.contracts.FindByID(ctx, negotiationID.RoutingNumber, negotiationID.ID)
