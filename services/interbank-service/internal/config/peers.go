@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"log"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -29,6 +31,14 @@ type PeerRegistry struct {
 func LoadPeers(path string) (*PeerRegistry, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
+		// A missing peers file is a valid single-bank deployment: log it and
+		// start with an empty registry so inter-bank features are simply
+		// disabled rather than crashing the service. Other read errors
+		// (permissions, etc.) are still fatal.
+		if errors.Is(err, os.ErrNotExist) {
+			log.Printf("peers config %q not found; starting with no peers (inter-bank disabled)", path)
+			return emptyRegistry(), nil
+		}
 		return nil, fmt.Errorf("read peers config %q: %w", path, err)
 	}
 
@@ -37,10 +47,7 @@ func LoadPeers(path string) (*PeerRegistry, error) {
 		return nil, fmt.Errorf("parse peers config: %w", err)
 	}
 
-	reg := &PeerRegistry{
-		byRouting:  make(map[int]Peer, len(cfg.Peers)),
-		byTheirKey: make(map[string]Peer, len(cfg.Peers)),
-	}
+	reg := emptyRegistry()
 
 	for _, p := range cfg.Peers {
 		if p.RoutingNumber == 0 || p.BaseURL == "" || p.OurAPIKey == "" || p.TheirAPIKey == "" {
@@ -59,6 +66,13 @@ func LoadPeers(path string) (*PeerRegistry, error) {
 		reg.byTheirKey[p.TheirAPIKey] = p
 	}
 	return reg, nil
+}
+
+func emptyRegistry() *PeerRegistry {
+	return &PeerRegistry{
+		byRouting:  make(map[int]Peer),
+		byTheirKey: make(map[string]Peer),
+	}
 }
 
 // NewPeerRegistry constructs a registry from an explicit list. Useful for tests.

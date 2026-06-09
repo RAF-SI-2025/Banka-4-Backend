@@ -11,8 +11,8 @@ peers:
   # Real external peer. baseUrl is the host root WITHOUT a trailing /interbank
   # (the client appends /interbank itself). theirApiKey is "shared".
   - routingNumber: 111
-    #baseUrl: "http://172.18.0.1:8090/api/v3/cross-bank-protocol"   # local exbanka gateway (host gateway from container)
-    baseUrl: "https://exbanka.vlupsic.dev/instance1/api/v3/cross-bank-protocol"
+    baseUrl: "http://172.18.0.1:8090/api/v3/cross-bank-protocol"   # local exbanka gateway (host gateway from container)
+    #baseUrl: "https://exbanka.vlupsic.dev/instance1/api/v3/cross-bank-protocol"
     ourApiKey: "bank4-secret-key"      # sent in X-Api-Key when we call them
     theirApiKey: "bank4-secret-key"    # expected in X-Api-Key when they call us
     #theirApiKey: "shared"
