@@ -8,6 +8,7 @@ type BaseListingResponse struct {
 	Name              string  `json:"name"`
 	Exchange          string  `json:"exchange"`
 	Price             float64 `json:"price"`
+	Currency          string  `json:"currency"`
 	Ask               float64 `json:"ask"`
 	Bid               float64 `json:"bid"`
 	Change            float64 `json:"change"`

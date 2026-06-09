@@ -4127,6 +4127,9 @@ const docTemplate = `{
                 "change": {
                     "type": "number"
                 },
+                "currency": {
+                    "type": "string"
+                },
                 "exchange": {
                     "type": "string"
                 },
@@ -4182,6 +4185,9 @@ const docTemplate = `{
                 },
                 "change": {
                     "type": "number"
+                },
+                "currency": {
+                    "type": "string"
                 },
                 "exchange": {
                     "type": "string"
@@ -4408,6 +4414,9 @@ const docTemplate = `{
                 "contract_unit": {
                     "type": "string"
                 },
+                "currency": {
+                    "type": "string"
+                },
                 "exchange": {
                     "type": "string"
                 },
@@ -4459,6 +4468,9 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "contract_unit": {
+                    "type": "string"
+                },
+                "currency": {
                     "type": "string"
                 },
                 "exchange": {
@@ -4615,6 +4627,9 @@ const docTemplate = `{
                 "change": {
                     "type": "number"
                 },
+                "currency": {
+                    "type": "string"
+                },
                 "exchange": {
                     "type": "string"
                 },
@@ -4673,6 +4688,9 @@ const docTemplate = `{
                 },
                 "change": {
                     "type": "number"
+                },
+                "currency": {
+                    "type": "string"
                 },
                 "exchange": {
                     "type": "string"
@@ -5263,6 +5281,9 @@ const docTemplate = `{
                 "change": {
                     "type": "number"
                 },
+                "currency": {
+                    "type": "string"
+                },
                 "dividend_yield": {
                     "type": "number"
                 },
@@ -5318,6 +5339,9 @@ const docTemplate = `{
                 },
                 "change": {
                     "type": "number"
+                },
+                "currency": {
+                    "type": "string"
                 },
                 "dividend_yield": {
                     "type": "number"
@@ -5419,6 +5443,9 @@ const docTemplate = `{
                 },
                 "change": {
                     "type": "number"
+                },
+                "currency": {
+                    "type": "string"
                 },
                 "exchange": {
                     "type": "string"

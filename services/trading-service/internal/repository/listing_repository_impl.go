@@ -31,6 +31,7 @@ func (r *listingRepository) FindByID(ctx context.Context, id uint, daysBack int)
 	result := r.db.WithContext(ctx).
 		Preload("Asset").
 		Preload("Stock").
+		Preload("Exchange").
 		Preload("DailyPriceInfos", func(db *gorm.DB) *gorm.DB {
 			q := db.Order("date ASC")
 			if daysBack > 0 {
@@ -171,6 +172,7 @@ func (r *listingRepository) FindStocks(ctx context.Context, filter ListingFilter
 	err := db.
 		Preload("Asset").
 		Preload("Stock").
+		Preload("Exchange").
 		Preload("DailyPriceInfos", func(db *gorm.DB) *gorm.DB {
 			return db.Order("date DESC").Limit(1)
 		}).
@@ -207,6 +209,7 @@ func (r *listingRepository) FindFutures(ctx context.Context, filter ListingFilte
 
 	err := db.
 		Preload("Asset").
+		Preload("Exchange").
 		Preload("DailyPriceInfos", func(db *gorm.DB) *gorm.DB {
 			return db.Order("date DESC").Limit(1)
 		}).
@@ -242,6 +245,7 @@ func (r *listingRepository) FindOptions(ctx context.Context, filter ListingFilte
 
 	err := db.
 		Preload("Asset").
+		Preload("Exchange").
 		Preload("DailyPriceInfos", func(db *gorm.DB) *gorm.DB {
 			return db.Order("date DESC").Limit(1)
 		}).

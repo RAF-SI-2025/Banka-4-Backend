@@ -63,6 +63,11 @@ func baseResponse(l model.Listing, daily *model.ListingDailyPriceInfo) dto.BaseL
 		MaintenanceMargin: l.MaintenanceMargin,
 		InitialMarginCost: l.MaintenanceMargin * 1.1,
 	}
+
+	if l.Exchange != nil {
+		r.Currency = l.Exchange.Currency
+	}
+
 	if daily != nil {
 		r.Bid = daily.Bid
 		r.Change = daily.Change

@@ -4119,6 +4119,9 @@
                 "change": {
                     "type": "number"
                 },
+                "currency": {
+                    "type": "string"
+                },
                 "exchange": {
                     "type": "string"
                 },
@@ -4174,6 +4177,9 @@
                 },
                 "change": {
                     "type": "number"
+                },
+                "currency": {
+                    "type": "string"
                 },
                 "exchange": {
                     "type": "string"
@@ -4400,6 +4406,9 @@
                 "contract_unit": {
                     "type": "string"
                 },
+                "currency": {
+                    "type": "string"
+                },
                 "exchange": {
                     "type": "string"
                 },
@@ -4451,6 +4460,9 @@
                     "type": "number"
                 },
                 "contract_unit": {
+                    "type": "string"
+                },
+                "currency": {
                     "type": "string"
                 },
                 "exchange": {
@@ -4607,6 +4619,9 @@
                 "change": {
                     "type": "number"
                 },
+                "currency": {
+                    "type": "string"
+                },
                 "exchange": {
                     "type": "string"
                 },
@@ -4665,6 +4680,9 @@
                 },
                 "change": {
                     "type": "number"
+                },
+                "currency": {
+                    "type": "string"
                 },
                 "exchange": {
                     "type": "string"
@@ -5255,6 +5273,9 @@
                 "change": {
                     "type": "number"
                 },
+                "currency": {
+                    "type": "string"
+                },
                 "dividend_yield": {
                     "type": "number"
                 },
@@ -5310,6 +5331,9 @@
                 },
                 "change": {
                     "type": "number"
+                },
+                "currency": {
+                    "type": "string"
                 },
                 "dividend_yield": {
                     "type": "number"
@@ -5411,6 +5435,9 @@
                 },
                 "change": {
                     "type": "number"
+                },
+                "currency": {
+                    "type": "string"
                 },
                 "exchange": {
                     "type": "string"
