@@ -13,17 +13,20 @@ type InterbankCashService struct {
 	accountRepo repository.AccountRepository
 	postingRepo repository.InterbankCashPostingRepository
 	txManager   repository.TransactionManager
+	converter   CurrencyConverter
 }
 
 func NewInterbankCashService(
 	accountRepo repository.AccountRepository,
 	postingRepo repository.InterbankCashPostingRepository,
 	txManager repository.TransactionManager,
+	converter CurrencyConverter,
 ) *InterbankCashService {
 	return &InterbankCashService{
 		accountRepo: accountRepo,
 		postingRepo: postingRepo,
 		txManager:   txManager,
+		converter:   converter,
 	}
 }
 
@@ -47,7 +50,7 @@ func (s *InterbankCashService) Prepare(ctx context.Context, postingID, accountNu
 			return commonerrors.InternalErr(err)
 		}
 		if existing != nil {
-			if existing.Amount != amount || existing.CurrencyCode != currencyCode {
+			if existing.RequestedAmount != amount || existing.RequestedCurrencyCode != currencyCode {
 				return commonerrors.ConflictErr("posting id already exists with different parameters")
 			}
 			result = existing
@@ -59,8 +62,19 @@ func (s *InterbankCashService) Prepare(ctx context.Context, postingID, accountNu
 			return err
 		}
 
-		if amount < 0 {
-			required := -amount
+		// Freeze the amount converted into the resolved account's currency so the
+		// reservation, commit and rollback all operate on a consistent value even
+		// if exchange rates move between phases.
+		resolvedAmount := amount
+		if account.Currency.Code != currencyCode {
+			resolvedAmount, err = s.converter.Convert(ctx, amount, currencyCode, account.Currency.Code)
+			if err != nil {
+				return err
+			}
+		}
+
+		if resolvedAmount < 0 {
+			required := -resolvedAmount
 			if account.AvailableBalance < required {
 				return commonerrors.BadRequestErr("insufficient funds")
 			}
@@ -71,11 +85,13 @@ func (s *InterbankCashService) Prepare(ctx context.Context, postingID, accountNu
 		}
 
 		posting := &model.InterbankCashPosting{
-			PostingID:     postingID,
-			AccountNumber: account.AccountNumber,
-			CurrencyCode:  currencyCode,
-			Amount:        amount,
-			Status:        model.InterbankCashPostingPrepared,
+			PostingID:             postingID,
+			AccountNumber:         account.AccountNumber,
+			CurrencyCode:          account.Currency.Code,
+			Amount:                resolvedAmount,
+			RequestedCurrencyCode: currencyCode,
+			RequestedAmount:       amount,
+			Status:                model.InterbankCashPostingPrepared,
 		}
 		if err := s.postingRepo.Create(ctx, posting); err != nil {
 			return commonerrors.InternalErr(err)
@@ -186,6 +202,14 @@ func (s *InterbankCashService) transition(
 	return result, nil
 }
 
+// resolveAccount selects the local account a posting applies to. The returned
+// account may have a currency different from the posting currency; the caller is
+// responsible for converting the amount into the account's currency.
+//
+// For an explicit account number the named account is used as-is. For a client
+// (PERSON / OTC postings) an active account is chosen by tier: first one whose
+// currency matches the posting, else the client's active RSD account, else any
+// active account.
 func (s *InterbankCashService) resolveAccount(ctx context.Context, accountNumber string, clientID uint, currencyCode model.CurrencyCode) (*model.Account, error) {
 	if accountNumber != "" {
 		account, err := s.accountRepo.FindByAccountNumber(ctx, accountNumber)
@@ -194,9 +218,6 @@ func (s *InterbankCashService) resolveAccount(ctx context.Context, accountNumber
 		}
 		if account == nil {
 			return nil, commonerrors.NotFoundErr("account not found")
-		}
-		if account.Currency.Code != currencyCode {
-			return nil, commonerrors.BadRequestErr("account currency does not match posting currency")
 		}
 		return account, nil
 	}
@@ -208,10 +229,27 @@ func (s *InterbankCashService) resolveAccount(ctx context.Context, accountNumber
 	if err != nil {
 		return nil, commonerrors.InternalErr(err)
 	}
+
+	var rsdAccount, anyAccount *model.Account
 	for i := range accounts {
-		if accounts[i].Currency.Code == currencyCode && accounts[i].Status == "Active" {
+		if accounts[i].Status != "Active" {
+			continue
+		}
+		if accounts[i].Currency.Code == currencyCode {
 			return &accounts[i], nil
 		}
+		if accounts[i].Currency.Code == model.RSD && rsdAccount == nil {
+			rsdAccount = &accounts[i]
+		}
+		if anyAccount == nil {
+			anyAccount = &accounts[i]
+		}
 	}
-	return nil, commonerrors.NotFoundErr("client account for currency not found")
+	if rsdAccount != nil {
+		return rsdAccount, nil
+	}
+	if anyAccount != nil {
+		return anyAccount, nil
+	}
+	return nil, commonerrors.NotFoundErr("no active account for client")
 }
