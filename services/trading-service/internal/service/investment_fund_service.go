@@ -852,7 +852,7 @@ func mapFundPaymentError(err error) error {
 		switch st.Code() {
 		case codes.NotFound:
 			return commonErrors.NotFoundErr(st.Message())
-		case codes.FailedPrecondition:
+		case codes.FailedPrecondition, codes.InvalidArgument:
 			return commonErrors.BadRequestErr(st.Message())
 		}
 	}

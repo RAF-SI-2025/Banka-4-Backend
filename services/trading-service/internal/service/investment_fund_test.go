@@ -1087,6 +1087,16 @@ func TestMapFundPaymentError_FailedPrecondition(t *testing.T) {
 	require.Contains(t, mapped.Error(), "insufficient funds")
 }
 
+func TestMapFundPaymentError_InvalidArgument(t *testing.T) {
+	err := status.Error(codes.InvalidArgument, "insufficient funds")
+	mapped := mapFundPaymentError(err)
+	require.Error(t, mapped)
+	require.Contains(t, mapped.Error(), "insufficient funds")
+	var appErr *commonErrors.AppError
+	require.True(t, errors.As(mapped, &appErr))
+	require.Equal(t, 400, appErr.Code)
+}
+
 func TestMapFundPaymentError_Unknown(t *testing.T) {
 	err := errors.New("something went wrong")
 	mapped := mapFundPaymentError(err)
