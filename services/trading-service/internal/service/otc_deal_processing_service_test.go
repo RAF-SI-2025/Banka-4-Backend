@@ -535,6 +535,7 @@ func newProcessingServiceForTest(now time.Time) (*OtcDealProcessingService, *pro
 		ownershipRepo,
 		&processingTxManager{},
 		bankingClient,
+		nil,
 	)
 	svc.now = func() time.Time { return now }
 	return svc, offerRepo, contractRepo, reservationRepo, executionRepo, ownershipRepo, bankingClient
@@ -1993,6 +1994,7 @@ func TestFinalizeAgreementSecondTxOfferNotActive(t *testing.T) {
 		ownershipRepo2,
 		&processingTxManager{},
 		bankingClient2,
+		nil,
 	)
 	svc2.now = func() time.Time { return now }
 

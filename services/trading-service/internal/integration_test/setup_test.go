@@ -381,7 +381,8 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 
 	taxSvc := service.NewTaxService(taxRepo, bankingClient, cfg, auditSvc)
 	otcSvc := service.NewOTCService(assetOwnershipRepo, listingRepo, userClient)
-	otcProcessingSvc := service.NewOtcDealProcessingService(otcOfferRepo, otcContractRepo, otcShareReservationRepo, otcExecutionRepo, assetOwnershipRepo, txManager, bankingClient)
+	otcTaxSvc := service.NewOtcTaxService(taxSvc, userClient, stockRepo, bankingClient)
+	otcProcessingSvc := service.NewOtcDealProcessingService(otcOfferRepo, otcContractRepo, otcShareReservationRepo, otcExecutionRepo, assetOwnershipRepo, txManager, bankingClient, otcTaxSvc)
 	otcHistoryRepo := repository.NewOtcNegotiationHistoryRepository(db)
 	otcHistoryService := service.NewOtcNegotiationHistoryService(otcOfferRepo, otcHistoryRepo)
 	otcHistoryHandler := handler.NewOtcNegotiationHistoryHandler(otcHistoryService)

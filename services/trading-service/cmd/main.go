@@ -111,6 +111,7 @@ func main() {
 			repository.NewPeerOtcShareRepository,
 			repository.NewGormTransactionManager,
 			service.NewPeerOtcShareService,
+			service.NewOtcTaxService,
 			service.NewOtcDealProcessingService,
 			service.NewOtcOfferService,
 			handler.NewOtcOfferHandler,

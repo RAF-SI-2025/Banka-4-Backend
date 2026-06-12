@@ -4,6 +4,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ type OtcDealProcessingService struct {
 	assetOwnershipRepo   repository.AssetOwnershipRepository
 	txManager            repository.TransactionManager
 	bankingClient        client.BankingClient
+	otcTaxService        *OtcTaxService
 
 	now func() time.Time
 
@@ -48,6 +50,7 @@ func NewOtcDealProcessingService(
 	assetOwnershipRepo repository.AssetOwnershipRepository,
 	txManager repository.TransactionManager,
 	bankingClient client.BankingClient,
+	otcTaxService *OtcTaxService,
 ) *OtcDealProcessingService {
 	return &OtcDealProcessingService{
 		offerRepo:            offerRepo,
@@ -57,6 +60,7 @@ func NewOtcDealProcessingService(
 		assetOwnershipRepo:   assetOwnershipRepo,
 		txManager:            txManager,
 		bankingClient:        bankingClient,
+		otcTaxService:        otcTaxService,
 		now:                  time.Now,
 	}
 }
@@ -260,6 +264,14 @@ func (s *OtcDealProcessingService) FinalizeAgreement(ctx context.Context, offerI
 	contract, err := s.optionContractRepo.FindByID(ctx, contractID)
 	if err != nil {
 		return nil, appErrors.InternalErr(err)
+	}
+
+	// Seller's premium is taxable income (15%). Best-effort: a tax-recording
+	// failure must not roll back an already-settled premium transfer.
+	if s.otcTaxService != nil {
+		if taxErr := s.otcTaxService.RecordPremiumTax(ctx, contract); taxErr != nil {
+			log.Printf("[otc-tax] failed to record premium tax for contract %d: %v", contract.OtcOptionContractID, taxErr)
+		}
 	}
 
 	return contract, nil
@@ -714,6 +726,19 @@ func (s *OtcDealProcessingService) transferOwnership(ctx context.Context, execut
 
 	if err != nil {
 		return s.scheduleCompensating(ctx, execution.OtcExecutionSagaID, model.OtcExecutionStepFundsCommitted, err.Error())
+	}
+
+	// Ownership transfer succeeded — the buyer has exercised the option. The
+	// realized gain ((market − strike) × qty − premium) is taxable (15%).
+	// Best-effort: recorded outside the settlement transaction so a tax failure
+	// never reverts a completed exercise.
+	if s.otcTaxService != nil {
+		exercised, fetchErr := s.optionContractRepo.FindByID(ctx, execution.ContractID)
+		if fetchErr != nil {
+			log.Printf("[otc-tax] failed to load exercised contract %d for tax: %v", execution.ContractID, fetchErr)
+		} else if taxErr := s.otcTaxService.RecordExerciseTax(ctx, exercised); taxErr != nil {
+			log.Printf("[otc-tax] failed to record exercise tax for contract %d: %v", execution.ContractID, taxErr)
+		}
 	}
 
 	return nil
