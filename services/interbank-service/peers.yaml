@@ -26,6 +26,12 @@ peers:
     theirApiKey: "4CJYwLN/Ec2i5M/J8Anv+Av1O81OGE9re4lG+m9PsEQ="
     displayName: "Bank 3"
 
+  - routingNumber: 888
+    baseUrl: "https://exbanka-4.radenkovic.rs/api"
+    ourApiKey: "bank4-secret-key"
+    theirApiKey: "ek_exbanka4_1c715bd146a3ef672b6519349dc3419b2c37f875be0cc10c"
+    displayName: "exBank 4"
+
   # Local mock peer (docker container on the compose network) — used to test
   # OUTBOUND OTC + the inter-bank payment flow end to end.
   - routingNumber: 555
