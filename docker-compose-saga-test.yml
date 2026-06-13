@@ -1,0 +1,26 @@
+# Overlay for the SAGA chaos test suite (SG-09..SG-11 in the test spec).
+#
+#   docker compose -f docker-compose-dev.yml -f docker-compose-saga-test.yml up -d --build
+#   make test-saga-e2e
+#
+# It inserts Toxiproxy between trading_service and banking_service so tests
+# can inject network latency and partitions, and enables the X-Saga-* fault
+# injection hook in trading_service (test builds only; the service refuses to
+# start with the hook enabled in release mode).
+services:
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    command: ["-host=0.0.0.0", "-config=/etc/toxiproxy/toxiproxy-saga.json"]
+    ports:
+      - "8474:8474"
+    volumes:
+      - ./docker/toxiproxy-saga.json:/etc/toxiproxy/toxiproxy-saga.json:ro
+
+  trading_service:
+    environment:
+      SAGA_FAULT_INJECTION: "enabled"
+      BANKING_SERVICE_ADDR: toxiproxy:50052
+      BANKING_RPC_TIMEOUT_SECONDS: "5"
+    depends_on:
+      toxiproxy:
+        condition: service_started

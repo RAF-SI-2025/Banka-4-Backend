@@ -268,6 +268,45 @@ func TestOTC_AcceptOffer_Success_CreatesContract(t *testing.T) {
 	assert.Equal(t, float64(10), updatedOwnership.ReservedAmount)
 }
 
+// TestOTC_AcceptOffer_RecordsPremiumTaxForSeller verifies that accepting an OTC
+// offer records the seller's 15% premium tax (premija je oporeziv prihod prodavca).
+func TestOTC_AcceptOffer_RecordsPremiumTaxForSeller(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	router, _ := setupTestRouter(t, db)
+
+	asset, _ := seedAssetAndStock(t, db, uniqueValue(t, "PRMT"))
+	// Seller identity = 20
+	ownership := seedAssetOwnership(t, db, 20, model.OwnerTypeClient, asset.AssetID, 100)
+	setPublicAmount(t, db, ownership.AssetOwnershipID, 100, 0)
+
+	offerBody := map[string]any{
+		"asset_ownership_id":   ownership.AssetOwnershipID,
+		"amount":               10,
+		"price_per_stock_rsd":  50.0,
+		"premium_rsd":          1150.0,
+		"settlement_date":      time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
+		"buyer_account_number": "buyer-acc", // resolves to clientID=10
+	}
+	rec := performRequest(t, router, http.MethodPost, "/api/otc/offers", offerBody, clientAuthHeader(t, 10, 10))
+	requireStatus(t, rec, http.StatusCreated)
+	offer := decodeResponse[map[string]any](t, rec)
+	offerID := uint(offer["otc_offer_id"].(float64))
+
+	// Seller (identityID=20) accepts; "seller-acc" resolves to clientID=20
+	acceptBody := map[string]any{"account_number": "seller-acc"}
+	rec = performRequest(t, router, http.MethodPatch, fmt.Sprintf("/api/otc/offers/%d/accept", offerID), acceptBody, clientAuthHeader(t, 20, 20))
+	requireStatus(t, rec, http.StatusCreated)
+
+	// Premija $1150 -> porez 15% = 172.50 evidentiran na prodavčevom računu.
+	var tax model.AccumulatedTax
+	err := db.Where("account_number = ?", "seller-acc").First(&tax).Error
+	require.NoError(t, err)
+	assert.InDelta(t, 172.50, tax.TaxOwed, 1e-6)
+	assert.Equal(t, "RSD", tax.CurrencyCode)
+	assert.Nil(t, tax.EmployeeID)
+}
+
 func TestOTC_AcceptOffer_BuyerCannotAcceptOwnOffer(t *testing.T) {
 	t.Parallel()
 	db := setupTestDB(t)

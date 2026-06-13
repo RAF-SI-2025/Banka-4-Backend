@@ -11,6 +11,7 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/handler"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/config"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/faultinject"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/middleware"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/validator"
 	"github.com/gin-contrib/cors"
@@ -259,7 +260,13 @@ func SetupRoutes(
 			otc.GET("/contracts", otcOfferHandler.GetMyOptionContracts)
 
 			// Exercise postojećeg OTC contract-a — buyer pokreće settlement SAGA.
-			otc.POST("/contracts/:id/exercise", otcOfferHandler.ExerciseContract)
+			// X-Saga-* adversarni headeri se parsiraju samo u test buildovima
+			// (SAGA_FAULT_INJECTION); u ostalim slučajevima zahtev sa tim
+			// headerima biva odbijen.
+			otc.POST("/contracts/:id/exercise", faultinject.Middleware(), otcOfferHandler.ExerciseContract)
+
+			// Stanje settlement SAGA-e sa step-by-step logom (buyer ili seller).
+			otc.GET("/executions/:id", otcOfferHandler.GetExecution)
 
 			// Kreiranje nove ponude — radi je kupac (klijent sa permisijom za trgovinu).
 			otc.POST("/offers", otcOfferHandler.CreateOffer)

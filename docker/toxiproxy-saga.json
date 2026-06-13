@@ -1,0 +1,8 @@
+[
+  {
+    "name": "banking_grpc",
+    "listen": "0.0.0.0:50052",
+    "upstream": "banking_service:50052",
+    "enabled": true
+  }
+]

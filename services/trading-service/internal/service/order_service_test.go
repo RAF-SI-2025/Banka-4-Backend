@@ -320,6 +320,12 @@ type fakeTaxRecorder struct {
 	recordedCurrency      string
 	recordErr             error
 	called                bool
+
+	// ReduceTax capture
+	reducedAccountNumber string
+	reducedLossBase      float64
+	reduceErr            error
+	reduceCalled         bool
 }
 
 func (f *fakeTaxRecorder) RecordTax(_ context.Context, accountNumber string, employeeID *uint, profit float64, currencyCode string) error {
@@ -329,6 +335,13 @@ func (f *fakeTaxRecorder) RecordTax(_ context.Context, accountNumber string, emp
 	f.recordedProfit = profit
 	f.recordedCurrency = currencyCode
 	return f.recordErr
+}
+
+func (f *fakeTaxRecorder) ReduceTax(_ context.Context, accountNumber string, _ *uint, lossBase float64) error {
+	f.reduceCalled = true
+	f.reducedAccountNumber = accountNumber
+	f.reducedLossBase = lossBase
+	return f.reduceErr
 }
 
 // ── Helpers ───────────────────────────────────────────────────────

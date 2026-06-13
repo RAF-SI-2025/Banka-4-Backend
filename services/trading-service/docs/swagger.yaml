@@ -857,6 +857,17 @@ definitions:
       user_id:
         type: integer
     type: object
+  dto.OtcExecutionLogEntryResponse:
+    properties:
+      created_at:
+        type: string
+      error:
+        type: string
+      outcome:
+        $ref: '#/definitions/model.OtcExecutionLogOutcome'
+      step:
+        type: string
+    type: object
   dto.OtcExecutionSagaResponse:
     properties:
       completed_at:
@@ -871,6 +882,10 @@ definitions:
         type: string
       last_error:
         type: string
+      log:
+        items:
+          $ref: '#/definitions/dto.OtcExecutionLogEntryResponse'
+        type: array
       next_retry_at:
         type: string
       otc_execution_saga_id:
@@ -1382,6 +1397,14 @@ definitions:
     - OrderTypeLimit
     - OrderTypeStop
     - OrderTypeStopLimit
+  model.OtcExecutionLogOutcome:
+    enum:
+    - OK
+    - ERR
+    type: string
+    x-enum-varnames:
+    - OtcExecutionLogOutcomeOK
+    - OtcExecutionLogOutcomeErr
   model.OtcExecutionStatus:
     enum:
     - IN_PROGRESS
@@ -3133,6 +3156,42 @@ paths:
           schema:
             $ref: '#/definitions/errors.AppError'
       summary: Exercise OTC contract
+      tags:
+      - otc
+  /api/otc/executions/{id}:
+    get:
+      description: Returns the settlement saga state and its step-by-step log. Only
+        the contract's buyer or seller may read it.
+      parameters:
+      - description: OTC execution saga ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.OtcExecutionSagaResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Get OTC execution saga
       tags:
       - otc
   /api/otc/offers:

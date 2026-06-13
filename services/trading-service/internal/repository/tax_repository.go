@@ -16,6 +16,11 @@ type TaxRepository interface {
 
 	AddTaxOwed(ctx context.Context, accountNumber string, employeeID *uint, amount float64, currencyCode string) error
 
+	// ReduceTaxOwed subtracts amount from an existing accumulated-tax row, clamped
+	// at zero. It never creates a row: a loss with no prior gains has nothing to
+	// offset.
+	ReduceTaxOwed(ctx context.Context, accountNumber string, employeeID *uint, amount float64) error
+
 	ClearTax(ctx context.Context, accountNumber string, clearedAt time.Time) error
 
 	RecordCollectionResult(ctx context.Context, collection *model.TaxCollection, clearTax bool, clearedAmount float64, clearedAt time.Time) error

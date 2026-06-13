@@ -51,6 +51,23 @@ func (s *TaxService) RecordTax(ctx context.Context, accountNumber string, employ
 	return nil
 }
 
+// ReduceTax lowers an account's accumulated capital-gains tax by 15% of a realized
+// loss base (clamped at zero). A loss with no prior gains in the period has nothing
+// to offset, so no row is created.
+func (s *TaxService) ReduceTax(ctx context.Context, accountNumber string, employeeID *uint, lossBase float64) error {
+	if lossBase <= 0 {
+		return nil
+	}
+
+	reduction := lossBase * taxRate
+
+	if err := s.taxRepo.ReduceTaxOwed(ctx, accountNumber, employeeID, reduction); err != nil {
+		return errors.InternalErr(err)
+	}
+
+	return nil
+}
+
 func (s *TaxService) CollectTaxes(ctx context.Context) error {
 	taxes, err := s.taxRepo.FindAllPositiveAccumulatedTax(ctx)
 	if err != nil {

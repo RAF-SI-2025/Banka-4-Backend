@@ -41,6 +41,10 @@ func TestMain(m *testing.M) {
 	gin.SetMode(gin.TestMode)
 	_ = logging.Init("test")
 
+	// Enable the X-Saga-* fault-injection hook for the SAGA chaos tests.
+	// Requests without those headers behave exactly as before.
+	os.Setenv("SAGA_FAULT_INJECTION", "enabled")
+
 	ctx := context.Background()
 	container, err := tcpostgres.Run(
 		ctx,
@@ -83,6 +87,7 @@ func TestMain(m *testing.M) {
 		&model.OtcNegotiationHistory{},
 		&model.OtcShareReservation{},
 		&model.OtcExecutionSaga{},
+		&model.OtcExecutionSagaLogEntry{},
 		&model.InvestmentFund{},
 		&model.ClientFundPosition{},
 		&model.ClientFundInvestment{},
@@ -209,6 +214,10 @@ func (f *fakeTaxRecorder) RecordTax(_ context.Context, _ string, _ *uint, _ floa
 	return nil
 }
 
+func (f *fakeTaxRecorder) ReduceTax(_ context.Context, _ string, _ *uint, _ float64) error {
+	return nil
+}
+
 type fakeBankingClient struct {
 	accountByNumber map[string]uint64
 }
@@ -332,6 +341,19 @@ func setupTestRouter(t *testing.T, db *gorm.DB) (*gin.Engine, *fakeUserClient) {
 func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permission.Permission) (*gin.Engine, *fakeUserClient) {
 	t.Helper()
 
+	bankingClient := &fakeBankingClient{
+		accountByNumber: map[string]uint64{
+			"seller-acc": 20,
+			"buyer-acc":  10,
+		},
+	}
+
+	return setupTestRouterWithBanking(t, db, perms, bankingClient)
+}
+
+func setupTestRouterWithBanking(t *testing.T, db *gorm.DB, perms []permission.Permission, bankingClient client.BankingClient) (*gin.Engine, *fakeUserClient) {
+	t.Helper()
+
 	cfg := testConfig()
 
 	userClient := &fakeUserClient{
@@ -339,12 +361,6 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 		agentIDs:      map[uint64]bool{20: true},
 	}
 	var mailer service.Mailer = &fakeMailer{}
-	var bankingClient client.BankingClient = &fakeBankingClient{
-		accountByNumber: map[string]uint64{
-			"seller-acc": 20,
-			"buyer-acc":  10,
-		},
-	}
 
 	var permProvider auth.PermissionProvider = &fakePermissionProvider{perms: perms}
 
@@ -381,7 +397,8 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 
 	taxSvc := service.NewTaxService(taxRepo, bankingClient, cfg, auditSvc)
 	otcSvc := service.NewOTCService(assetOwnershipRepo, listingRepo, userClient)
-	otcProcessingSvc := service.NewOtcDealProcessingService(otcOfferRepo, otcContractRepo, otcShareReservationRepo, otcExecutionRepo, assetOwnershipRepo, txManager, bankingClient)
+	otcTaxSvc := service.NewOtcTaxService(taxSvc, userClient, stockRepo, bankingClient)
+	otcProcessingSvc := service.NewOtcDealProcessingService(otcOfferRepo, otcContractRepo, otcShareReservationRepo, otcExecutionRepo, assetOwnershipRepo, txManager, bankingClient, otcTaxSvc)
 	otcHistoryRepo := repository.NewOtcNegotiationHistoryRepository(db)
 	otcHistoryService := service.NewOtcNegotiationHistoryService(otcOfferRepo, otcHistoryRepo)
 	otcHistoryHandler := handler.NewOtcNegotiationHistoryHandler(otcHistoryService)

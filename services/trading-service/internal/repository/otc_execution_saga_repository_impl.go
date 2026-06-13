@@ -73,6 +73,30 @@ func (r *otcExecutionSagaRepository) Save(ctx context.Context, saga *model.OtcEx
 	return commondb.DBFromContext(ctx, r.db).Save(saga).Error
 }
 
+func (r *otcExecutionSagaRepository) UpdateFaultSpec(ctx context.Context, sagaID uint, faultSpec string) error {
+	return commondb.DBFromContext(ctx, r.db).
+		Model(&model.OtcExecutionSaga{}).
+		Where("otc_execution_saga_id = ?", sagaID).
+		Update("fault_spec", faultSpec).Error
+}
+
+func (r *otcExecutionSagaRepository) AppendLogEntry(ctx context.Context, entry *model.OtcExecutionSagaLogEntry) error {
+	return commondb.DBFromContext(ctx, r.db).Create(entry).Error
+}
+
+func (r *otcExecutionSagaRepository) ListLogEntries(ctx context.Context, sagaID uint) ([]model.OtcExecutionSagaLogEntry, error) {
+	var entries []model.OtcExecutionSagaLogEntry
+
+	if err := commondb.DBFromContext(ctx, r.db).
+		Where("otc_execution_saga_id = ?", sagaID).
+		Order("otc_execution_saga_log_entry_id ASC").
+		Find(&entries).Error; err != nil {
+		return nil, err
+	}
+
+	return entries, nil
+}
+
 func (r *otcExecutionSagaRepository) findByContractID(ctx context.Context, contractID uint, forUpdate bool) (*model.OtcExecutionSaga, error) {
 	query := commondb.DBFromContext(ctx, r.db).
 		Preload("Contract").

@@ -425,6 +425,7 @@ func newOtcTestService(t *testing.T) (*OtcOfferService, *fakeOtcOfferRepo, *fake
 		ownershipRepo,
 		&processingTxManager{},
 		banking,
+		nil,
 	)
 	mailer := &mockMailer{}
 	svc := NewOtcOfferService(offerRepo, contractRepo, ownershipRepo, stockRepo, banking, &fakeOtcUserClient{}, mailer, processingSvc, &fakeOtcHistoryService{})

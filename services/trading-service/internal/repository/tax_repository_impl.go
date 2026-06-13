@@ -90,6 +90,25 @@ func (r *taxRepositoryImpl) AddTaxOwed(ctx context.Context, accountNumber string
 	return nil
 }
 
+func (r *taxRepositoryImpl) ReduceTaxOwed(ctx context.Context, accountNumber string, employeeID *uint, amount float64) error {
+	query := r.db.WithContext(ctx).
+		Model(&model.AccumulatedTax{}).
+		Where("account_number = ?", accountNumber)
+
+	if employeeID != nil {
+		query = query.Where("employee_id = ?", *employeeID)
+	} else {
+		query = query.Where("employee_id IS NULL")
+	}
+
+	// GREATEST clamps at zero — a loss never produces a negative (refundable) tax.
+	// No row to update is a no-op: nothing accumulated this period to offset.
+	return query.Updates(map[string]interface{}{
+		"tax_owed":        gorm.Expr("GREATEST(tax_owed - ?, 0)", amount),
+		"last_updated_at": time.Now(),
+	}).Error
+}
+
 func (r *taxRepositoryImpl) ClearTax(ctx context.Context, accountNumber string, clearedAt time.Time) error {
 	return r.db.WithContext(ctx).
 		Model(&model.AccumulatedTax{}).

@@ -44,10 +44,21 @@ type fakeTaxRepo struct {
 
 	// captured args for assertion
 	capturedCollection *model.TaxCollection
+
+	// ReduceTaxOwed capture
+	reducedAccountNumber string
+	reducedAmount        float64
+	reduceTaxErr         error
 }
 
 func (f *fakeTaxRepo) AddTaxOwed(_ context.Context, _ string, _ *uint, _ float64, _ string) error {
 	return f.addTaxErr
+}
+
+func (f *fakeTaxRepo) ReduceTaxOwed(_ context.Context, accountNumber string, _ *uint, amount float64) error {
+	f.reducedAccountNumber = accountNumber
+	f.reducedAmount = amount
+	return f.reduceTaxErr
 }
 
 func (c *fakeBankingClient) GetAccountCurrency(_ context.Context, _ string) (string, error) {
@@ -199,6 +210,26 @@ func TestRecordTax_CalculatesTaxCorrectly(t *testing.T) {
 	// profit=1000, taxRate=0.15, expected taxOwed=150
 	err := svc.RecordTax(context.Background(), "444000000000000000", nil, 1000, "RSD")
 	require.NoError(t, err)
+}
+
+func TestReduceTax_SubtractsFifteenPercentOfLoss(t *testing.T) {
+	repo := &fakeTaxRepo{}
+	svc := newTestTaxService(repo, &fakeBankingClient{})
+
+	// lossBase=1150 (premija), reduction = 15% = 172.50 oduzeto od akumuliranog poreza.
+	err := svc.ReduceTax(context.Background(), "444000000000000000", nil, 1150)
+	require.NoError(t, err)
+	require.Equal(t, "444000000000000000", repo.reducedAccountNumber)
+	require.InDelta(t, 172.50, repo.reducedAmount, 1e-9)
+}
+
+func TestReduceTax_SkipsNonPositiveLoss(t *testing.T) {
+	repo := &fakeTaxRepo{}
+	svc := newTestTaxService(repo, &fakeBankingClient{})
+
+	require.NoError(t, svc.ReduceTax(context.Background(), "acc", nil, 0))
+	require.NoError(t, svc.ReduceTax(context.Background(), "acc", nil, -50))
+	require.Equal(t, 0.0, repo.reducedAmount, "no reduction attempted for non-positive loss")
 }
 
 func TestRecordTax_WithEmployeeID(t *testing.T) {

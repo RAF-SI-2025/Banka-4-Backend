@@ -99,6 +99,11 @@ type OtcShareReservation struct {
 // RetryCount + NextRetryAt implement the retry mechanism the spec mandates
 // ("sistem mora da ima retry mehanizam dok sredstva ne budu vraćena").
 // LastError is the most recent error string, kept for ops debugging.
+// FaultSpec carries a serialized fault-injection plan (see internal/faultinject)
+// for this execution. It is only ever populated when the service runs with
+// SAGA_FAULT_INJECTION enabled (test builds); in production it stays empty.
+// Persisting it on the saga row lets injected faults survive worker restarts,
+// which the chaos tests rely on.
 type OtcExecutionSaga struct {
 	OtcExecutionSagaID uint               `gorm:"primaryKey;autoIncrement"`
 	ContractID         uint               `gorm:"not null;uniqueIndex"`
@@ -109,7 +114,38 @@ type OtcExecutionSaga struct {
 	RetryCount         int                `gorm:"not null;default:0"`
 	NextRetryAt        *time.Time
 	LastError          string
+	FaultSpec          string `gorm:"size:500"`
 	CompletedAt        *time.Time
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+}
+
+type OtcExecutionLogOutcome string
+
+const (
+	OtcExecutionLogOutcomeOK  OtcExecutionLogOutcome = "OK"
+	OtcExecutionLogOutcomeErr OtcExecutionLogOutcome = "ERR"
+)
+
+// OtcExecutionSagaLogEntry is one record per attempted saga step, forward or
+// compensating, in execution order (primary key order). The SAGA test spec
+// labels steps F1..F5 for the forward phases and C1/C3 for the implemented
+// compensators (release reserved funds, refund committed funds); F2/F4/F5
+// apply their local effects transactionally and therefore have no separate
+// compensator rows.
+//
+// Step label mapping to the execution flow:
+//
+//	F1 — reserve buyer funds in banking      C1 — release the funds reservation
+//	F2 — re-validate seller share coverage
+//	F3 — commit the funds transfer           C3 — refund the committed transfer
+//	F4 — transfer share ownership locally
+//	F5 — finalize the saga record
+type OtcExecutionSagaLogEntry struct {
+	OtcExecutionSagaLogEntryID uint                   `gorm:"primaryKey;autoIncrement"`
+	OtcExecutionSagaID         uint                   `gorm:"not null;index"`
+	Step                       string                 `gorm:"not null;size:8"`
+	Outcome                    OtcExecutionLogOutcome `gorm:"not null;size:8"`
+	Error                      string
+	CreatedAt                  time.Time
 }

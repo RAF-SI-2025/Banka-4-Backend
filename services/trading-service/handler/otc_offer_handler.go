@@ -233,7 +233,44 @@ func (h *OtcOfferHandler) ExerciseContract(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToOtcExecutionSagaResponse(*execution))
+	resp := dto.ToOtcExecutionSagaResponse(*execution)
+	if entries, logErr := h.service.GetExecutionLog(c.Request.Context(), execution.OtcExecutionSagaID); logErr == nil {
+		resp.Log = dto.ToOtcExecutionLogEntryResponses(entries)
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// GetExecution returns the current state and per-step attempt log of an OTC
+// execution saga.
+//
+// @Summary     Get OTC execution saga
+// @Description Returns the settlement saga state and its step-by-step log. Only the contract's buyer or seller may read it.
+// @Tags        otc
+// @Produce     json
+// @Param       id path int true "OTC execution saga ID"
+// @Success     200 {object} dto.OtcExecutionSagaResponse
+// @Failure     400 {object} errors.AppError
+// @Failure     401 {object} errors.AppError
+// @Failure     403 {object} errors.AppError
+// @Failure     404 {object} errors.AppError
+// @Router      /api/otc/executions/{id} [get]
+func (h *OtcOfferHandler) GetExecution(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		_ = c.Error(errors.BadRequestErr("invalid execution id"))
+		return
+	}
+
+	execution, entries, err := h.service.GetExecution(c.Request.Context(), uint(id))
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	resp := dto.ToOtcExecutionSagaResponse(*execution)
+	resp.Log = dto.ToOtcExecutionLogEntryResponses(entries)
+	c.JSON(http.StatusOK, resp)
 }
 
 // parseOfferID extracts and validates the :id path parameter as a uint.

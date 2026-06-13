@@ -2487,6 +2487,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/otc/executions/{id}": {
+            "get": {
+                "description": "Returns the settlement saga state and its step-by-step log. Only the contract's buyer or seller may read it.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "otc"
+                ],
+                "summary": "Get OTC execution saga",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "OTC execution saga ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OtcExecutionSagaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/otc/offers": {
             "post": {
                 "description": "Buyer initiates a new OTC negotiation with a seller for publicly listed shares.",
@@ -5094,6 +5147,23 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.OtcExecutionLogEntryResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "outcome": {
+                    "$ref": "#/definitions/model.OtcExecutionLogOutcome"
+                },
+                "step": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.OtcExecutionSagaResponse": {
             "type": "object",
             "properties": {
@@ -5114,6 +5184,12 @@ const docTemplate = `{
                 },
                 "last_error": {
                     "type": "string"
+                },
+                "log": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.OtcExecutionLogEntryResponse"
+                    }
                 },
                 "next_retry_at": {
                     "type": "string"
@@ -5881,6 +5957,17 @@ const docTemplate = `{
                 "OrderTypeLimit",
                 "OrderTypeStop",
                 "OrderTypeStopLimit"
+            ]
+        },
+        "model.OtcExecutionLogOutcome": {
+            "type": "string",
+            "enum": [
+                "OK",
+                "ERR"
+            ],
+            "x-enum-varnames": [
+                "OtcExecutionLogOutcomeOK",
+                "OtcExecutionLogOutcomeErr"
             ]
         },
         "model.OtcExecutionStatus": {
