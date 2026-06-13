@@ -29,11 +29,36 @@ func setupOtcRepoDB(t *testing.T) *gorm.DB {
 		&model.OtcOffer{},
 		&model.OtcOptionContract{},
 		&model.OtcExecutionSaga{},
+		&model.OtcShareReservation{},
+		&model.Order{},
+		&model.OrderTransaction{},
 	); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
 
 	return db
+}
+
+func createRepoContract(t *testing.T, db *gorm.DB, stock model.Stock, offerID uint, status model.OtcOptionContractStatus, settlementDate time.Time) model.OtcOptionContract {
+	t.Helper()
+
+	contract := model.OtcOptionContract{
+		OtcOfferID:          offerID,
+		BuyerID:             10 + offerID,
+		SellerID:            20,
+		StockAssetID:        stock.AssetID,
+		Amount:              5,
+		StrikePriceRSD:      100,
+		PremiumRSD:          10,
+		SettlementDate:      settlementDate,
+		BuyerAccountNumber:  "buyer",
+		SellerAccountNumber: "seller",
+		Status:              status,
+	}
+	if err := db.Create(&contract).Error; err != nil {
+		t.Fatalf("create contract: %v", err)
+	}
+	return contract
 }
 
 func createRepoStock(t *testing.T, db *gorm.DB, ticker string) model.Stock {
@@ -215,5 +240,168 @@ func TestOtcOptionContractRepositoryQueries(t *testing.T) {
 	}
 	if missing != nil {
 		t.Fatalf("expected nil missing contract, got %#v", missing)
+	}
+}
+
+func TestOtcExecutionSagaRepositoryQueries(t *testing.T) {
+	t.Parallel()
+
+	db := setupOtcRepoDB(t)
+	stock := createRepoStock(t, db, "TSLA")
+	contract := createRepoContract(t, db, stock, 101, model.OtcOptionContractStatusActive, time.Now().Add(24*time.Hour))
+	repo := NewOtcExecutionSagaRepository(db)
+	ctx := context.Background()
+	now := time.Now()
+	retryAt := now.Add(-time.Minute)
+	futureRetry := now.Add(time.Hour)
+
+	sagas := []model.OtcExecutionSaga{
+		{ContractID: contract.OtcOptionContractID, ExecutionKey: "exec-1", CurrentStep: model.OtcExecutionStepInit, Status: model.OtcExecutionStatusInProgress, NextRetryAt: &retryAt},
+		{ContractID: contract.OtcOptionContractID + 100, ExecutionKey: "exec-2", CurrentStep: model.OtcExecutionStepFundsReserved, Status: model.OtcExecutionStatusCompleted},
+		{ContractID: contract.OtcOptionContractID + 200, ExecutionKey: "exec-3", CurrentStep: model.OtcExecutionStepFundsReserved, Status: model.OtcExecutionStatusCompensating, NextRetryAt: &futureRetry},
+	}
+	for i := range sagas {
+		if i > 0 {
+			other := createRepoContract(t, db, stock, uint(102+i), model.OtcOptionContractStatusActive, now.Add(24*time.Hour))
+			sagas[i].ContractID = other.OtcOptionContractID
+		}
+		if err := repo.Create(ctx, &sagas[i]); err != nil {
+			t.Fatalf("create saga %d: %v", i, err)
+		}
+	}
+
+	found, err := repo.FindByID(ctx, sagas[0].OtcExecutionSagaID)
+	if err != nil {
+		t.Fatalf("find saga: %v", err)
+	}
+	if found == nil || found.Contract.Stock.Asset.Ticker != "TSLA" {
+		t.Fatalf("unexpected found saga %#v", found)
+	}
+
+	byContract, err := repo.FindByContractIDForUpdate(ctx, contract.OtcOptionContractID)
+	if err != nil {
+		t.Fatalf("find saga by contract: %v", err)
+	}
+	if byContract == nil || byContract.ExecutionKey != "exec-1" {
+		t.Fatalf("unexpected saga by contract %#v", byContract)
+	}
+
+	pending, err := repo.FindPendingForExecution(ctx, now, 10)
+	if err != nil {
+		t.Fatalf("find pending sagas: %v", err)
+	}
+	if len(pending) != 1 || pending[0].ExecutionKey != "exec-1" {
+		t.Fatalf("unexpected pending sagas %#v", pending)
+	}
+
+	found.Status = model.OtcExecutionStatusFailed
+	found.LastError = "failed"
+	if err := repo.Save(ctx, found); err != nil {
+		t.Fatalf("save saga: %v", err)
+	}
+	updated, err := repo.FindByContractID(ctx, contract.OtcOptionContractID)
+	if err != nil {
+		t.Fatalf("find updated saga: %v", err)
+	}
+	if updated.Status != model.OtcExecutionStatusFailed || updated.LastError != "failed" {
+		t.Fatalf("unexpected updated saga %#v", updated)
+	}
+
+	missing, err := repo.FindByID(ctx, 9999)
+	if err != nil {
+		t.Fatalf("find missing saga: %v", err)
+	}
+	if missing != nil {
+		t.Fatalf("expected nil missing saga, got %#v", missing)
+	}
+}
+
+func TestOtcShareReservationRepositoryQueries(t *testing.T) {
+	t.Parallel()
+
+	db := setupOtcRepoDB(t)
+	stock := createRepoStock(t, db, "NVDA")
+	contract1 := createRepoContract(t, db, stock, 201, model.OtcOptionContractStatusActive, time.Now().Add(24*time.Hour))
+	contract2 := createRepoContract(t, db, stock, 202, model.OtcOptionContractStatusActive, time.Now().Add(24*time.Hour))
+	repo := NewOtcShareReservationRepository(db)
+	ctx := context.Background()
+
+	reservations := []model.OtcShareReservation{
+		{ContractID: contract1.OtcOptionContractID, SellerID: 20, OwnerType: model.OwnerTypeClient, StockAssetID: stock.AssetID, ReservedAmount: 12, Status: model.OtcShareReservationStatusActive},
+		{ContractID: contract2.OtcOptionContractID, SellerID: 20, OwnerType: model.OwnerTypeClient, StockAssetID: stock.AssetID, ReservedAmount: 8, Status: model.OtcShareReservationStatusActive},
+	}
+	for i := range reservations {
+		if err := repo.Create(ctx, &reservations[i]); err != nil {
+			t.Fatalf("create reservation %d: %v", i, err)
+		}
+	}
+
+	found, err := repo.FindByContractIDForUpdate(ctx, contract1.OtcOptionContractID)
+	if err != nil {
+		t.Fatalf("find reservation: %v", err)
+	}
+	if found == nil || found.ReservedAmount != 12 {
+		t.Fatalf("unexpected reservation %#v", found)
+	}
+
+	exclude := contract1.OtcOptionContractID
+	total, err := repo.SumActiveReservedBySellerAsset(ctx, 20, model.OwnerTypeClient, stock.AssetID, &exclude)
+	if err != nil {
+		t.Fatalf("sum active reservations: %v", err)
+	}
+	if total != 8 {
+		t.Fatalf("sum active reservations = %.2f, want 8", total)
+	}
+
+	found.Status = model.OtcShareReservationStatusReleased
+	if err := repo.Save(ctx, found); err != nil {
+		t.Fatalf("save reservation: %v", err)
+	}
+	updated, err := repo.FindByContractID(ctx, contract1.OtcOptionContractID)
+	if err != nil {
+		t.Fatalf("find updated reservation: %v", err)
+	}
+	if updated.Status != model.OtcShareReservationStatusReleased {
+		t.Fatalf("status = %q, want released", updated.Status)
+	}
+
+	missing, err := repo.FindByContractID(ctx, 9999)
+	if err != nil {
+		t.Fatalf("find missing reservation: %v", err)
+	}
+	if missing != nil {
+		t.Fatalf("expected nil missing reservation, got %#v", missing)
+	}
+}
+
+func TestOrderTransactionRepositoryCreate(t *testing.T) {
+	t.Parallel()
+
+	db := setupOtcRepoDB(t)
+	repo := NewOrderTransactionRepository(db)
+	ctx := context.Background()
+
+	executedAt := time.Now()
+	tx := &model.OrderTransaction{
+		OrderID:      42,
+		Quantity:     3,
+		PricePerUnit: 100,
+		TotalPrice:   300,
+		Commission:   1.5,
+		ExecutedAt:   executedAt,
+	}
+	if err := repo.Create(ctx, tx); err != nil {
+		t.Fatalf("create order transaction: %v", err)
+	}
+	if tx.OrderTransactionID == 0 {
+		t.Fatal("expected generated order transaction id")
+	}
+
+	var stored model.OrderTransaction
+	if err := db.First(&stored, tx.OrderTransactionID).Error; err != nil {
+		t.Fatalf("load order transaction: %v", err)
+	}
+	if stored.TotalPrice != 300 || stored.Commission != 1.5 {
+		t.Fatalf("unexpected stored transaction %#v", stored)
 	}
 }
