@@ -284,20 +284,37 @@ func (w *OutboxWorker) rescheduleOrFail(ctx context.Context, msg *model.Outbound
 }
 
 func (w *OutboxWorker) sendHTTP(ctx context.Context, peer config.Peer, payload []byte) (int, []byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, peer.BaseURL+"/interbank", bytes.NewReader(payload))
+	url := peer.BaseURL + "/interbank"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
 		return 0, nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Api-Key", peer.OurAPIKey)
 
+	zap.L().Info("interbank outbound (outbox)",
+		zap.String("url", url),
+		zap.ByteString("request", payload),
+	)
+
 	resp, err := w.httpClient.Do(req)
 	if err != nil {
+		zap.L().Error("interbank outbound (outbox) error",
+			zap.String("url", url),
+			zap.Error(err),
+		)
 		return 0, nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
+
+	zap.L().Info("interbank outbound (outbox) response",
+		zap.String("url", url),
+		zap.Int("status", resp.StatusCode),
+		zap.ByteString("response", body),
+	)
+
 	return resp.StatusCode, body, err
 }
 

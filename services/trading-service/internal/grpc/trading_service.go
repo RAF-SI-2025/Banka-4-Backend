@@ -77,9 +77,13 @@ func (s *TradingServiceServer) ListPublicStocks(ctx context.Context, _ *pb.ListP
 				return nil, err
 			}
 
+			available := row.PublicAmount - row.ReservedAmount
+			if available <= 0 {
+				continue
+			}
 			byTicker[ticker] = append(byTicker[ticker], &pb.PublicStockSeller{
 				SellerId: resp.GetIdentityId(),
-				Amount:   row.PublicAmount,
+				Amount:   available,
 			})
 		}
 

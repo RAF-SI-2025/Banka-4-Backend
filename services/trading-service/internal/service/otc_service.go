@@ -92,6 +92,9 @@ func (s *OTCService) GetPublicOTCAssets(ctx context.Context, page, pageSize int)
 
 	responses := make([]dto.OTCAssetResponse, 0, len(ownerships))
 	for _, o := range ownerships {
+		if o.PublicAmount-o.ReservedAmount <= 0 {
+			continue
+		}
 		resp := dto.OTCAssetResponse{
 			AssetOwnershipID: o.AssetOwnershipID,
 			Name:             o.Asset.Name,

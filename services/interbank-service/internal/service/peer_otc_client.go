@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/interbank-service/internal/dto"
 )
@@ -171,12 +173,13 @@ func (c *PeerOtcClient) do(ctx context.Context, peerRouting int, method, path st
 	}
 
 	var bodyReader io.Reader
+	var rawBody []byte
 	if body != nil {
 		raw, err := json.Marshal(body)
 		if err != nil {
 			return errors.InternalErr(err)
 		}
-
+		rawBody = raw
 		bodyReader = bytes.NewReader(raw)
 	}
 
@@ -188,22 +191,41 @@ func (c *PeerOtcClient) do(ctx context.Context, peerRouting int, method, path st
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-
 	req.Header.Set("X-Api-Key", peer.OurAPIKey)
+
+	zap.L().Info("interbank outbound",
+		zap.Int("peer", peerRouting),
+		zap.String("method", method),
+		zap.String("url", peer.BaseURL+path),
+		zap.ByteString("request", rawBody),
+	)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		zap.L().Error("interbank outbound error",
+			zap.Int("peer", peerRouting),
+			zap.String("url", peer.BaseURL+path),
+			zap.Error(err),
+		)
 		return errors.NewAppError(
 			http.StatusBadGateway,
 			fmt.Sprintf("peer %d unreachable: %s", peerRouting, err.Error()),
 			err,
 		)
 	}
-
 	defer func() { _ = resp.Body.Close() }()
 
+	respBody, _ := io.ReadAll(resp.Body)
+
+	zap.L().Info("interbank outbound response",
+		zap.Int("peer", peerRouting),
+		zap.String("method", method),
+		zap.String("url", peer.BaseURL+path),
+		zap.Int("status", resp.StatusCode),
+		zap.ByteString("response", respBody),
+	)
+
 	if resp.StatusCode >= 400 {
-		respBody, _ := io.ReadAll(resp.Body)
 		return errors.NewAppError(
 			resp.StatusCode,
 			fmt.Sprintf("peer %d returned %d: %s", peerRouting, resp.StatusCode, string(respBody)),
@@ -215,7 +237,7 @@ func (c *PeerOtcClient) do(ctx context.Context, peerRouting int, method, path st
 		return nil
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+	if err := json.Unmarshal(respBody, out); err != nil {
 		return errors.NewAppError(
 			http.StatusBadGateway,
 			fmt.Sprintf("peer %d returned malformed JSON: %s", peerRouting, err.Error()),

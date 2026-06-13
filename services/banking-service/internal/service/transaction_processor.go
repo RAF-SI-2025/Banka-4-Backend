@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client"
@@ -163,7 +166,7 @@ func (tp *TransactionProcessor) processInterbank(ctx context.Context, transactio
 		}); updateErr != nil {
 			return errors.InternalErr(updateErr)
 		}
-		return errors.MapGrpcToHttpError(err)
+		return interbankGrpcToAppError(err)
 	}
 
 	return nil
@@ -211,6 +214,20 @@ func (tp *TransactionProcessor) ProcessTradeSettlement(ctx context.Context, tran
 		transaction.Status = model.TransactionCompleted
 		return tp.transactionRepo.Update(ctx, transaction)
 	})
+}
+
+func interbankGrpcToAppError(err error) error {
+	if st, ok := status.FromError(err); ok {
+		switch st.Code() {
+		case codes.FailedPrecondition, codes.InvalidArgument:
+			return errors.BadRequestErr(st.Message())
+		case codes.NotFound:
+			return errors.NotFoundErr(st.Message())
+		case codes.Unavailable:
+			return errors.ServiceUnavailableErr(err)
+		}
+	}
+	return errors.InternalErr(err)
 }
 
 func (tp *TransactionProcessor) ProcessLoanInstallment(ctx context.Context, transactionID uint) error {

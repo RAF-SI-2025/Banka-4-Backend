@@ -98,6 +98,7 @@ func setupRoutes(
 	// Peer-to-peer protocol endpoints, authenticated via X-Api-Key.
 	crossBank := r.Group("")
 	crossBank.Use(middleware.APIKeyAuth(peers))
+	crossBank.Use(middleware.PeerMessageLogger())
 	{
 		// §2 transaction protocol.
 		crossBank.POST("/interbank", interbankHandler.Receive)
