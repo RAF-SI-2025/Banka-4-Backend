@@ -97,17 +97,38 @@ type OtcOptionContractResponse struct {
 }
 
 type OtcExecutionSagaResponse struct {
-	OtcExecutionSagaID uint                     `json:"otc_execution_saga_id"`
-	ContractID         uint                     `json:"contract_id"`
-	ExecutionKey       string                   `json:"execution_key"`
-	CurrentStep        model.OtcExecutionStep   `json:"current_step"`
-	Status             model.OtcExecutionStatus `json:"status"`
-	RetryCount         int                      `json:"retry_count"`
-	NextRetryAt        *time.Time               `json:"next_retry_at,omitempty"`
-	LastError          string                   `json:"last_error,omitempty"`
-	CompletedAt        *time.Time               `json:"completed_at,omitempty"`
-	CreatedAt          time.Time                `json:"created_at"`
-	UpdatedAt          time.Time                `json:"updated_at"`
+	OtcExecutionSagaID uint                           `json:"otc_execution_saga_id"`
+	ContractID         uint                           `json:"contract_id"`
+	ExecutionKey       string                         `json:"execution_key"`
+	CurrentStep        model.OtcExecutionStep         `json:"current_step"`
+	Status             model.OtcExecutionStatus       `json:"status"`
+	RetryCount         int                            `json:"retry_count"`
+	NextRetryAt        *time.Time                     `json:"next_retry_at,omitempty"`
+	LastError          string                         `json:"last_error,omitempty"`
+	CompletedAt        *time.Time                     `json:"completed_at,omitempty"`
+	CreatedAt          time.Time                      `json:"created_at"`
+	UpdatedAt          time.Time                      `json:"updated_at"`
+	Log                []OtcExecutionLogEntryResponse `json:"log,omitempty"`
+}
+
+type OtcExecutionLogEntryResponse struct {
+	Step      string                       `json:"step"`
+	Outcome   model.OtcExecutionLogOutcome `json:"outcome"`
+	Error     string                       `json:"error,omitempty"`
+	CreatedAt time.Time                    `json:"created_at"`
+}
+
+func ToOtcExecutionLogEntryResponses(entries []model.OtcExecutionSagaLogEntry) []OtcExecutionLogEntryResponse {
+	out := make([]OtcExecutionLogEntryResponse, len(entries))
+	for i, e := range entries {
+		out[i] = OtcExecutionLogEntryResponse{
+			Step:      e.Step,
+			Outcome:   e.Outcome,
+			Error:     e.Error,
+			CreatedAt: e.CreatedAt,
+		}
+	}
+	return out
 }
 
 func ToOtcOfferResponse(o model.OtcOffer) OtcOfferResponse {

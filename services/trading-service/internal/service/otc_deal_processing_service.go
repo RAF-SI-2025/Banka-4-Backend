@@ -10,12 +10,28 @@ import (
 	"time"
 
 	appErrors "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/faultinject"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/repository"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+)
+
+// Saga step labels used in the per-step execution log and by the
+// fault-injection headers. F-steps are the forward phases; C1/C3 are the
+// banking compensators (release reservation, refund committed transfer).
+const (
+	sagaStepF1 = "F1"
+	sagaStepF2 = "F2"
+	sagaStepF3 = "F3"
+	sagaStepF4 = "F4"
+	sagaStepF5 = "F5"
+	sagaStepC1 = "C1"
+	sagaStepC3 = "C3"
 )
 
 const (
@@ -37,6 +53,13 @@ type OtcDealProcessingService struct {
 	otcTaxService        *OtcTaxService
 
 	now func() time.Time
+
+	// execLocks serializes saga processing per execution ID. The background
+	// worker and the exercise endpoint both drive the same saga; without
+	// this, two runners can interleave steps and a stale one may clobber the
+	// other's transitions. The service runs as a single instance, so an
+	// in-process lock is sufficient.
+	execLocks sync.Map
 
 	lifecycleMu sync.Mutex
 	cancel      context.CancelFunc
@@ -369,6 +392,32 @@ func (s *OtcDealProcessingService) ensureExecutionSaga(ctx context.Context, cont
 			return appErrors.NotFoundErr("OTC contract not found")
 		}
 
+		execution, err = s.executionRepo.FindByContractIDForUpdate(ctx, contractID)
+		if err != nil {
+			return appErrors.InternalErr(err)
+		}
+
+		// An in-flight saga is resumed as-is, skipping the pre-saga
+		// validation below: past F4 the contract is already EXERCISED and
+		// its reservation CONSUMED, and the saga steps re-validate whatever
+		// they depend on. This keeps the endpoint idempotent and able to
+		// finish a saga the worker has not picked up yet. The saga also
+		// keeps the fault plan it started with. An explicit exercise call is
+		// a user-requested resume, so any scheduled backoff is dropped and
+		// the next step attempted immediately.
+		if execution != nil && (execution.Status == model.OtcExecutionStatusInProgress || execution.Status == model.OtcExecutionStatusCompensating) {
+			if execution.NextRetryAt != nil {
+				execution.NextRetryAt = nil
+				execution.UpdatedAt = s.now()
+				return s.executionRepo.Save(ctx, execution)
+			}
+			return nil
+		}
+
+		if execution != nil && execution.Status == model.OtcExecutionStatusCompleted {
+			return appErrors.ConflictErr("OTC contract has already been exercised")
+		}
+
 		if s.shouldExpireContract(contract) {
 			if err := s.expireLockedContract(ctx, contract); err != nil {
 				return err
@@ -390,28 +439,18 @@ func (s *OtcDealProcessingService) ensureExecutionSaga(ctx context.Context, cont
 			return appErrors.BadRequestErr("active OTC share reservation is required")
 		}
 
-		execution, err = s.executionRepo.FindByContractIDForUpdate(ctx, contractID)
-		if err != nil {
-			return appErrors.InternalErr(err)
-		}
-
 		if execution != nil {
-			switch execution.Status {
-			case model.OtcExecutionStatusCompleted:
-				return appErrors.ConflictErr("OTC contract has already been exercised")
-			case model.OtcExecutionStatusFailed:
-				execution.ExecutionKey = s.newExecutionKey(contractID)
-				execution.CurrentStep = model.OtcExecutionStepInit
-				execution.Status = model.OtcExecutionStatusInProgress
-				execution.RetryCount = 0
-				execution.NextRetryAt = nil
-				execution.LastError = ""
-				execution.CompletedAt = nil
-				execution.UpdatedAt = s.now()
-				return s.executionRepo.Save(ctx, execution)
-			default:
-				return nil
-			}
+			// Status FAILED: reset the same row in place for a new attempt.
+			execution.ExecutionKey = s.newExecutionKey(contractID)
+			execution.CurrentStep = model.OtcExecutionStepInit
+			execution.Status = model.OtcExecutionStatusInProgress
+			execution.RetryCount = 0
+			execution.NextRetryAt = nil
+			execution.LastError = ""
+			execution.FaultSpec = requestedFaultSpec(ctx)
+			execution.CompletedAt = nil
+			execution.UpdatedAt = s.now()
+			return s.executionRepo.Save(ctx, execution)
 		}
 
 		now := s.now()
@@ -420,6 +459,7 @@ func (s *OtcDealProcessingService) ensureExecutionSaga(ctx context.Context, cont
 			ExecutionKey: s.newExecutionKey(contractID),
 			CurrentStep:  model.OtcExecutionStepInit,
 			Status:       model.OtcExecutionStatusInProgress,
+			FaultSpec:    requestedFaultSpec(ctx),
 			CreatedAt:    now,
 			UpdatedAt:    now,
 		}
@@ -444,6 +484,11 @@ func (s *OtcDealProcessingService) ensureExecutionSaga(ctx context.Context, cont
 // no longer advance in the current run. A fixed step limit prevents accidental
 // infinite looping if state transitions become inconsistent.
 func (s *OtcDealProcessingService) processExecution(ctx context.Context, executionID uint) error {
+	lockAny, _ := s.execLocks.LoadOrStore(executionID, &sync.Mutex{})
+	lock := lockAny.(*sync.Mutex)
+	lock.Lock()
+	defer lock.Unlock()
+
 	for i := 0; i < maxExecutionStepsPerRun; i++ {
 		execution, err := s.executionRepo.FindByID(ctx, executionID)
 		if err != nil {
@@ -457,7 +502,19 @@ func (s *OtcDealProcessingService) processExecution(ctx context.Context, executi
 		switch execution.Status {
 		case model.OtcExecutionStatusCompleted, model.OtcExecutionStatusFailed:
 			return nil
-		case model.OtcExecutionStatusCompensating:
+		}
+
+		// A pending backoff means the previous attempt failed and scheduled a
+		// retry; stop this run and let the worker (or an explicit exercise
+		// call, which clears the backoff) pick the saga up again. Without
+		// this the loop would hammer a failing step back-to-back, which with
+		// an unreachable banking service turns one run into a series of RPC
+		// timeouts.
+		if execution.NextRetryAt != nil && execution.NextRetryAt.After(s.now()) {
+			return nil
+		}
+
+		if execution.Status == model.OtcExecutionStatusCompensating {
 			return s.handleCompensation(ctx, execution)
 		}
 
@@ -501,6 +558,13 @@ func (s *OtcDealProcessingService) processStep(ctx context.Context, execution *m
 // failure it either marks the execution failed or schedules a retry depending
 // on whether the banking error is terminal.
 func (s *OtcDealProcessingService) reserveFunds(ctx context.Context, execution *model.OtcExecutionSaga) error {
+	s.injectDelay(execution, sagaStepF1)
+	if injErr := s.consumeForwardFault(ctx, execution, sagaStepF1, faultinject.KindBefore); injErr != nil {
+		// Nothing was reserved yet, so there is nothing to compensate.
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF1, model.OtcExecutionLogOutcomeErr, injErr.Error())
+		return s.markFailed(ctx, execution.OtcExecutionSagaID, execution.CurrentStep, injErr.Error())
+	}
+
 	resp, err := s.bankingClient.ReserveOtcFunds(ctx, &pb.ReserveOtcFundsRequest{
 		ExecutionId:         execution.ExecutionKey,
 		BuyerAccountNumber:  execution.Contract.BuyerAccountNumber,
@@ -510,6 +574,7 @@ func (s *OtcDealProcessingService) reserveFunds(ctx context.Context, execution *
 	})
 
 	if err != nil {
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF1, model.OtcExecutionLogOutcomeErr, err.Error())
 		if isTerminalBankingError(err) {
 			return s.markFailed(ctx, execution.OtcExecutionSagaID, execution.CurrentStep, err.Error())
 		}
@@ -517,7 +582,20 @@ func (s *OtcDealProcessingService) reserveFunds(ctx context.Context, execution *
 		return s.scheduleRetry(ctx, execution.OtcExecutionSagaID, execution.CurrentStep, model.OtcExecutionStatusInProgress, err.Error())
 	}
 
-	return s.advanceExecution(ctx, execution.OtcExecutionSagaID, model.OtcExecutionStepFundsReserved, model.OtcExecutionStatusInProgress, resp.GetExecutionId(), "")
+	if err := s.advanceExecution(ctx, execution.OtcExecutionSagaID, model.OtcExecutionStepFundsReserved, model.OtcExecutionStatusInProgress, resp.GetExecutionId(), ""); err != nil {
+		return err
+	}
+
+	s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF1, model.OtcExecutionLogOutcomeOK, "")
+
+	// An "after" fault simulates a crash once the phase's side effects are
+	// durable: the error surfaces to the caller, the saga stays IN_PROGRESS
+	// and resumes forward on the next run.
+	if injErr := s.consumeForwardFault(ctx, execution, sagaStepF1, faultinject.KindAfter); injErr != nil {
+		return appErrors.InternalErr(injErr)
+	}
+
+	return nil
 }
 
 // confirmShares revalidates the locked contract and its active share
@@ -525,6 +603,12 @@ func (s *OtcDealProcessingService) reserveFunds(ctx context.Context, execution *
 // the reserved shares, the previously reserved funds are released and the
 // execution fails; retryable errors are deferred for another attempt.
 func (s *OtcDealProcessingService) confirmShares(ctx context.Context, execution *model.OtcExecutionSaga) error {
+	s.injectDelay(execution, sagaStepF2)
+	if injErr := s.consumeForwardFault(ctx, execution, sagaStepF2, faultinject.KindBefore); injErr != nil {
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF2, model.OtcExecutionLogOutcomeErr, injErr.Error())
+		return s.releaseAndFail(ctx, execution, injErr.Error())
+	}
+
 	expired := false
 	err := s.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
 		contract, err := s.optionContractRepo.FindByIDForUpdate(ctx, execution.ContractID)
@@ -571,11 +655,19 @@ func (s *OtcDealProcessingService) confirmShares(ctx context.Context, execution 
 
 	if err == nil {
 		if expired {
+			s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF2, model.OtcExecutionLogOutcomeErr, "OTC contract has expired")
 			return s.releaseAndFail(ctx, execution, "OTC contract has expired")
 		}
+
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF2, model.OtcExecutionLogOutcomeOK, "")
+		if injErr := s.consumeForwardFault(ctx, execution, sagaStepF2, faultinject.KindAfter); injErr != nil {
+			return appErrors.InternalErr(injErr)
+		}
+
 		return nil
 	}
 
+	s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF2, model.OtcExecutionLogOutcomeErr, err.Error())
 	if appErr, ok := stderrors.AsType[*appErrors.AppError](err); ok && appErr.Code < 500 {
 		return s.releaseAndFail(ctx, execution, appErr.Error())
 	}
@@ -588,8 +680,15 @@ func (s *OtcDealProcessingService) confirmShares(ctx context.Context, execution 
 // reserved funds and fails the execution or schedules a retry, depending on
 // whether the banking error is terminal.
 func (s *OtcDealProcessingService) commitFunds(ctx context.Context, execution *model.OtcExecutionSaga) error {
+	s.injectDelay(execution, sagaStepF3)
+	if injErr := s.consumeForwardFault(ctx, execution, sagaStepF3, faultinject.KindBefore); injErr != nil {
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF3, model.OtcExecutionLogOutcomeErr, injErr.Error())
+		return s.releaseAndFail(ctx, execution, injErr.Error())
+	}
+
 	resp, err := s.bankingClient.CommitOtcFunds(ctx, execution.ExecutionKey)
 	if err != nil {
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF3, model.OtcExecutionLogOutcomeErr, err.Error())
 		if isTerminalBankingError(err) {
 			return s.releaseAndFail(ctx, execution, err.Error())
 		}
@@ -597,7 +696,17 @@ func (s *OtcDealProcessingService) commitFunds(ctx context.Context, execution *m
 		return s.scheduleRetry(ctx, execution.OtcExecutionSagaID, execution.CurrentStep, model.OtcExecutionStatusInProgress, err.Error())
 	}
 
-	return s.advanceExecution(ctx, execution.OtcExecutionSagaID, model.OtcExecutionStepFundsCommitted, model.OtcExecutionStatusInProgress, resp.GetExecutionId(), "")
+	if err := s.advanceExecution(ctx, execution.OtcExecutionSagaID, model.OtcExecutionStepFundsCommitted, model.OtcExecutionStatusInProgress, resp.GetExecutionId(), ""); err != nil {
+		return err
+	}
+
+	s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF3, model.OtcExecutionLogOutcomeOK, "")
+
+	if injErr := s.consumeForwardFault(ctx, execution, sagaStepF3, faultinject.KindAfter); injErr != nil {
+		return appErrors.InternalErr(injErr)
+	}
+
+	return nil
 }
 
 // transferOwnership applies the local settlement effects after funds were
@@ -606,6 +715,12 @@ func (s *OtcDealProcessingService) commitFunds(ctx context.Context, execution *m
 // OWNERSHIP_TRANSFERRED. If any local update fails, the execution is switched
 // into compensation mode so the committed funds can be refunded.
 func (s *OtcDealProcessingService) transferOwnership(ctx context.Context, execution *model.OtcExecutionSaga) error {
+	s.injectDelay(execution, sagaStepF4)
+	if injErr := s.consumeForwardFault(ctx, execution, sagaStepF4, faultinject.KindBefore); injErr != nil {
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF4, model.OtcExecutionLogOutcomeErr, injErr.Error())
+		return s.beginCompensation(ctx, execution.OtcExecutionSagaID, model.OtcExecutionStepFundsCommitted, injErr.Error())
+	}
+
 	expired := false
 	err := s.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
 		contract, err := s.optionContractRepo.FindByIDForUpdate(ctx, execution.ContractID)
@@ -721,11 +836,19 @@ func (s *OtcDealProcessingService) transferOwnership(ctx context.Context, execut
 	})
 
 	if expired {
-		return s.scheduleCompensating(ctx, execution.OtcExecutionSagaID, model.OtcExecutionStepFundsCommitted, "OTC contract has expired")
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF4, model.OtcExecutionLogOutcomeErr, "OTC contract has expired")
+		return s.beginCompensation(ctx, execution.OtcExecutionSagaID, model.OtcExecutionStepFundsCommitted, "OTC contract has expired")
 	}
 
 	if err != nil {
-		return s.scheduleCompensating(ctx, execution.OtcExecutionSagaID, model.OtcExecutionStepFundsCommitted, err.Error())
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF4, model.OtcExecutionLogOutcomeErr, err.Error())
+		return s.beginCompensation(ctx, execution.OtcExecutionSagaID, model.OtcExecutionStepFundsCommitted, err.Error())
+	}
+
+	s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF4, model.OtcExecutionLogOutcomeOK, "")
+
+	if injErr := s.consumeForwardFault(ctx, execution, sagaStepF4, faultinject.KindAfter); injErr != nil {
+		return appErrors.InternalErr(injErr)
 	}
 
 	// Ownership transfer succeeded — the buyer has exercised the option. The
@@ -747,7 +870,19 @@ func (s *OtcDealProcessingService) transferOwnership(ctx context.Context, execut
 // completeExecution marks the execution saga as successfully finished after all
 // settlement side effects were applied.
 func (s *OtcDealProcessingService) completeExecution(ctx context.Context, execution *model.OtcExecutionSaga) error {
-	return s.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
+	s.injectDelay(execution, sagaStepF5)
+
+	// F4 already settled funds and shares atomically, so there is nothing
+	// left to compensate at this point: an injected F5 failure is treated as
+	// transient and the saga finishes forward on a later run. Rolling back
+	// here would mean un-exercising an already settled contract.
+	if injErr := s.consumeForwardFault(ctx, execution, sagaStepF5, faultinject.KindBefore); injErr != nil {
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF5, model.OtcExecutionLogOutcomeErr, injErr.Error())
+		return appErrors.InternalErr(injErr)
+	}
+
+	transitioned := false
+	err := s.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
 		current, err := s.executionRepo.FindByContractIDForUpdate(ctx, execution.ContractID)
 		if err != nil {
 			return appErrors.InternalErr(err)
@@ -768,8 +903,20 @@ func (s *OtcDealProcessingService) completeExecution(ctx context.Context, execut
 		current.LastError = ""
 		current.CompletedAt = &now
 		current.UpdatedAt = now
+		transitioned = true
 		return s.executionRepo.Save(ctx, current)
 	})
+
+	if err != nil {
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF5, model.OtcExecutionLogOutcomeErr, err.Error())
+		return err
+	}
+
+	if transitioned {
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepF5, model.OtcExecutionLogOutcomeOK, "")
+	}
+
+	return nil
 }
 
 // handleCompensation executes the required undo step for a compensating
@@ -778,12 +925,12 @@ func (s *OtcDealProcessingService) completeExecution(ctx context.Context, execut
 func (s *OtcDealProcessingService) handleCompensation(ctx context.Context, execution *model.OtcExecutionSaga) error {
 	switch execution.CurrentStep {
 	case model.OtcExecutionStepFundsReserved:
-		if _, err := s.bankingClient.ReleaseOtcFunds(ctx, execution.ExecutionKey); err != nil {
+		if err := s.compensateReleaseFunds(ctx, execution); err != nil {
 			return s.scheduleCompensating(ctx, execution.OtcExecutionSagaID, execution.CurrentStep, err.Error())
 		}
 		return s.markFailed(ctx, execution.OtcExecutionSagaID, execution.CurrentStep, execution.LastError)
 	case model.OtcExecutionStepFundsCommitted:
-		if _, err := s.bankingClient.RefundOtcFunds(ctx, execution.ExecutionKey); err != nil {
+		if err := s.compensateRefundFunds(ctx, execution); err != nil {
 			return s.scheduleCompensating(ctx, execution.OtcExecutionSagaID, execution.CurrentStep, err.Error())
 		}
 		return s.markFailed(ctx, execution.OtcExecutionSagaID, execution.CurrentStep, execution.LastError)
@@ -792,10 +939,46 @@ func (s *OtcDealProcessingService) handleCompensation(ctx context.Context, execu
 	}
 }
 
-// releaseAndFail attempts to release previously reserved funds and then marks
-// the execution as failed.
-func (s *OtcDealProcessingService) releaseAndFail(ctx context.Context, execution *model.OtcExecutionSaga, reason string) error {
+// compensateReleaseFunds runs the C1 compensator (release the buyer's banking
+// funds reservation), logging the attempt and honoring injected faults.
+func (s *OtcDealProcessingService) compensateReleaseFunds(ctx context.Context, execution *model.OtcExecutionSaga) error {
+	if injErr := s.consumeCompensationFault(ctx, execution, sagaStepC1); injErr != nil {
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepC1, model.OtcExecutionLogOutcomeErr, injErr.Error())
+		return injErr
+	}
+
 	if _, err := s.bankingClient.ReleaseOtcFunds(ctx, execution.ExecutionKey); err != nil {
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepC1, model.OtcExecutionLogOutcomeErr, err.Error())
+		return err
+	}
+
+	s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepC1, model.OtcExecutionLogOutcomeOK, "")
+	return nil
+}
+
+// compensateRefundFunds runs the C3 compensator (refund the committed funds
+// transfer back to the buyer), logging the attempt and honoring injected
+// faults.
+func (s *OtcDealProcessingService) compensateRefundFunds(ctx context.Context, execution *model.OtcExecutionSaga) error {
+	if injErr := s.consumeCompensationFault(ctx, execution, sagaStepC3); injErr != nil {
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepC3, model.OtcExecutionLogOutcomeErr, injErr.Error())
+		return injErr
+	}
+
+	if _, err := s.bankingClient.RefundOtcFunds(ctx, execution.ExecutionKey); err != nil {
+		s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepC3, model.OtcExecutionLogOutcomeErr, err.Error())
+		return err
+	}
+
+	s.appendSagaLog(ctx, execution.OtcExecutionSagaID, sagaStepC3, model.OtcExecutionLogOutcomeOK, "")
+	return nil
+}
+
+// releaseAndFail attempts to release previously reserved funds and then marks
+// the execution as failed. If the release cannot run now, the saga switches to
+// COMPENSATING and the worker keeps retrying the compensator until it succeeds.
+func (s *OtcDealProcessingService) releaseAndFail(ctx context.Context, execution *model.OtcExecutionSaga, reason string) error {
+	if err := s.compensateReleaseFunds(ctx, execution); err != nil {
 		return s.scheduleCompensating(ctx, execution.OtcExecutionSagaID, model.OtcExecutionStepFundsReserved, reason)
 	}
 
@@ -1001,6 +1184,10 @@ func (s *OtcDealProcessingService) advanceExecution(ctx context.Context, executi
 			return appErrors.NotFoundErr("OTC execution not found")
 		}
 
+		if isTerminalExecutionStatus(execution.Status) {
+			return nil
+		}
+
 		execution.CurrentStep = step
 		execution.Status = statusValue
 		execution.NextRetryAt = nil
@@ -1015,6 +1202,12 @@ func (s *OtcDealProcessingService) advanceExecution(ctx context.Context, executi
 	})
 }
 
+// isTerminalExecutionStatus reports whether the saga finished; terminal rows
+// must never be transitioned again, no matter how stale the caller's view is.
+func isTerminalExecutionStatus(statusValue model.OtcExecutionStatus) bool {
+	return statusValue == model.OtcExecutionStatusCompleted || statusValue == model.OtcExecutionStatusFailed
+}
+
 // scheduleRetry marks the execution for a later retry without switching it
 // into compensation mode.
 func (s *OtcDealProcessingService) scheduleRetry(ctx context.Context, executionID uint, currentStep model.OtcExecutionStep, statusValue model.OtcExecutionStatus, lastError string) error {
@@ -1025,6 +1218,34 @@ func (s *OtcDealProcessingService) scheduleRetry(ctx context.Context, executionI
 // after a failure that occurred past a compensatable saga step.
 func (s *OtcDealProcessingService) scheduleCompensating(ctx context.Context, executionID uint, currentStep model.OtcExecutionStep, lastError string) error {
 	return s.updateRetryState(ctx, executionID, currentStep, model.OtcExecutionStatusCompensating, lastError)
+}
+
+// beginCompensation switches a forward-failing execution into COMPENSATING
+// without a backoff, so the first compensation attempt runs immediately in
+// the same processing run. Subsequent compensator failures go through
+// scheduleCompensating and get a retry delay.
+func (s *OtcDealProcessingService) beginCompensation(ctx context.Context, executionID uint, currentStep model.OtcExecutionStep, lastError string) error {
+	return s.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
+		execution, err := s.executionRepo.FindByID(ctx, executionID)
+		if err != nil {
+			return appErrors.InternalErr(err)
+		}
+
+		if execution == nil {
+			return appErrors.NotFoundErr("OTC execution not found")
+		}
+
+		if isTerminalExecutionStatus(execution.Status) {
+			return nil
+		}
+
+		execution.CurrentStep = currentStep
+		execution.Status = model.OtcExecutionStatusCompensating
+		execution.NextRetryAt = nil
+		execution.LastError = lastError
+		execution.UpdatedAt = s.now()
+		return s.executionRepo.Save(ctx, execution)
+	})
 }
 
 // updateRetryState stores a retryable execution state, recording the current
@@ -1038,6 +1259,10 @@ func (s *OtcDealProcessingService) updateRetryState(ctx context.Context, executi
 
 		if execution == nil {
 			return appErrors.NotFoundErr("OTC execution not found")
+		}
+
+		if isTerminalExecutionStatus(execution.Status) {
+			return nil
 		}
 
 		execution.CurrentStep = currentStep
@@ -1063,6 +1288,10 @@ func (s *OtcDealProcessingService) markFailed(ctx context.Context, executionID u
 			return appErrors.NotFoundErr("OTC execution not found")
 		}
 
+		if isTerminalExecutionStatus(execution.Status) {
+			return nil
+		}
+
 		execution.CurrentStep = currentStep
 		execution.Status = model.OtcExecutionStatusFailed
 		execution.NextRetryAt = nil
@@ -1070,6 +1299,91 @@ func (s *OtcDealProcessingService) markFailed(ctx context.Context, executionID u
 		execution.UpdatedAt = s.now()
 		return s.executionRepo.Save(ctx, execution)
 	})
+}
+
+// appendSagaLog records one attempted saga step in the execution log. The log
+// is the audit trail the SAGA tests assert on; failing to write it must not
+// fail the settlement itself, so errors are logged and swallowed.
+func (s *OtcDealProcessingService) appendSagaLog(ctx context.Context, sagaID uint, step string, outcome model.OtcExecutionLogOutcome, errMsg string) {
+	entry := &model.OtcExecutionSagaLogEntry{
+		OtcExecutionSagaID: sagaID,
+		Step:               step,
+		Outcome:            outcome,
+		Error:              errMsg,
+		CreatedAt:          s.now(),
+	}
+
+	if err := s.executionRepo.AppendLogEntry(ctx, entry); err != nil {
+		logging.Error("append OTC saga log entry", zap.Uint("saga_id", sagaID), zap.String("step", step), zap.Error(err))
+	}
+}
+
+// GetExecutionLog returns the ordered per-step attempt log for an execution.
+func (s *OtcDealProcessingService) GetExecutionLog(ctx context.Context, sagaID uint) ([]model.OtcExecutionSagaLogEntry, error) {
+	entries, err := s.executionRepo.ListLogEntries(ctx, sagaID)
+	if err != nil {
+		return nil, appErrors.InternalErr(err)
+	}
+
+	return entries, nil
+}
+
+// faultSpec returns the fault-injection plan persisted on the saga row, or nil
+// when injection is disabled or no plan was requested.
+func (s *OtcDealProcessingService) faultSpec(execution *model.OtcExecutionSaga) *faultinject.Spec {
+	if !faultinject.Enabled() {
+		return nil
+	}
+
+	return faultinject.Unmarshal(execution.FaultSpec)
+}
+
+// consumeForwardFault returns the injected error for the named forward step
+// and kind, or nil. Forward faults are one-shot: consuming one marks it used
+// and persists that immediately, so a retry of the same step proceeds normally.
+func (s *OtcDealProcessingService) consumeForwardFault(ctx context.Context, execution *model.OtcExecutionSaga, step, kind string) error {
+	spec := s.faultSpec(execution)
+	if spec == nil || spec.ForceFailUsed || spec.ForceFailStep != step || spec.ForceFailKind != kind {
+		return nil
+	}
+
+	spec.ForceFailUsed = true
+	execution.FaultSpec = spec.Marshal()
+	if err := s.executionRepo.UpdateFaultSpec(ctx, execution.OtcExecutionSagaID, execution.FaultSpec); err != nil {
+		logging.Error("persist consumed saga fault", zap.Uint("saga_id", execution.OtcExecutionSagaID), zap.Error(err))
+	}
+
+	return fmt.Errorf("injected fault: forced failure of %s (%s)", step, kind)
+}
+
+// consumeCompensationFault returns the injected error for the named
+// compensator while its failure budget lasts, decrementing and persisting the
+// remaining count each time.
+func (s *OtcDealProcessingService) consumeCompensationFault(ctx context.Context, execution *model.OtcExecutionSaga, step string) error {
+	spec := s.faultSpec(execution)
+	if spec == nil || spec.CompensateFailStep != step || spec.CompensateFailRemaining <= 0 {
+		return nil
+	}
+
+	spec.CompensateFailRemaining--
+	execution.FaultSpec = spec.Marshal()
+	if err := s.executionRepo.UpdateFaultSpec(ctx, execution.OtcExecutionSagaID, execution.FaultSpec); err != nil {
+		logging.Error("persist consumed saga fault", zap.Uint("saga_id", execution.OtcExecutionSagaID), zap.Error(err))
+	}
+
+	return fmt.Errorf("injected fault: forced failure of compensator %s", step)
+}
+
+// injectDelay pauses the named forward step for the configured duration. The
+// chaos tests use this to open a window for pausing or killing services
+// mid-saga.
+func (s *OtcDealProcessingService) injectDelay(execution *model.OtcExecutionSaga, step string) {
+	spec := s.faultSpec(execution)
+	if spec == nil || spec.DelayStep != step || spec.DelayMs <= 0 {
+		return
+	}
+
+	time.Sleep(time.Duration(spec.DelayMs) * time.Millisecond)
 }
 
 // isTerminalBankingError reports whether a banking gRPC error is safe to treat
@@ -1093,4 +1407,14 @@ func isTerminalBankingError(err error) bool {
 
 func (s *OtcDealProcessingService) newExecutionKey(contractID uint) string {
 	return fmt.Sprintf("otc-execution-%d-%d", contractID, s.now().UnixNano())
+}
+
+// requestedFaultSpec returns the serialized fault plan carried by the request
+// context, or "" when fault injection is disabled or not requested.
+func requestedFaultSpec(ctx context.Context) string {
+	if !faultinject.Enabled() {
+		return ""
+	}
+
+	return faultinject.SpecFromContext(ctx).Marshal()
 }

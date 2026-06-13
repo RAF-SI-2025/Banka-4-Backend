@@ -5,7 +5,7 @@ PROTO_IMAGE ?= banka-4-backend-proto:protoc-$(PROTOC_VERSION)-go-$(PROTOC_GEN_GO
 PROTO_FILES := $(wildcard common/proto/*.proto)
 PROTO_GENERATED_FILES := common/pkg/pb
 
-.PHONY: docker-up-build docker-up docker-down docker-down-rm-vol format swagger-docs proto proto-docker proto-image internal-proto proto-check test test-integration coverage-profile coverage coverage-report coverage-html
+.PHONY: docker-up-build docker-up docker-down docker-down-rm-vol format swagger-docs proto proto-docker proto-image internal-proto proto-check test test-integration saga-e2e-up saga-e2e-down test-saga-e2e coverage-profile coverage coverage-report coverage-html
 
 docker-up-build:
 	docker compose -f docker-compose-dev.yml up --build
@@ -59,6 +59,23 @@ test:
 
 test-integration:
 	go test -tags=integration ./common/... ./services/user-service/... ./services/banking-service/... ./services/trading-service/... ./services/email-service/... ./services/interbank-service/...
+
+# SAGA chaos suite (SG-09..SG-11): needs the dev stack running with the saga
+# overlay (Toxiproxy between trading and banking + fault injection enabled).
+# EMAIL_SERVICE_PORT is not in the sample .env, so default it here.
+SAGA_COMPOSE = EMAIL_SERVICE_PORT=$${EMAIL_SERVICE_PORT:-8084} docker compose -f docker-compose-dev.yml -f docker-compose-saga-test.yml
+
+saga-e2e-up:
+	$(SAGA_COMPOSE) up -d --build
+
+saga-e2e-down:
+	$(SAGA_COMPOSE) down
+
+# e2e is a standalone, test-only module (kept out of go.work so it never enters
+# the production Docker build graph). Run it from its own directory with
+# GOWORK=off so it resolves via its own go.mod replace directives.
+test-saga-e2e:
+	cd e2e && GOWORK=off go test -tags=saga_e2e ./... -count=1 -v -timeout 30m
 
 # Packages excluded from coverage: infrastructure with no business logic
 #   cmd, docs, config, seed, server, logging, db, pb, middleware, job - bootstrap/infra

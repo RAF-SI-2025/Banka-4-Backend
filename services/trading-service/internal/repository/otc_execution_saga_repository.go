@@ -14,4 +14,7 @@ type OtcExecutionSagaRepository interface {
 	FindByContractIDForUpdate(ctx context.Context, contractID uint) (*model.OtcExecutionSaga, error)
 	FindPendingForExecution(ctx context.Context, before time.Time, limit int) ([]model.OtcExecutionSaga, error)
 	Save(ctx context.Context, saga *model.OtcExecutionSaga) error
+	UpdateFaultSpec(ctx context.Context, sagaID uint, faultSpec string) error
+	AppendLogEntry(ctx context.Context, entry *model.OtcExecutionSagaLogEntry) error
+	ListLogEntries(ctx context.Context, sagaID uint) ([]model.OtcExecutionSagaLogEntry, error)
 }

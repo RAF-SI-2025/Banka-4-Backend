@@ -577,6 +577,37 @@ func (s *OtcOfferService) ExerciseContract(ctx context.Context, contractID uint)
 	return s.processingService.ExerciseContract(ctx, contractID)
 }
 
+// GetExecution returns the saga state and its per-step attempt log for an OTC
+// execution, restricted to the contract's buyer or seller.
+func (s *OtcOfferService) GetExecution(ctx context.Context, executionID uint) (*model.OtcExecutionSaga, []model.OtcExecutionSagaLogEntry, error) {
+	callerID, err := auth.GetSubjectFromContext(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	saga, err := s.processingService.GetExecutionStatus(ctx, executionID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if callerID != saga.Contract.BuyerID && callerID != saga.Contract.SellerID {
+		return nil, nil, errors.ForbiddenErr("you are not a participant in this OTC contract")
+	}
+
+	entries, err := s.processingService.GetExecutionLog(ctx, executionID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return saga, entries, nil
+}
+
+// GetExecutionLog returns the per-step attempt log for an execution the caller
+// already has access to (e.g. one just returned by ExerciseContract).
+func (s *OtcOfferService) GetExecutionLog(ctx context.Context, executionID uint) ([]model.OtcExecutionSagaLogEntry, error) {
+	return s.processingService.GetExecutionLog(ctx, executionID)
+}
+
 // --- helpers ---
 
 func (s *OtcOfferService) validateParticipantAndState(offer *model.OtcOffer, callerID uint) error {

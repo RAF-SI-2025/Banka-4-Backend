@@ -256,6 +256,7 @@ type processingExecutionRepo struct {
 	byContract map[uint]uint
 	nextID     uint
 	findErr    error
+	logEntries []model.OtcExecutionSagaLogEntry
 }
 
 func newProcessingExecutionRepo() *processingExecutionRepo {
@@ -321,6 +322,28 @@ func (r *processingExecutionRepo) Save(_ context.Context, saga *model.OtcExecuti
 	r.byID[saga.OtcExecutionSagaID] = new(*saga)
 	r.byContract[saga.ContractID] = saga.OtcExecutionSagaID
 	return nil
+}
+
+func (r *processingExecutionRepo) UpdateFaultSpec(_ context.Context, sagaID uint, faultSpec string) error {
+	if saga, ok := r.byID[sagaID]; ok {
+		saga.FaultSpec = faultSpec
+	}
+	return nil
+}
+
+func (r *processingExecutionRepo) AppendLogEntry(_ context.Context, entry *model.OtcExecutionSagaLogEntry) error {
+	r.logEntries = append(r.logEntries, *entry)
+	return nil
+}
+
+func (r *processingExecutionRepo) ListLogEntries(_ context.Context, sagaID uint) ([]model.OtcExecutionSagaLogEntry, error) {
+	var out []model.OtcExecutionSagaLogEntry
+	for _, e := range r.logEntries {
+		if e.OtcExecutionSagaID == sagaID {
+			out = append(out, e)
+		}
+	}
+	return out, nil
 }
 
 type processingOwnershipRepo struct {
