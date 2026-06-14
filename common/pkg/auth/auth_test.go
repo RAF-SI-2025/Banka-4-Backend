@@ -272,6 +272,52 @@ func TestRequirePermission_EmptyUserPermissions(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, w.Code)
 }
 
+func requireIdentityTypeRouter(authContext *auth.AuthContext, allowed ...auth.IdentityType) *gin.Engine {
+	router := gin.New()
+	router.Use(errors.ErrorHandler())
+	if authContext != nil {
+		router.Use(func(c *gin.Context) {
+			auth.SetAuth(c, authContext)
+			c.Next()
+		})
+	}
+	router.GET("/test", auth.RequireIdentityType(allowed...), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+	return router
+}
+
+func TestRequireIdentityType_AllowsConfiguredType(t *testing.T) {
+	t.Parallel()
+
+	router := requireIdentityTypeRouter(&auth.AuthContext{IdentityType: auth.IdentityEmployee}, auth.IdentityEmployee)
+
+	w := doGetPath(router, "/test")
+	require.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestRequireIdentityType_RejectsMissingOrDifferentType(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name        string
+		authContext *auth.AuthContext
+		status      int
+	}{
+		{name: "missing auth", status: http.StatusUnauthorized},
+		{name: "different type", authContext: &auth.AuthContext{IdentityType: auth.IdentityClient}, status: http.StatusForbidden},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			router := requireIdentityTypeRouter(tc.authContext, auth.IdentityEmployee)
+			w := doGetPath(router, "/test")
+			require.Equal(t, tc.status, w.Code)
+		})
+	}
+}
+
 func clientPathMatchRouter(authContext *auth.AuthContext) *gin.Engine {
 	router := gin.New()
 	router.Use(errors.ErrorHandler())

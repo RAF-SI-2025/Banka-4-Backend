@@ -438,6 +438,140 @@ func TestTradingHandlersRejectInvalidRequests(t *testing.T) {
 	}
 }
 
+func TestTradingFundPortfolioOTCAndTaxHandlersRejectInvalidRequests(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	fundHandler := NewInvestmentFundHandler(nil)
+	portfolioHandler := NewPortfolioHandler(nil)
+	otcHandler := NewOTCHandler(nil)
+	offerHandler := NewOtcOfferHandler(nil)
+	taxHandler := NewTaxHandler(nil, nil)
+	dividendHandler := NewDividendHandler(nil)
+
+	router := gin.New()
+	router.Use(appErrors.ErrorHandler())
+	router.GET("/funds", fundHandler.GetAllFunds)
+	router.POST("/funds", fundHandler.CreateFund)
+	router.GET("/funds/:fundId", fundHandler.GetFundDetail)
+	router.DELETE("/funds/:fundId", fundHandler.DeleteFund)
+	router.POST("/funds/:fundId/invest", fundHandler.InvestInFund)
+	router.POST("/funds/:fundId/withdraw", fundHandler.WithdrawFromFund)
+	router.GET("/actuary/:actId/assets/funds", fundHandler.GetActuaryFunds)
+	router.GET("/client/:clientId/funds", fundHandler.GetClientFundPositions)
+
+	router.GET("/client/:clientId/assets", portfolioHandler.GetClientPortfolio)
+	router.GET("/actuary/:actId/assets", portfolioHandler.GetActuaryPortfolio)
+	router.GET("/client/:clientId/assets/profit", portfolioHandler.GetClientPortfolioProfit)
+	router.GET("/actuary/:actId/assets/profit", portfolioHandler.GetActuaryPortfolioProfit)
+	router.GET("/profit/actuaries", portfolioHandler.GetAllActuaryProfits)
+	router.POST("/actuary/:actId/options/:assetId/exercise", portfolioHandler.ExerciseOption)
+
+	router.PATCH("/client/:clientId/assets/:ownershipId/publish", otcHandler.PublishAssetClient)
+	router.PATCH("/actuary/:actId/assets/:ownershipId/publish", otcHandler.PublishAssetActuary)
+	router.GET("/otc/public", otcHandler.GetPublicOTCAssets)
+
+	router.POST("/otc/offers", offerHandler.CreateOffer)
+	router.PUT("/otc/offers/:id/counter", offerHandler.SendCounterOffer)
+	router.PATCH("/otc/offers/:id/accept", offerHandler.AcceptOffer)
+	router.PATCH("/otc/offers/:id/reject", offerHandler.RejectOffer)
+	router.GET("/otc/offers/active", offerHandler.GetMyActiveOffers)
+	router.GET("/otc/contracts", offerHandler.GetMyOptionContracts)
+	router.POST("/otc/contracts/:id/exercise", offerHandler.ExerciseContract)
+	router.GET("/otc/executions/:id", offerHandler.GetExecution)
+
+	router.GET("/tax", taxHandler.ListTaxUsers)
+	router.GET("/client/:clientId/accumulated-tax", taxHandler.GetClientAccumulatedTax)
+	router.GET("/actuary/:actId/accumulated-tax", taxHandler.GetActuaryAccumulatedTax)
+	router.GET("/portfolio/assets/:assetOwnershipId/dividends", dividendHandler.GetDividendPayoutsForAssetOwnership)
+	router.GET("/client/:clientId/assets/:assetOwnershipId/dividends", dividendHandler.GetClientDividendPayoutsForAssetOwnership)
+	router.GET("/actuary/:actId/assets/:assetOwnershipId/dividends", dividendHandler.GetActuaryDividendPayoutsForAssetOwnership)
+
+	cases := []struct {
+		name   string
+		method string
+		path   string
+		body   any
+		status int
+	}{
+		{name: "funds bad page", method: http.MethodGet, path: "/funds?page=bad", status: http.StatusBadRequest},
+		{name: "create fund missing fields", method: http.MethodPost, path: "/funds", body: gin.H{"name": "Growth"}, status: http.StatusBadRequest},
+		{name: "actuary funds bad id", method: http.MethodGet, path: "/actuary/bad/assets/funds", status: http.StatusBadRequest},
+		{name: "fund detail bad id", method: http.MethodGet, path: "/funds/bad", status: http.StatusBadRequest},
+		{name: "delete fund zero id", method: http.MethodDelete, path: "/funds/0", status: http.StatusBadRequest},
+		{name: "invest fund bad id", method: http.MethodPost, path: "/funds/bad/invest", body: gin.H{"account_number": "444000100000000001", "amount": 100}, status: http.StatusBadRequest},
+		{name: "invest fund invalid body", method: http.MethodPost, path: "/funds/1/invest", body: gin.H{"account_number": "444000100000000001", "amount": 0}, status: http.StatusBadRequest},
+		{name: "withdraw fund zero id", method: http.MethodPost, path: "/funds/0/withdraw", body: gin.H{"account_number": "444000100000000001", "amount": 100}, status: http.StatusBadRequest},
+		{name: "withdraw fund invalid body", method: http.MethodPost, path: "/funds/1/withdraw", body: gin.H{"amount": 100}, status: http.StatusBadRequest},
+		{name: "client funds bad id", method: http.MethodGet, path: "/client/bad/funds", status: http.StatusBadRequest},
+		{name: "client portfolio bad id", method: http.MethodGet, path: "/client/bad/assets", status: http.StatusBadRequest},
+		{name: "actuary portfolio bad id", method: http.MethodGet, path: "/actuary/bad/assets", status: http.StatusBadRequest},
+		{name: "client profit bad id", method: http.MethodGet, path: "/client/bad/assets/profit", status: http.StatusBadRequest},
+		{name: "actuary profit bad id", method: http.MethodGet, path: "/actuary/bad/assets/profit", status: http.StatusBadRequest},
+		{name: "all actuary profits bad page", method: http.MethodGet, path: "/profit/actuaries?page=bad", status: http.StatusBadRequest},
+		{name: "all actuary profits bad page size", method: http.MethodGet, path: "/profit/actuaries?page_size=bad", status: http.StatusBadRequest},
+		{name: "exercise option bad actuary id", method: http.MethodPost, path: "/actuary/bad/options/1/exercise", body: gin.H{"account_number": "444000100000000001"}, status: http.StatusBadRequest},
+		{name: "exercise option bad asset id", method: http.MethodPost, path: "/actuary/1/options/bad/exercise", body: gin.H{"account_number": "444000100000000001"}, status: http.StatusBadRequest},
+		{name: "exercise option invalid body", method: http.MethodPost, path: "/actuary/1/options/2/exercise", body: gin.H{}, status: http.StatusBadRequest},
+		{name: "publish client bad ownership id", method: http.MethodPatch, path: "/client/1/assets/bad/publish", body: gin.H{"amount": 1}, status: http.StatusBadRequest},
+		{name: "publish client bad client id", method: http.MethodPatch, path: "/client/bad/assets/1/publish", body: gin.H{"amount": 1}, status: http.StatusBadRequest},
+		{name: "publish client invalid body", method: http.MethodPatch, path: "/client/1/assets/1/publish", body: gin.H{}, status: http.StatusBadRequest},
+		{name: "publish actuary bad ownership id", method: http.MethodPatch, path: "/actuary/1/assets/bad/publish", body: gin.H{"amount": 1}, status: http.StatusBadRequest},
+		{name: "publish actuary bad actuary id", method: http.MethodPatch, path: "/actuary/bad/assets/1/publish", body: gin.H{"amount": 1}, status: http.StatusBadRequest},
+		{name: "public otc bad query", method: http.MethodGet, path: "/otc/public?page=bad", status: http.StatusBadRequest},
+		{name: "create offer invalid body", method: http.MethodPost, path: "/otc/offers", body: gin.H{"amount": 1}, status: http.StatusBadRequest},
+		{name: "counter bad offer id", method: http.MethodPut, path: "/otc/offers/bad/counter", body: gin.H{}, status: http.StatusBadRequest},
+		{name: "counter invalid body", method: http.MethodPut, path: "/otc/offers/1/counter", body: gin.H{"amount": 1}, status: http.StatusBadRequest},
+		{name: "accept bad offer id", method: http.MethodPatch, path: "/otc/offers/bad/accept", status: http.StatusBadRequest},
+		{name: "reject bad offer id", method: http.MethodPatch, path: "/otc/offers/bad/reject", status: http.StatusBadRequest},
+		{name: "active offers unauthenticated", method: http.MethodGet, path: "/otc/offers/active", status: http.StatusUnauthorized},
+		{name: "contracts unauthenticated", method: http.MethodGet, path: "/otc/contracts", status: http.StatusUnauthorized},
+		{name: "exercise contract bad id", method: http.MethodPost, path: "/otc/contracts/bad/exercise", status: http.StatusBadRequest},
+		{name: "execution bad id", method: http.MethodGet, path: "/otc/executions/bad", status: http.StatusBadRequest},
+		{name: "tax list bad page", method: http.MethodGet, path: "/tax?page=bad", status: http.StatusBadRequest},
+		{name: "client tax bad id", method: http.MethodGet, path: "/client/bad/accumulated-tax", status: http.StatusBadRequest},
+		{name: "actuary tax bad id", method: http.MethodGet, path: "/actuary/bad/accumulated-tax", status: http.StatusBadRequest},
+		{name: "dividend bad ownership id", method: http.MethodGet, path: "/portfolio/assets/bad/dividends", status: http.StatusBadRequest},
+		{name: "client dividend bad ownership id", method: http.MethodGet, path: "/client/1/assets/bad/dividends", status: http.StatusBadRequest},
+		{name: "actuary dividend bad ownership id", method: http.MethodGet, path: "/actuary/1/assets/bad/dividends", status: http.StatusBadRequest},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := performTradingJSON(router, tc.method, tc.path, tc.body)
+			if rec.Code != tc.status {
+				t.Fatalf("%s %s status = %d, want %d body=%s", tc.method, tc.path, rec.Code, tc.status, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestMapPayoutsIncludesAssetTicker(t *testing.T) {
+	payouts := mapPayouts([]model.DividendPayout{
+		{
+			DividendPayoutID: 9,
+			AssetOwnershipID: 7,
+			AssetOwnership: model.AssetOwnership{
+				Asset: model.Asset{Ticker: "AAPL"},
+			},
+			Quantity:      4,
+			GrossAmount:   12.5,
+			TaxAmount:     1.875,
+			NetAmount:     10.625,
+			CurrencyCode:  "RSD",
+			AccountNumber: "444000100000000001",
+			PaymentDate:   time.Date(2026, 6, 14, 12, 0, 0, 0, time.UTC),
+		},
+	})
+
+	if len(payouts) != 1 {
+		t.Fatalf("len(payouts) = %d", len(payouts))
+	}
+	if payouts[0].DividendPayoutID != 9 || payouts[0].Stock != "AAPL" || payouts[0].NetAmount != 10.625 {
+		t.Fatalf("unexpected payout response %#v", payouts[0])
+	}
+}
+
 func uintPath(v uint) string {
 	return strings.TrimSpace(strings.ReplaceAll(jsonNumber(v), "\"", ""))
 }
