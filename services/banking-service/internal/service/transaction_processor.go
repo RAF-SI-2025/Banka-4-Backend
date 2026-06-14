@@ -160,16 +160,44 @@ func (tp *TransactionProcessor) processInterbank(ctx context.Context, transactio
 	}
 
 	if err := tp.interbankClient.InitiatePayment(ctx, req); err != nil {
-		transaction.Status = model.TransactionRejected
-		if updateErr := tp.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
-			return tp.transactionRepo.Update(ctx, transaction)
-		}); updateErr != nil {
-			return errors.InternalErr(updateErr)
+		// Only a definitive refusal from interbank means the payment will never
+		// proceed, so only then do we mark it Rejected. A transport-level failure
+		// (Unavailable/DeadlineExceeded/Canceled) is ambiguous: interbank may have
+		// already reserved the funds and enqueued the NEW_TX before the reply was
+		// lost, in which case its outbox worker completes the 2PC and reports the
+		// outcome via the async FinalizeInterbankPayment callback. Rejecting here
+		// would strand such a payment (FinalizeInterbankPayment only advances a
+		// transaction that is still Processing), so we leave it Processing.
+		if !isAmbiguousInterbankError(err) {
+			transaction.Status = model.TransactionRejected
+			if updateErr := tp.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
+				return tp.transactionRepo.Update(ctx, transaction)
+			}); updateErr != nil {
+				return errors.InternalErr(updateErr)
+			}
 		}
 		return interbankGrpcToAppError(err)
 	}
 
 	return nil
+}
+
+// isAmbiguousInterbankError reports whether a gRPC error from InitiatePayment
+// leaves the payment's outcome undetermined: interbank may have processed the
+// request before the reply was lost. These transport-level codes must NOT mark
+// the transaction Rejected — the FinalizeInterbankPayment callback decides the
+// final state. Any other code is a definitive refusal and is safe to reject on.
+func isAmbiguousInterbankError(err error) bool {
+	st, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	switch st.Code() {
+	case codes.Unavailable, codes.DeadlineExceeded, codes.Canceled:
+		return true
+	default:
+		return false
+	}
 }
 
 func (tp *TransactionProcessor) ProcessTradeSettlement(ctx context.Context, transactionID uint) error {

@@ -264,6 +264,12 @@ func (s *BankingService) PrepareInterbankCashPosting(ctx context.Context, req *p
 		model.CurrencyCode(req.GetCurrencyCode()),
 		req.GetAmount(),
 		req.GetUserType(),
+		service.PostingMetadata{
+			BankingTxID:               req.GetBankingTxId(),
+			CounterpartyAccountNumber: req.GetCounterpartyAccountNumber(),
+			PaymentCode:               req.GetPaymentCode(),
+			Purpose:                   req.GetPaymentPurpose(),
+		},
 	)
 	if err != nil {
 		return nil, errors.MapGrpcToHttpError(err)

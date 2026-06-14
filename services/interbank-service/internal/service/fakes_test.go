@@ -339,6 +339,13 @@ func (r *fakeNegotiations) Create(_ context.Context, n *model.PeerNegotiation) e
 	return nil
 }
 
+func (r *fakeNegotiations) Upsert(_ context.Context, n *model.PeerNegotiation) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.rows[negotiationKey(n.SellerRoutingNumber, n.ID)] = *n
+	return nil
+}
+
 func (r *fakeNegotiations) FindByID(_ context.Context, routingNumber int, id string) (*model.PeerNegotiation, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

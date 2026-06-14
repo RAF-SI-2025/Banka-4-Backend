@@ -441,7 +441,7 @@ func (s *PeerOtcService) CreateForLocalBuyer(ctx context.Context, localUserID ui
 		IsAuthoritative:     false,
 	}
 	applyNegotiableTerms(mirror, offer)
-	if err := s.negotiations.Create(ctx, mirror); err != nil {
+	if err := s.negotiations.Upsert(ctx, mirror); err != nil {
 		return nil, errors.InternalErr(err)
 	}
 
@@ -643,9 +643,14 @@ func (s *PeerOtcService) ListMyContracts(ctx context.Context, localUserID uint) 
 		return nil, errors.InternalErr(err)
 	}
 
+	userIDStr := strconv.FormatUint(uint64(localUserID), 10)
+	ourRouting := s.peers.OurRoutingNumber()
+
 	out := make([]dto.PeerContract, 0, len(rows))
 	for i := range rows {
-		out = append(out, *toPeerContractDTO(&rows[i]))
+		d := toPeerContractDTO(&rows[i])
+		d.MyContract = rows[i].BuyerRoutingNumber == ourRouting && rows[i].BuyerID == userIDStr
+		out = append(out, *d)
 	}
 	return out, nil
 }

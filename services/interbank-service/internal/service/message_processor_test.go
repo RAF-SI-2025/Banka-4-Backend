@@ -151,7 +151,7 @@ func TestPrepareLocalTransaction_Verification(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p, _, prepared := newProcessor(tc.banking, nil)
 
-			statusCode, vote, err := p.PrepareLocalTransaction(context.Background(), tc.tx)
+			statusCode, vote, err := p.PrepareLocalTransaction(context.Background(), tc.tx, 0)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, statusCode)
 			require.Equal(t, tc.wantVote, vote.Vote)
@@ -186,14 +186,14 @@ func TestPrepareLocalTransaction_Idempotent(t *testing.T) {
 	tx := cashTx("tx-idem", 100)
 
 	// First prepare reserves and records PREPARED.
-	_, vote1, err := p.PrepareLocalTransaction(context.Background(), tx)
+	_, vote1, err := p.PrepareLocalTransaction(context.Background(), tx, 0)
 	require.NoError(t, err)
 	require.Equal(t, dto.VoteYes, vote1.Vote)
 	require.Equal(t, 1, banking.prepareCount())
 
 	// A retransmit of the identical NEW_TX must short-circuit on the PREPARED
 	// record and re-cast the same YES vote without issuing a second reservation.
-	_, vote2, err := p.PrepareLocalTransaction(context.Background(), tx)
+	_, vote2, err := p.PrepareLocalTransaction(context.Background(), tx, 0)
 	require.NoError(t, err)
 	require.Equal(t, dto.VoteYes, vote2.Vote)
 	require.Equal(t, 1, banking.prepareCount(), "reservation must not be issued twice")
@@ -224,7 +224,7 @@ func TestPrepareLocalTransaction_OptionAmountIncorrect(t *testing.T) {
 	}
 
 	p, _, _ := newProcessor(nil, nil)
-	_, vote, err := p.PrepareLocalTransaction(context.Background(), tx)
+	_, vote, err := p.PrepareLocalTransaction(context.Background(), tx, 0)
 	require.NoError(t, err)
 	require.Equal(t, dto.ReasonOptionAmountIncorrect, firstReason(t, vote))
 }

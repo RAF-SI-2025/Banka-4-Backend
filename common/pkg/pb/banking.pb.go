@@ -1221,8 +1221,15 @@ type PrepareInterbankCashPostingRequest struct {
 	CurrencyCode  string                 `protobuf:"bytes,4,opt,name=currency_code,json=currencyCode,proto3" json:"currency_code,omitempty"`
 	Amount        float64                `protobuf:"fixed64,5,opt,name=amount,proto3" json:"amount,omitempty"`
 	UserType      string                 `protobuf:"bytes,6,opt,name=user_type,json=userType,proto3" json:"user_type,omitempty"` // "CLIENT" | "EMPLOYEE"
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Payment-history metadata, used to build a Transaction+Payment record when the
+	// posting commits. banking_tx_id is non-zero only for the initiating payment leg
+	// (which already has a Transaction); it gates record creation off for that case.
+	BankingTxId               uint64 `protobuf:"varint,7,opt,name=banking_tx_id,json=bankingTxId,proto3" json:"banking_tx_id,omitempty"`
+	CounterpartyAccountNumber string `protobuf:"bytes,8,opt,name=counterparty_account_number,json=counterpartyAccountNumber,proto3" json:"counterparty_account_number,omitempty"`
+	PaymentCode               string `protobuf:"bytes,9,opt,name=payment_code,json=paymentCode,proto3" json:"payment_code,omitempty"`
+	PaymentPurpose            string `protobuf:"bytes,10,opt,name=payment_purpose,json=paymentPurpose,proto3" json:"payment_purpose,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *PrepareInterbankCashPostingRequest) Reset() {
@@ -1293,6 +1300,34 @@ func (x *PrepareInterbankCashPostingRequest) GetAmount() float64 {
 func (x *PrepareInterbankCashPostingRequest) GetUserType() string {
 	if x != nil {
 		return x.UserType
+	}
+	return ""
+}
+
+func (x *PrepareInterbankCashPostingRequest) GetBankingTxId() uint64 {
+	if x != nil {
+		return x.BankingTxId
+	}
+	return 0
+}
+
+func (x *PrepareInterbankCashPostingRequest) GetCounterpartyAccountNumber() string {
+	if x != nil {
+		return x.CounterpartyAccountNumber
+	}
+	return ""
+}
+
+func (x *PrepareInterbankCashPostingRequest) GetPaymentCode() string {
+	if x != nil {
+		return x.PaymentCode
+	}
+	return ""
+}
+
+func (x *PrepareInterbankCashPostingRequest) GetPaymentPurpose() string {
+	if x != nil {
+		return x.PaymentPurpose
 	}
 	return ""
 }
@@ -1586,7 +1621,7 @@ const file_common_proto_banking_proto_rawDesc = "" +
 	"\n" +
 	"manager_id\x18\x02 \x01(\x04R\tmanagerId\"B\n" +
 	"\x19CreateFundAccountResponse\x12%\n" +
-	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\"\xe1\x01\n" +
+	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\"\x91\x03\n" +
 	"\"PrepareInterbankCashPostingRequest\x12\x1d\n" +
 	"\n" +
 	"posting_id\x18\x01 \x01(\tR\tpostingId\x12%\n" +
@@ -1594,7 +1629,12 @@ const file_common_proto_banking_proto_rawDesc = "" +
 	"\tclient_id\x18\x03 \x01(\x04R\bclientId\x12#\n" +
 	"\rcurrency_code\x18\x04 \x01(\tR\fcurrencyCode\x12\x16\n" +
 	"\x06amount\x18\x05 \x01(\x01R\x06amount\x12\x1b\n" +
-	"\tuser_type\x18\x06 \x01(\tR\buserType\"<\n" +
+	"\tuser_type\x18\x06 \x01(\tR\buserType\x12\"\n" +
+	"\rbanking_tx_id\x18\a \x01(\x04R\vbankingTxId\x12>\n" +
+	"\x1bcounterparty_account_number\x18\b \x01(\tR\x19counterpartyAccountNumber\x12!\n" +
+	"\fpayment_code\x18\t \x01(\tR\vpaymentCode\x12'\n" +
+	"\x0fpayment_purpose\x18\n" +
+	" \x01(\tR\x0epaymentPurpose\"<\n" +
 	"\x1bInterbankCashPostingRequest\x12\x1d\n" +
 	"\n" +
 	"posting_id\x18\x01 \x01(\tR\tpostingId\"\xb9\x01\n" +

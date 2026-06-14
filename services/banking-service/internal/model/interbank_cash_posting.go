@@ -23,6 +23,14 @@ type InterbankCashPosting struct {
 	RequestedCurrencyCode CurrencyCode               `gorm:"not null;size:4"`
 	RequestedAmount       float64                    `gorm:"not null"`
 	Status                InterbankCashPostingStatus `gorm:"not null;size:20"`
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
+	// Payment-history metadata captured at prepare time and used to build a
+	// Transaction+Payment record when the posting commits. BankingTxID is non-zero
+	// only for the initiating payment leg (which already has a Transaction), so it
+	// gates record creation off for that case. The rest may be empty.
+	BankingTxID               uint64 `gorm:"not null;default:0"`
+	CounterpartyAccountNumber string `gorm:"size:64"`
+	PaymentCode               string `gorm:"size:64"`
+	Purpose                   string `gorm:"size:255"`
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
 }

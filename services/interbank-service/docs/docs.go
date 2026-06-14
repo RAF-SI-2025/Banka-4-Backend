@@ -1194,6 +1194,10 @@ const docTemplate = `{
                 "id": {
                     "$ref": "#/definitions/dto.ForeignBankId"
                 },
+                "myContract": {
+                    "description": "MyContract is true when the requesting local user is the buyer on this\ncontract. It is a frontend convenience field, populated per-request.",
+                    "type": "boolean"
+                },
                 "negotiationId": {
                     "$ref": "#/definitions/dto.ForeignBankId"
                 },

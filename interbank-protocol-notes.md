@@ -8,7 +8,7 @@
 |---|---|
 | Routing number | `444` |
 | Interbank base URL | `http://rafsi.davidovic.io:8083` |
-| Interbank base URL (Kubernetes, alternative) | `https://banka-4.radenko.rs/interbank-service` |
+| Interbank base URL (Kubernetes, alternative) | `https://banka-4.radenkovic.rs/interbank-service` |
 | API key (send in `X-Api-Key`) | `bank4-secret-key` |
 
 Both base URLs point at the same bank (routing `444`) and use the same `X-Api-Key`; either may be used.
@@ -74,6 +74,27 @@ The buyer must declare a specific account for settlement upfront. We use it to d
   "buyerAccountNumber": "111000165540581321"
 }
 ```
+
+### Create flow & response
+
+The negotiation is **created on the seller's bank, which is authoritative and assigns the id** 
+
+- Buyer's bank `POST /negotiations` to the **seller's bank** (routed by `sellerId.routingNumber`), body = `OtcOffer`.
+- The seller's bank generates the negotiation id, stores the authoritative row, and **returns it synchronously in the `200 OK` body** as a `ForeignBankId`.
+- The buyer's bank then stores a non-authoritative mirror row keyed by the returned id.
+
+There is no callback — the id comes back inline in the same HTTP response.
+
+Response body (`200 OK`):
+
+```json
+{
+  "routingNumber": 444,
+  "id": "<negId>"
+}
+```
+
+`routingNumber` is always the seller's bank (the authority); `id` is the seller-generated negotiation id. Both banks reference the negotiation by this same `{routingNumber}/{id}` pair for all subsequent counter / get / accept / cancel calls.
 
 ### Turn rule
 

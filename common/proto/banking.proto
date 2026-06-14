@@ -152,6 +152,13 @@ message PrepareInterbankCashPostingRequest {
   string currency_code = 4;
   double amount = 5;
   string user_type = 6;   // "CLIENT" | "EMPLOYEE"
+  // Payment-history metadata, used to build a Transaction+Payment record when the
+  // posting commits. banking_tx_id is non-zero only for the initiating payment leg
+  // (which already has a Transaction); it gates record creation off for that case.
+  uint64 banking_tx_id = 7;
+  string counterparty_account_number = 8;
+  string payment_code = 9;
+  string payment_purpose = 10;
 }
 
 message InterbankCashPostingRequest {

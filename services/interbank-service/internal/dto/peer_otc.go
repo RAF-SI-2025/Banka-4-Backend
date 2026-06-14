@@ -52,6 +52,10 @@ type PeerContract struct {
 	ExercisedAt    *string       `json:"exercisedAt,omitempty"`
 	CreatedAt      string        `json:"createdAt"`
 	UpdatedAt      string        `json:"updatedAt"`
+
+	// MyContract is true when the requesting local user is the buyer on this
+	// contract. It is a frontend convenience field, populated per-request.
+	MyContract bool `json:"myContract"`
 }
 
 type PublicStockSeller struct {

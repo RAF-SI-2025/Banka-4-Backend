@@ -57,7 +57,7 @@ func TestPrepareLocalTransaction_MonasPersonPosting(t *testing.T) {
 		},
 	}
 
-	statusCode, vote, err := p.PrepareLocalTransaction(context.Background(), tx)
+	statusCode, vote, err := p.PrepareLocalTransaction(context.Background(), tx, 0)
 	require.NoError(t, err)
 	require.Equal(t, 200, statusCode)
 	require.Equal(t, dto.VoteYes, vote.Vote)
@@ -84,7 +84,7 @@ func TestPrepareLocalTransaction_OptionReserveAndRollbackOnLaterFailure(t *testi
 		},
 	}
 
-	statusCode, vote, err := p.PrepareLocalTransaction(context.Background(), tx)
+	statusCode, vote, err := p.PrepareLocalTransaction(context.Background(), tx, 0)
 	require.NoError(t, err)
 	require.Equal(t, 200, statusCode)
 	require.Equal(t, dto.ReasonInsufficientAsset, firstReason(t, vote))
@@ -164,7 +164,7 @@ func TestPrepareAndCommitStockExercisePaths(t *testing.T) {
 			},
 		}
 
-		statusCode, vote, err := p.PrepareLocalTransaction(context.Background(), tx)
+		statusCode, vote, err := p.PrepareLocalTransaction(context.Background(), tx, 0)
 		require.NoError(t, err)
 		require.Equal(t, 200, statusCode)
 		require.Equal(t, dto.VoteYes, vote.Vote)

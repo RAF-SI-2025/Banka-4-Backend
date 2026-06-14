@@ -11,6 +11,10 @@ import (
 // users' outbound traffic.
 type PeerNegotiationRepository interface {
 	Create(ctx context.Context, n *model.PeerNegotiation) error
+	// Upsert writes the row by (seller_routing_number, id), replacing all
+	// non-PK columns on conflict. Used for mirror rows (IsAuthoritative=false)
+	// so that a peer bank resetting its sequence doesn't strand stale rows.
+	Upsert(ctx context.Context, n *model.PeerNegotiation) error
 	// FindByID / FindByIDForUpdate key on the negotiation's full identity
 	// (authoritative seller routing number + id); id alone is not unique.
 	FindByID(ctx context.Context, routingNumber int, id string) (*model.PeerNegotiation, error)

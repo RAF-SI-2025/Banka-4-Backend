@@ -5,9 +5,11 @@ import (
 	"errors"
 	"log"
 	"net"
+	"time"
 
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/config"
@@ -24,7 +26,20 @@ func NewGRPCServer(
 		return err
 	}
 
-	grpcServer := grpc.NewServer()
+	// EnforcementPolicy.MinTime must be <= the interbank client's keepalive Time
+	// (30s) and PermitWithoutStream must match, otherwise the server answers
+	// client pings with GOAWAY "too_many_pings" — which itself surfaces as
+	// codes.Unavailable on the caller.
+	grpcServer := grpc.NewServer(
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             10 * time.Second,
+			PermitWithoutStream: true,
+		}),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    30 * time.Second,
+			Timeout: 10 * time.Second,
+		}),
+	)
 	pb.RegisterBankingServiceServer(grpcServer, bankingService)
 
 	lc.Append(fx.Hook{

@@ -23,6 +23,15 @@ func (r *peerNegotiationRepository) Create(ctx context.Context, n *model.PeerNeg
 	return db.DBFromContext(ctx, r.db).Create(n).Error
 }
 
+func (r *peerNegotiationRepository) Upsert(ctx context.Context, n *model.PeerNegotiation) error {
+	return db.DBFromContext(ctx, r.db).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "seller_routing_number"}, {Name: "id"}},
+			UpdateAll: true,
+		}).
+		Create(n).Error
+}
+
 func (r *peerNegotiationRepository) FindByID(ctx context.Context, routingNumber int, id string) (*model.PeerNegotiation, error) {
 	var n model.PeerNegotiation
 

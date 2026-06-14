@@ -100,7 +100,9 @@ func (p *MessageProcessor) ProcessNewTx(ctx context.Context, peerRouting int, ke
 		// 202 means the previous attempt was unfinished; fall through to retry.
 	}
 
-	statusCode, vote, err := p.PrepareLocalTransaction(ctx, tx)
+	// Inbound (we are the participant): no banking tx id — record creation is
+	// driven purely by the local posting's sign/metadata at commit time.
+	statusCode, vote, err := p.PrepareLocalTransaction(ctx, tx, 0)
 	if err != nil {
 		return http.StatusInternalServerError, nil, err
 	}
@@ -157,7 +159,7 @@ func (p *MessageProcessor) ProcessRollbackTx(ctx context.Context, peerRouting in
 // CRITICAL: this function manages its own transactions.  It must NOT be called
 // inside an outer WithinTransaction — that would collapse all three phases into
 // one tx and reintroduce the leak.
-func (p *MessageProcessor) PrepareLocalTransaction(ctx context.Context, tx *dto.Transaction) (int, dto.TransactionVote, error) {
+func (p *MessageProcessor) PrepareLocalTransaction(ctx context.Context, tx *dto.Transaction, bankingTxID uint64) (int, dto.TransactionVote, error) {
 	if tx == nil {
 		return http.StatusInternalServerError, dto.TransactionVote{}, fmt.Errorf("invalid transaction")
 	}
@@ -211,7 +213,7 @@ func (p *MessageProcessor) PrepareLocalTransaction(ctx context.Context, tx *dto.
 		if !p.isLocalPosting(tx.Postings[i]) {
 			continue
 		}
-		item, reason, reserveErr := p.preparePosting(ctx, tx, i)
+		item, reason, reserveErr := p.preparePosting(ctx, tx, i, bankingTxID)
 		if reserveErr != nil {
 			p.rollbackEffects(ctx, effects)
 			v := noVote(reason, &tx.Postings[i])
@@ -425,12 +427,12 @@ func (p *MessageProcessor) processInbound(
 // during prepare; debited accounts (positive amounts) only need validation.
 // ---------------------------------------------------------------------------
 
-func (p *MessageProcessor) preparePosting(ctx context.Context, tx *dto.Transaction, index int) (*preparedItem, dto.NoVoteReasonKind, error) {
+func (p *MessageProcessor) preparePosting(ctx context.Context, tx *dto.Transaction, index int, bankingTxID uint64) (*preparedItem, dto.NoVoteReasonKind, error) {
 	posting := tx.Postings[index]
 
 	switch posting.Asset.Type {
 	case dto.AssetMonas:
-		return p.prepareMonasPosting(ctx, tx, index)
+		return p.prepareMonasPosting(ctx, tx, index, bankingTxID)
 	case dto.AssetOption:
 		return p.prepareOptionPosting(ctx, tx, index)
 	case dto.AssetStock:
@@ -441,13 +443,14 @@ func (p *MessageProcessor) preparePosting(ctx context.Context, tx *dto.Transacti
 }
 
 // prepareMonasPosting handles MONAS for ACCOUNT, PERSON, and OPTION account types.
-func (p *MessageProcessor) prepareMonasPosting(ctx context.Context, tx *dto.Transaction, index int) (*preparedItem, dto.NoVoteReasonKind, error) {
+func (p *MessageProcessor) prepareMonasPosting(ctx context.Context, tx *dto.Transaction, index int, bankingTxID uint64) (*preparedItem, dto.NoVoteReasonKind, error) {
 	posting := tx.Postings[index]
 	currency, ok := monetaryCurrency(posting.Asset)
 	if !ok {
 		return nil, dto.ReasonUnacceptableAsset, fmt.Errorf("invalid MONAS asset")
 	}
 	pid := postingID(tx, index)
+	counterparty := counterpartyAccountNumber(tx, index)
 
 	switch posting.Account.Type {
 	case dto.TxAccountAccount:
@@ -456,10 +459,14 @@ func (p *MessageProcessor) prepareMonasPosting(ctx context.Context, tx *dto.Tran
 			return nil, dto.ReasonNoSuchAccount, fmt.Errorf("invalid local cash account")
 		}
 		_, err := p.banking.PrepareInterbankCashPosting(ctx, &pb.PrepareInterbankCashPostingRequest{
-			PostingId:     pid,
-			AccountNumber: accountNumber,
-			CurrencyCode:  currency,
-			Amount:        posting.Amount,
+			PostingId:                 pid,
+			AccountNumber:             accountNumber,
+			CurrencyCode:              currency,
+			Amount:                    posting.Amount,
+			BankingTxId:               bankingTxID,
+			CounterpartyAccountNumber: counterparty,
+			PaymentCode:               tx.PaymentCode,
+			PaymentPurpose:            tx.PaymentPurpose,
 		})
 		if err != nil {
 			return nil, cashNoVoteReason(err), err
@@ -476,11 +483,15 @@ func (p *MessageProcessor) prepareMonasPosting(ctx context.Context, tx *dto.Tran
 			return nil, dto.ReasonNoSuchAccount, err
 		}
 		_, err = p.banking.PrepareInterbankCashPosting(ctx, &pb.PrepareInterbankCashPostingRequest{
-			PostingId:    pid,
-			ClientId:     userID,
-			UserType:     userType,
-			CurrencyCode: currency,
-			Amount:       posting.Amount,
+			PostingId:                 pid,
+			ClientId:                  userID,
+			UserType:                  userType,
+			CurrencyCode:              currency,
+			Amount:                    posting.Amount,
+			BankingTxId:               bankingTxID,
+			CounterpartyAccountNumber: counterparty,
+			PaymentCode:               tx.PaymentCode,
+			PaymentPurpose:            tx.PaymentPurpose,
 		})
 		if err != nil {
 			return nil, cashNoVoteReason(err), err
@@ -508,11 +519,15 @@ func (p *MessageProcessor) prepareMonasPosting(ctx context.Context, tx *dto.Tran
 			return nil, dto.ReasonNoSuchAccount, err
 		}
 		_, err = p.banking.PrepareInterbankCashPosting(ctx, &pb.PrepareInterbankCashPostingRequest{
-			PostingId:    pid,
-			ClientId:     sellerID,
-			UserType:     sellerType,
-			CurrencyCode: currency,
-			Amount:       posting.Amount,
+			PostingId:                 pid,
+			ClientId:                  sellerID,
+			UserType:                  sellerType,
+			CurrencyCode:              currency,
+			Amount:                    posting.Amount,
+			BankingTxId:               bankingTxID,
+			CounterpartyAccountNumber: counterparty,
+			PaymentCode:               tx.PaymentCode,
+			PaymentPurpose:            tx.PaymentPurpose,
 		})
 		if err != nil {
 			return nil, cashNoVoteReason(err), err
@@ -521,6 +536,27 @@ func (p *MessageProcessor) prepareMonasPosting(ctx context.Context, tx *dto.Tran
 	}
 
 	return nil, dto.ReasonNoSuchAccount, fmt.Errorf("unsupported account type for MONAS")
+}
+
+// counterpartyAccountNumber returns the account number of the other side of a
+// two-account MONAS posting (best-effort, for payment-history display). It picks
+// the first ACCOUNT-type posting other than index whose number fits the banking
+// account-number column (≤18). Returns "" when none is suitable (e.g. OTC postings
+// that reference PERSON/OPTION pseudo-accounts).
+func counterpartyAccountNumber(tx *dto.Transaction, index int) string {
+	for j := range tx.Postings {
+		if j == index {
+			continue
+		}
+		acc := tx.Postings[j].Account
+		if acc.Type == dto.TxAccountAccount && acc.Num != nil {
+			num := strings.TrimSpace(string(*acc.Num))
+			if num != "" && len(num) <= 18 {
+				return num
+			}
+		}
+	}
+	return ""
 }
 
 // prepareOptionPosting handles OPTION asset (accept TX).
@@ -1058,7 +1094,7 @@ func (p *MessageProcessor) PrepareAndEnqueueNewTx(
 ) (int, dto.TransactionVote, *model.OutboundMessage, error) {
 	// Phase 1-3: phased prepare manages its own transactions — must NOT be
 	// called inside a wrapping WithinTransaction.
-	statusCode, vote, err := p.PrepareLocalTransaction(ctx, tx)
+	statusCode, vote, err := p.PrepareLocalTransaction(ctx, tx, bankingTxID)
 	if err != nil {
 		return statusCode, vote, nil, err
 	}

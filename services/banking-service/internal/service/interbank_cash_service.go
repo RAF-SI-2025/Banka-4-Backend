@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"math"
 	"strings"
 
 	commonerrors "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
@@ -9,11 +10,24 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
 )
 
+// PostingMetadata carries the payment-history context for an interbank cash
+// posting. It is captured at prepare time and used to build a Transaction+Payment
+// record when the posting commits. BankingTxID is non-zero only for the initiating
+// payment leg (which already has a Transaction), gating record creation off for it.
+type PostingMetadata struct {
+	BankingTxID               uint64
+	CounterpartyAccountNumber string
+	PaymentCode               string
+	Purpose                   string
+}
+
 type InterbankCashService struct {
-	accountRepo repository.AccountRepository
-	postingRepo repository.InterbankCashPostingRepository
-	txManager   repository.TransactionManager
-	converter   CurrencyConverter
+	accountRepo     repository.AccountRepository
+	postingRepo     repository.InterbankCashPostingRepository
+	txManager       repository.TransactionManager
+	converter       CurrencyConverter
+	transactionRepo repository.TransactionRepository
+	paymentRepo     repository.PaymentRepository
 }
 
 func NewInterbankCashService(
@@ -21,16 +35,20 @@ func NewInterbankCashService(
 	postingRepo repository.InterbankCashPostingRepository,
 	txManager repository.TransactionManager,
 	converter CurrencyConverter,
+	transactionRepo repository.TransactionRepository,
+	paymentRepo repository.PaymentRepository,
 ) *InterbankCashService {
 	return &InterbankCashService{
-		accountRepo: accountRepo,
-		postingRepo: postingRepo,
-		txManager:   txManager,
-		converter:   converter,
+		accountRepo:     accountRepo,
+		postingRepo:     postingRepo,
+		txManager:       txManager,
+		converter:       converter,
+		transactionRepo: transactionRepo,
+		paymentRepo:     paymentRepo,
 	}
 }
 
-func (s *InterbankCashService) Prepare(ctx context.Context, postingID, accountNumber string, clientID uint, currencyCode model.CurrencyCode, amount float64, userType string) (*model.InterbankCashPosting, error) {
+func (s *InterbankCashService) Prepare(ctx context.Context, postingID, accountNumber string, clientID uint, currencyCode model.CurrencyCode, amount float64, userType string, meta PostingMetadata) (*model.InterbankCashPosting, error) {
 	postingID = strings.TrimSpace(postingID)
 	accountNumber = strings.TrimSpace(accountNumber)
 	if postingID == "" {
@@ -85,13 +103,17 @@ func (s *InterbankCashService) Prepare(ctx context.Context, postingID, accountNu
 		}
 
 		posting := &model.InterbankCashPosting{
-			PostingID:             postingID,
-			AccountNumber:         account.AccountNumber,
-			CurrencyCode:          account.Currency.Code,
-			Amount:                resolvedAmount,
-			RequestedCurrencyCode: currencyCode,
-			RequestedAmount:       amount,
-			Status:                model.InterbankCashPostingPrepared,
+			PostingID:                 postingID,
+			AccountNumber:             account.AccountNumber,
+			CurrencyCode:              account.Currency.Code,
+			Amount:                    resolvedAmount,
+			RequestedCurrencyCode:     currencyCode,
+			RequestedAmount:           amount,
+			Status:                    model.InterbankCashPostingPrepared,
+			BankingTxID:               meta.BankingTxID,
+			CounterpartyAccountNumber: meta.CounterpartyAccountNumber,
+			PaymentCode:               meta.PaymentCode,
+			Purpose:                   meta.Purpose,
 		}
 		if err := s.postingRepo.Create(ctx, posting); err != nil {
 			return commonerrors.InternalErr(err)
@@ -132,8 +154,60 @@ func (s *InterbankCashService) Commit(ctx context.Context, postingID string) (*m
 			return commonerrors.InternalErr(err)
 		}
 		posting.Status = model.InterbankCashPostingCommitted
-		return nil
+
+		// This branch only runs on the PREPARED→COMMITTED transition (an
+		// already-committed posting short-circuits above), so the history record
+		// is created exactly once even if COMMIT_TX is retransmitted.
+		return s.recordPaymentHistory(ctx, posting)
 	})
+}
+
+// recordPaymentHistory writes a completed Transaction+Payment for a committed
+// MONAS cash posting so it appears in the local account's payment history. It is a
+// no-op for the initiating payment leg, which already has a Transaction created by
+// CreatePayment (identified by BankingTxID).
+func (s *InterbankCashService) recordPaymentHistory(ctx context.Context, posting *model.InterbankCashPosting) error {
+	if posting.BankingTxID != 0 {
+		existing, err := s.transactionRepo.GetByID(ctx, uint(posting.BankingTxID))
+		if err != nil {
+			return commonerrors.InternalErr(err)
+		}
+		if existing != nil {
+			return nil
+		}
+	}
+
+	transaction := &model.Transaction{
+		StartAmount:       math.Abs(posting.RequestedAmount),
+		StartCurrencyCode: posting.RequestedCurrencyCode,
+		EndAmount:         math.Abs(posting.Amount),
+		EndCurrencyCode:   posting.CurrencyCode,
+		Commission:        0,
+		Status:            model.TransactionCompleted,
+	}
+	// Sign convention (§2.8): a negative amount is a CREDIT (money leaves the local
+	// account → local is the payer); a positive amount is a DEBIT (money enters →
+	// local is the recipient). The counterparty may be empty when unknown.
+	if posting.Amount < 0 {
+		transaction.PayerAccountNumber = posting.AccountNumber
+		transaction.RecipientAccountNumber = posting.CounterpartyAccountNumber
+	} else {
+		transaction.PayerAccountNumber = posting.CounterpartyAccountNumber
+		transaction.RecipientAccountNumber = posting.AccountNumber
+	}
+	if err := s.transactionRepo.Create(ctx, transaction); err != nil {
+		return commonerrors.InternalErr(err)
+	}
+
+	payment := &model.Payment{
+		TransactionID: transaction.TransactionID,
+		PaymentCode:   posting.PaymentCode,
+		Purpose:       posting.Purpose,
+	}
+	if err := s.paymentRepo.Create(ctx, payment); err != nil {
+		return commonerrors.InternalErr(err)
+	}
+	return nil
 }
 
 func (s *InterbankCashService) Rollback(ctx context.Context, postingID string) (*model.InterbankCashPosting, error) {
