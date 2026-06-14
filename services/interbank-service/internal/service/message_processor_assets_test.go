@@ -119,7 +119,7 @@ func TestCommitLocalTransaction_OptionCreatesAuthoritativeContract(t *testing.T)
 	require.Equal(t, 111, contract.BuyerRoutingNumber)
 	require.Equal(t, "buyer-1", contract.BuyerID)
 
-	negotiation, err := negs.FindByID(context.Background(), "neg-authority")
+	negotiation, err := negs.FindByID(context.Background(), ourRouting, "neg-authority")
 	require.NoError(t, err)
 	require.Equal(t, model.PeerNegotiationAccepted, negotiation.Status)
 }

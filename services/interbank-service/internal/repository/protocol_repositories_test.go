@@ -243,7 +243,7 @@ func TestPeerNegotiationRepositoryQueries(t *testing.T) {
 		}
 	}
 
-	found, err := repo.FindByID(ctx, "neg-1")
+	found, err := repo.FindByID(ctx, 111, "neg-1")
 	if err != nil {
 		t.Fatalf("find negotiation: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestPeerNegotiationRepositoryQueries(t *testing.T) {
 	if err := repo.Update(ctx, found); err != nil {
 		t.Fatalf("update negotiation: %v", err)
 	}
-	locked, err := repo.FindByIDForUpdate(ctx, "neg-1")
+	locked, err := repo.FindByIDForUpdate(ctx, 111, "neg-1")
 	if err != nil {
 		t.Fatalf("find for update: %v", err)
 	}

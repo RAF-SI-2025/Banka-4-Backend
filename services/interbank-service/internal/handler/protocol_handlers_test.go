@@ -296,7 +296,7 @@ func TestPeerOtcHandlerNegotiationLookupAndClose(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("delete status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	stored, err := setup.otcRepos.negotiations.FindByID(context.Background(), id.ID)
+	stored, err := setup.otcRepos.negotiations.FindByID(context.Background(), id.RoutingNumber, id.ID)
 	if err != nil {
 		t.Fatalf("find stored negotiation: %v", err)
 	}

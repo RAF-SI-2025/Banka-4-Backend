@@ -138,7 +138,7 @@ func TestPeerOtcServiceCreateForLocalBuyerStoresMirror(t *testing.T) {
 	require.Equal(t, &dto.ForeignBankId{RoutingNumber: 111, ID: "remote-neg"}, id)
 	require.Equal(t, []string{"POST /negotiations"}, bank.otcGot())
 
-	stored, err := negs.FindByID(context.Background(), "remote-neg")
+	stored, err := negs.FindByID(context.Background(), 111, "remote-neg")
 	require.NoError(t, err)
 	require.False(t, stored.IsAuthoritative)
 	require.Equal(t, ourRouting, stored.BuyerRoutingNumber)
@@ -197,7 +197,7 @@ func TestPeerOtcServiceWithdrawAsLocalCancelsMirrorAndNotifiesSeller(t *testing.
 	require.NoError(t, err)
 	require.Equal(t, []string{"DELETE /negotiations/111/neg-withdraw"}, bank.otcGot())
 
-	updated, err := negs.FindByID(context.Background(), "neg-withdraw")
+	updated, err := negs.FindByID(context.Background(), 111, "neg-withdraw")
 	require.NoError(t, err)
 	require.Equal(t, model.PeerNegotiationCancelled, updated.Status)
 }
@@ -230,7 +230,7 @@ func TestPeerOtcServiceAcceptExistingContracts(t *testing.T) {
 	t.Run("from peer returns existing authoritative contract", func(t *testing.T) {
 		svc, negs, contracts := newOtcSvcWithStores(testResolver(ourRouting))
 		seedAuthoritativeNegotiation(negs, "neg-accepted")
-		row, err := negs.FindByID(context.Background(), "neg-accepted")
+		row, err := negs.FindByID(context.Background(), ourRouting, "neg-accepted")
 		require.NoError(t, err)
 		row.Status = model.PeerNegotiationAccepted
 		require.NoError(t, negs.Update(context.Background(), row))
@@ -245,7 +245,7 @@ func TestPeerOtcServiceAcceptExistingContracts(t *testing.T) {
 	t.Run("as local buyer returns existing mirror contract", func(t *testing.T) {
 		svc, negs, contracts := newOtcSvcWithStores(testResolver(ourRouting))
 		seedMirrorNegotiation(negs, "neg-mirror-accepted")
-		row, err := negs.FindByID(context.Background(), "neg-mirror-accepted")
+		row, err := negs.FindByID(context.Background(), 111, "neg-mirror-accepted")
 		require.NoError(t, err)
 		row.Status = model.PeerNegotiationAccepted
 		require.NoError(t, negs.Update(context.Background(), row))
