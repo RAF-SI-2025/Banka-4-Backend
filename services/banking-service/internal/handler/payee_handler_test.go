@@ -58,7 +58,117 @@ func (f *fakePayeeRepo) Delete(_ context.Context, id uint) error {
 	return nil
 }
 
-func payeeRouter(repo *fakePayeeRepo, clientID uint) *gin.Engine {
+type fakeAccountRepo struct {
+	accounts []*model.Account
+	created  *model.Account
+	updated  *model.Account
+}
+
+func (f *fakeAccountRepo) Create(_ context.Context, account *model.Account) error {
+	f.created = account
+	f.accounts = append(f.accounts, account)
+	return nil
+}
+
+func (f *fakeAccountRepo) AccountNumberExists(_ context.Context, accountNumber string) (bool, error) {
+	for _, a := range f.accounts {
+		if a.AccountNumber == accountNumber {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (f *fakeAccountRepo) GetByAccountNumber(_ context.Context, accountNumber string) (*model.Account, error) {
+	return f.FindByAccountNumber(context.Background(), accountNumber)
+}
+
+func (f *fakeAccountRepo) FindByAccountNumber(_ context.Context, accountNumber string) (*model.Account, error) {
+	for _, a := range f.accounts {
+		if a.AccountNumber == accountNumber {
+			return a, nil
+		}
+	}
+	return nil, nil
+}
+
+func (f *fakeAccountRepo) Update(_ context.Context, account *model.Account) error {
+	f.updated = account
+	return nil
+}
+
+func (f *fakeAccountRepo) UpdateBalance(_ context.Context, account *model.Account) error {
+	f.updated = account
+	return nil
+}
+
+func (f *fakeAccountRepo) FindAllByClientID(_ context.Context, clientID uint) ([]model.Account, error) {
+	var result []model.Account
+	for _, a := range f.accounts {
+		if a.ClientID == clientID {
+			result = append(result, *a)
+		}
+	}
+	return result, nil
+}
+
+func (f *fakeAccountRepo) FindByClientID(_ context.Context, clientID uint) ([]model.Account, error) {
+	return f.FindAllByClientID(context.Background(), clientID)
+}
+
+func (f *fakeAccountRepo) FindByAccountNumberAndClientID(_ context.Context, accountNumber string, clientID uint) (*model.Account, error) {
+	for _, a := range f.accounts {
+		if a.AccountNumber == accountNumber && a.ClientID == clientID {
+			return a, nil
+		}
+	}
+	return nil, nil
+}
+
+func (f *fakeAccountRepo) UpdateName(_ context.Context, accountNumber string, name string) error {
+	for _, a := range f.accounts {
+		if a.AccountNumber == accountNumber {
+			a.Name = name
+			return nil
+		}
+	}
+	return nil
+}
+
+func (f *fakeAccountRepo) UpdateLimits(_ context.Context, accountNumber string, daily float64, monthly float64) error {
+	for _, a := range f.accounts {
+		if a.AccountNumber == accountNumber {
+			a.DailyLimit = daily
+			a.MonthlyLimit = monthly
+			return nil
+		}
+	}
+	return nil
+}
+
+func (f *fakeAccountRepo) NameExistsForClient(_ context.Context, clientID uint, name string, excludeNumber string) (bool, error) {
+	for _, a := range f.accounts {
+		if a.ClientID == clientID && a.Name == name && a.AccountNumber != excludeNumber {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (f *fakeAccountRepo) FindAll(_ context.Context, _ *dto.ListAccountsQuery) ([]*model.Account, int64, error) {
+	return f.accounts, int64(len(f.accounts)), nil
+}
+
+func (f *fakeAccountRepo) FindByAccountType(_ context.Context, accountType model.AccountType) (*model.Account, error) {
+	for _, a := range f.accounts {
+		if a.AccountType == accountType {
+			return a, nil
+		}
+	}
+	return nil, nil
+}
+
+func payeeRouter(repo *fakePayeeRepo, clientID uint, accountRepo *fakeAccountRepo) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
@@ -70,7 +180,7 @@ func payeeRouter(repo *fakePayeeRepo, clientID uint) *gin.Engine {
 		c.Next()
 	})
 
-	h := NewPayeeHandler(service.NewPayeeService(repo))
+	h := NewPayeeHandler(service.NewPayeeService(repo, accountRepo))
 	router.GET("/payees", h.GetAll)
 	router.POST("/payees", h.Create)
 	router.PATCH("/payees/:id", h.Update)
@@ -85,7 +195,13 @@ func TestPayeeHandlerGetAll(t *testing.T) {
 		{PayeeID: 1, ClientID: 7, Name: "Mine", AccountNumber: "444000100000000001"},
 		{PayeeID: 2, ClientID: 8, Name: "Other", AccountNumber: "444000100000000002"},
 	}}
-	router := payeeRouter(repo, 7)
+	accountRepo := &fakeAccountRepo{
+		accounts: []*model.Account{
+			{AccountNumber: "444000100000000001", ClientID: 7},
+			{AccountNumber: "444000100000000002", ClientID: 8},
+		},
+	}
+	router := payeeRouter(repo, 7, accountRepo)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/payees", nil)
@@ -108,7 +224,13 @@ func TestPayeeHandlerCreate(t *testing.T) {
 	t.Parallel()
 
 	repo := &fakePayeeRepo{}
-	router := payeeRouter(repo, 7)
+	// Seed the account number that will be submitted in the request body
+	accountRepo := &fakeAccountRepo{
+		accounts: []*model.Account{
+			{AccountNumber: "444000100000000003"},
+		},
+	}
+	router := payeeRouter(repo, 7, accountRepo)
 	body := bytes.NewBufferString(`{"name":"Landlord","account_number":"444000100000000003"}`)
 
 	rec := httptest.NewRecorder()
@@ -136,7 +258,14 @@ func TestPayeeHandlerUpdateAndDelete(t *testing.T) {
 	repo := &fakePayeeRepo{payees: []model.Payee{
 		{PayeeID: 5, ClientID: 7, Name: "Old", AccountNumber: "444000100000000004"},
 	}}
-	router := payeeRouter(repo, 7)
+	// Seed both the original and the new account number used in the update
+	accountRepo := &fakeAccountRepo{
+		accounts: []*model.Account{
+			{AccountNumber: "444000100000000004", ClientID: 7},
+			{AccountNumber: "444000100000000005", ClientID: 7},
+		},
+	}
+	router := payeeRouter(repo, 7, accountRepo)
 
 	updateBody := bytes.NewBufferString(`{"name":"New","account_number":"444000100000000005"}`)
 	updateRec := httptest.NewRecorder()

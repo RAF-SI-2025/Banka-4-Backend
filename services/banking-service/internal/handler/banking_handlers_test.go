@@ -73,12 +73,14 @@ func requestJSON(router http.Handler, method, path string, body interface{}) *ht
 
 func TestPayeeHandlerLifecycle(t *testing.T) {
 	t.Parallel()
-
 	gin.SetMode(gin.TestMode)
-	db := setupBankingHandlerDB(t, &model.Payee{})
-	payeeHandler := NewPayeeHandler(service.NewPayeeService(repository.NewPayeeRepository(db)))
-	clientID := uint(42)
+	db := setupBankingHandlerDB(t, &model.Payee{}, &model.Account{})
 
+	// Seed the account number the payee will reference
+	db.Create(&model.Account{AccountNumber: "444000100000000001"})
+
+	payeeHandler := NewPayeeHandler(service.NewPayeeService(repository.NewPayeeRepository(db), repository.NewAccountRepository(db)))
+	clientID := uint(42)
 	router := gin.New()
 	router.Use(appErrors.ErrorHandler())
 	router.Use(func(c *gin.Context) {

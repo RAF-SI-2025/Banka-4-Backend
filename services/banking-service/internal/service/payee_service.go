@@ -11,11 +11,15 @@ import (
 )
 
 type PayeeService struct {
-	repo repository.PayeeRepository
+	repo        repository.PayeeRepository
+	accountRepo repository.AccountRepository
 }
 
-func NewPayeeService(repo repository.PayeeRepository) *PayeeService {
-	return &PayeeService{repo: repo}
+func NewPayeeService(repo repository.PayeeRepository, accountRepo repository.AccountRepository) *PayeeService {
+	return &PayeeService{
+		repo:        repo,
+		accountRepo: accountRepo,
+	}
 }
 
 func (s *PayeeService) GetAll(ctx context.Context) ([]model.Payee, error) {
@@ -35,6 +39,16 @@ func (s *PayeeService) Create(ctx context.Context, req dto.CreatePayeeRequest) (
 	ac := auth.GetAuthFromContext(ctx)
 	if ac == nil || ac.ClientID == nil {
 		return nil, errors.ForbiddenErr("not authenticated as client")
+	}
+
+	accExists, err := s.accountRepo.AccountNumberExists(ctx, req.AccountNumber)
+
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+
+	if !accExists {
+		return nil, errors.BadRequestErr("invalid account number")
 	}
 
 	payee := &model.Payee{
@@ -73,6 +87,15 @@ func (s *PayeeService) Update(ctx context.Context, id uint, req dto.UpdatePayeeR
 	}
 
 	if req.AccountNumber != "" {
+		accExists, err := s.accountRepo.AccountNumberExists(ctx, req.AccountNumber)
+
+		if err != nil {
+			return nil, errors.InternalErr(err)
+		}
+
+		if !accExists {
+			return nil, errors.BadRequestErr("invalid account number")
+		}
 		payee.AccountNumber = req.AccountNumber
 	}
 
